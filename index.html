@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Private Room</title>
+<style>
+:root{
+  --bg:#08090a;--panel:#0c0e10;--panel2:#111418;--line:#23282e;--line2:#353c44;
+  --text:#eef1f3;--muted:#9099a2;--dim:#5f6871;--accent:#f1bb37;--good:#67d391;--warn:#e9aa50;--bad:#e36a6a;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{overflow:hidden}button,input,select{font:inherit}.mono{font-family:var(--mono)}
+button{cursor:pointer}.hidden{display:none!important}
+#app{height:100dvh;display:flex;flex-direction:column;min-height:0}
+header{height:54px;flex:0 0 54px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 14px;background:rgba(8,9,10,.96);backdrop-filter:blur(12px)}
+.brand{font:900 11px var(--mono);letter-spacing:.13em;white-space:nowrap}.brand b{color:var(--accent)}
+.headerMeta{display:flex;align-items:center;gap:6px;min-width:0}.pill{height:27px;display:flex;align-items:center;border:1px solid var(--line);padding:0 8px;color:var(--muted);font:800 8px var(--mono);white-space:nowrap}.pill.good{color:var(--good);border-color:#315740}.pill.warn{color:var(--warn);border-color:#59461f}
+.headerActions{margin-left:auto;display:flex;align-items:center;gap:6px;min-width:0}.btn{height:31px;border:1px solid var(--line2);background:#111419;color:var(--text);padding:0 9px;font:800 8px var(--mono);letter-spacing:.05em;text-transform:uppercase}.btn:hover{background:#171b20;border-color:#59636e}.btn.primary{background:var(--accent);border-color:var(--accent);color:#08090a}.btn.good{border-color:#315740;color:var(--good)}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;overflow:hidden}.workspace{min-width:0;min-height:0;display:flex;flex-direction:column}.side{border-left:1px solid var(--line);background:#0a0c0e;min-width:0;min-height:0;display:flex;flex-direction:column}
+.toolbar{height:43px;flex:0 0 43px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 10px}.crumbs{min-width:0;flex:1;font:800 8px var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crumbs span{color:var(--muted)}
+.search{width:min(280px,35vw);height:28px;border:1px solid var(--line);background:#090b0d;color:var(--text);padding:0 8px;outline:none;font:9px var(--mono)}.search:focus{border-color:#58636d}
+.tableHead,.row{display:grid;grid-template-columns:minmax(280px,1fr) 92px 150px 118px 116px;align-items:center;min-width:760px}.tableHead{height:31px;flex:0 0 31px;padding:0 10px;border-bottom:1px solid var(--line);color:var(--dim);font:800 7px var(--mono);letter-spacing:.08em;text-transform:uppercase}.tableHead>div:not(:first-child){padding-left:8px}
+.tree{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.row{min-height:39px;padding:0 10px;border-bottom:1px solid #12161a;color:var(--muted);font:9px var(--mono);position:relative}.row:hover{background:#0d1013}.row.selected{background:#111419}.nameCell{height:38px;display:flex;align-items:center;min-width:0;padding-left:var(--indent,0px)}.chev{width:20px;height:30px;flex:0 0 20px;border:0;background:transparent;color:var(--dim);padding:0;font-size:12px}.chev.open{transform:rotate(90deg)}.fileMark{width:18px;height:18px;flex:0 0 18px;margin:0 5px 0 1px;display:flex;align-items:center;justify-content:center;color:#87919a}.folderMark{color:var(--accent)}.nameText{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cbd2d8;font-weight:800}.row.folder .nameText{color:#e0e4e7}.subtle{color:var(--dim)}
+.ownerCell{display:flex;align-items:center;gap:6px;min-width:0;padding-left:8px}.avatar{width:18px;height:18px;border-radius:50%;border:1px solid color-mix(in srgb,var(--c) 70%,#252a2e);background:color-mix(in srgb,var(--c) 14%,#0b0d0f);color:var(--c);display:flex;align-items:center;justify-content:center;font:900 6px var(--mono);flex:0 0 18px}.ownerName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avail{display:flex;align-items:center;gap:6px;padding-left:8px}.seedDots{display:flex;gap:2px;min-width:40px}.seedDots i{width:5px;height:5px;border-radius:50%;background:#293039}.seedDots i.on{background:var(--good);box-shadow:0 0 7px rgba(103,211,145,.25)}.seedDots i.warn{background:var(--warn)}
+.actionsCell{display:flex;align-items:center;gap:4px;padding-left:8px}.mini{height:25px;border:1px solid var(--line);background:#0a0c0e;color:var(--muted);padding:0 7px;font:800 7px var(--mono);text-transform:uppercase}.mini:hover{color:var(--text);border-color:var(--line2)}.mini.good{color:var(--good);border-color:#315740}.mini.active{color:#0b0c0d;background:var(--good);border-color:var(--good)}
+.empty{padding:48px 20px;text-align:center;color:var(--dim);font:9px/1.8 var(--mono)}
+.statusbar{height:31px;flex:0 0 31px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 11px;background:#090b0d;color:var(--dim);font:8px var(--mono)}.dot{width:6px;height:6px;border-radius:50%;background:var(--dim)}.dot.good{background:var(--good);box-shadow:0 0 8px rgba(103,211,145,.3)}
+.sideHead{height:43px;flex:0 0 43px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 11px;font:900 8px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.sideBody{flex:1;min-height:0;overflow:auto;padding:9px}.card{border:1px solid var(--line);background:#0d1013;margin-bottom:8px}.cardHead{height:29px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 8px;font:900 7px var(--mono);letter-spacing:.08em;color:#aeb7bf;text-transform:uppercase}.cardBody{padding:9px}.kv{display:grid;grid-template-columns:92px minmax(0,1fr);gap:6px 8px;margin:0 0 7px;font:8px/1.45 var(--mono)}.kv dt{color:var(--dim)}.kv dd{margin:0;color:#bdc5cc;overflow-wrap:anywhere}.hash{font-size:7px;color:#7f8992!important}.sideHint{font:8px/1.55 var(--mono);color:var(--dim)}
+.modeRow{display:grid;grid-template-columns:1fr;gap:5px}.mode{height:29px;border:1px solid var(--line);background:#090b0d;color:var(--muted);text-align:left;padding:0 8px;font:800 8px var(--mono)}.mode.active{border-color:#315740;color:var(--good);background:#0d1712}.metricGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.metric{border:1px solid var(--line);padding:8px;background:#090b0d}.metric b{display:block;font:900 13px var(--mono);color:var(--text)}.metric span{display:block;margin-top:3px;font:700 6px var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
+.dropOverlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(8,9,10,.88);backdrop-filter:blur(7px)}body.dragging .dropOverlay{display:flex}.dropBox{width:min(540px,calc(100vw - 36px));border:1px dashed var(--accent);padding:42px 20px;text-align:center;background:#111008;color:var(--accent);font:900 11px var(--mono);letter-spacing:.07em}.dropBox span{display:block;margin-top:8px;color:var(--muted);font:8px/1.6 var(--mono);letter-spacing:0;font-weight:600}
+.modalBack{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.72)}.modalBack.show{display:flex}.modal{width:min(760px,100%);max-height:min(760px,90vh);overflow:hidden;border:1px solid var(--line2);background:#0d0f11;box-shadow:0 24px 80px rgba(0,0,0,.58);display:flex;flex-direction:column}.modalTitle{height:43px;flex:0 0 43px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;font:900 9px var(--mono);letter-spacing:.09em;text-transform:uppercase}.modalTitle button{margin-left:auto}.modalBody{padding:12px;overflow:auto}.transferTop{display:flex;align-items:flex-start;gap:10px}.transferName{font:900 11px var(--mono)}.transferMeta{margin-top:5px;color:var(--dim);font:8px var(--mono)}.bigProgress{height:8px;background:#171b20;margin:14px 0 8px;display:flex;overflow:hidden}.bigProgress i{height:100%;flex:0 0 auto;background:#414a53;border-right:1px solid #0d0f11}.bigProgress i.done{background:var(--accent)}.sourceRows{margin-top:10px;border-top:1px solid var(--line)}.sourceRow{display:grid;grid-template-columns:140px minmax(0,1fr) 74px 78px;gap:8px;align-items:center;min-height:36px;border-bottom:1px solid var(--line);font:8px var(--mono)}.sourceBar{height:4px;background:#171b20;overflow:hidden}.sourceBar i{display:block;height:100%;background:var(--good)}.transferState{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}.stateTag{border:1px solid var(--line);padding:5px 7px;color:var(--dim);font:800 7px var(--mono)}.stateTag.on{color:var(--good);border-color:#315740}.stateTag.warn{color:var(--warn);border-color:#59461f}
+.toastBox{position:fixed;right:14px;top:65px;z-index:500;width:min(360px,calc(100vw - 28px));display:flex;flex-direction:column;gap:6px;pointer-events:none}.toast{border:1px solid var(--line2);background:#111419;padding:9px 10px;box-shadow:0 12px 40px rgba(0,0,0,.45);color:var(--muted);font:8px/1.5 var(--mono);pointer-events:auto}.toast b{color:var(--text)}.toast.good{border-color:#315740}.toast.bad{border-color:#653737;color:#d99595}
+.seedPrompt{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center;border:1px solid #315740;background:#0d1712;padding:9px;margin-top:10px}.seedPromptText{font:8px/1.5 var(--mono);color:#a9c9b6}.seedPromptText b{color:var(--good)}
+@media(max-width:900px){main{grid-template-columns:1fr}.side{display:none}.tableHead,.row{grid-template-columns:minmax(230px,1fr) 78px 120px 90px 94px}.headerMeta .optional{display:none}.search{width:150px}}
+@media(max-width:640px){header{padding:0 8px}.brand{font-size:9px}.headerMeta{display:none}.toolbar{padding:0 7px}.search{width:120px}.tableHead,.row{min-width:600px;grid-template-columns:minmax(220px,1fr) 72px 110px 82px 96px}.tree{overflow:auto}.tableHead{overflow:hidden}.row{padding-left:7px}.headerActions .btn:nth-child(1){display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="brand">PRIVATE <b>ROOM</b></div>
+  <div class="headerMeta">
+    <div class="pill" id="roomCode">ROOM —</div>
+    <div class="pill" id="peerPill">0 PEERS</div>
+    <div class="pill optional" id="filePill">0 FILES</div>
+    <div class="pill optional" id="sizePill">0 B</div>
+  </div>
+  <div class="headerActions">
+    <button class="btn" id="shareBtn">COPY ROOM LINK</button>
+    <button class="btn" id="folderBtn">ADD FOLDER</button>
+    <button class="btn primary" id="filesBtn">ADD FILES</button>
+  </div>
+</header>
+<main>
+  <section class="workspace">
+    <div class="toolbar">
+      <div class="crumbs" id="crumbs">room /</div>
+      <input class="search" id="search" placeholder="SEARCH FILES + PATHS" autocomplete="off">
+    </div>
+    <div class="tableHead"><div>NAME</div><div>SIZE</div><div>ADDED BY</div><div>SOURCES</div><div></div></div>
+    <div class="tree" id="tree"></div>
+    <div class="statusbar"><i class="dot" id="netDot"></i><span id="netText">starting room</span><span>·</span><span id="meText">YOU · —</span><span style="margin-left:auto" id="seedStatus">SEEDING 0 FILES</span></div>
+  </section>
+  <aside class="side">
+    <div class="sideHead">ROOM + CONTRIBUTION</div>
+    <div class="sideBody">
+      <section class="card">
+        <div class="cardHead">Your anonymous identity</div>
+        <div class="cardBody"><dl class="kv"><dt>alias</dt><dd id="sideAlias">—</dd><dt>actor</dt><dd class="hash" id="sideActor">—</dd></dl><div class="sideHint">Your anonymous room identity persists locally in this browser. It is used for immutable file provenance and current seeder attribution.</div></div>
+      </section>
+      <section class="card">
+        <div class="cardHead">Contribute bandwidth</div>
+        <div class="cardBody">
+          <div class="modeRow">
+            <button class="mode" data-mode="off">○ OFF</button>
+            <button class="mode" data-mode="selected">○ SELECTED FILES</button>
+            <button class="mode" data-mode="all">○ ALL LOCAL FILES</button>
+          </div>
+          <div class="metricGrid"><div class="metric"><b id="seedCount">0</b><span>files seeding</span></div><div class="metric"><b id="servedBytes">0 B</b><span>served this session</span></div></div>
+          <div class="sideHint" style="margin-top:8px">Uploaded files are selected for seeding immediately unless contribution is OFF. Downloaded files only become seed sources when you opt in. Each additional active seeder adds parallel chunk lanes for faster aggregate downloads.</div>
+        </div>
+      </section>
+      <section class="card" id="detailsCard">
+        <div class="cardHead">Selected item</div>
+        <div class="cardBody" id="details"><div class="sideHint">Select a file or folder to inspect provenance, availability, and local seeding state.</div></div>
+      </section>
+      <section class="card">
+        <div class="cardHead">Room behavior</div>
+        <div class="cardBody"><div class="sideHint">The room replicates only the nested catalog and metadata. File bytes stay on peers who possess them. Downloads stream encrypted chunks across all available seeders in parallel. There is no application file-size cap: large transfers are written directly to disk when the browser supports it, and more seeders create more concurrent transfer lanes. Content is verified with a streaming SHA-256 swarm root.</div></div>
+      </section>
+    </div>
+  </aside>
+</main>
+</div>
+<input id="fileInput" type="file" multiple hidden>
+<input id="folderInput" type="file" webkitdirectory directory multiple hidden>
+<div class="dropOverlay"><div class="dropBox">DROP FILES OR FOLDERS<span>Nested relative paths are preserved when the browser exposes them.</span></div></div>
+<div class="toastBox" id="toastBox"></div>
+<div class="modalBack" id="transferModal"><div class="modal"><div class="modalTitle"><span id="transferTitle">TRANSFER</span><button class="mini" id="transferClose">CLOSE</button></div><div class="modalBody" id="transferBody"></div></div></div>
+<script>
+(()=>{'use strict';
+const $=q=>document.querySelector(q), enc=new TextEncoder(), dec=new TextDecoder();
+const CHUNK_SIZE=512*1024;
+const PER_SEEDER_WINDOW=12;
+const CHUNK_TIMEOUT_MS=15000;
+const SCHEDULER_TICK_MS=180;
+const TRYSTERO_VERSION='0.25.4';
+const APP_ID='robit-private-tracker-v2';
+const HASH_ALG='sha256-chain-v1';
+const STRATEGIES={nostr:{pkg:'@trystero-p2p/nostr',priority:0},mqtt:{pkg:'@trystero-p2p/mqtt',priority:1},torrent:{pkg:'@trystero-p2p/torrent',priority:2}};
+const RELAYS={nostr:['wss://nos.lol','wss://nostr.data.haus','wss://relay.mostro.network','wss://relay.primal.net'],mqtt:['wss://test.mosquitto.org:8081/mqtt','wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'],torrent:['wss://open.ftorrent.com','wss://tracker.webtorrent.dev','wss://tracker.openwebtorrent.com']};
+let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
+const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map();
+const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map();
+let selectedId=null,renderSeq=0;
+
+function randSecret(){const b=crypto.getRandomValues(new Uint8Array(24));return [...b].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function bytesToB64(bytes){let s='',step=0x8000;for(let i=0;i<bytes.length;i+=step)s+=String.fromCharCode(...bytes.subarray(i,i+step));return btoa(s)}
+function b64ToBytes(s){const x=atob(s),a=new Uint8Array(x.length);for(let i=0;i<x.length;i++)a[i]=x.charCodeAt(i);return a}
+function bytesToHex(bytes){return [...bytes].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function concatBytes(a,b){const out=new Uint8Array(a.length+b.length);out.set(a);out.set(b,a.length);return out}
+async function sha256Bytes(data){const buf=data instanceof Uint8Array?data:(typeof data==='string'?enc.encode(data):new Uint8Array(data));return new Uint8Array(await crypto.subtle.digest('SHA-256',buf))}
+async function sha256Hex(data){return bytesToHex(await sha256Bytes(data))}
+async function shortHash(s,n=20){return (await sha256Hex(s)).slice(0,n)}
+function fmtBytes(n){n=Number(n)||0;const u=['B','KB','MB','GB','TB','PB','EB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return (i===0?Math.round(n):n>=100?n.toFixed(0):n>=10?n.toFixed(1):n.toFixed(2))+' '+u[i]}
+function fmtRate(n){return fmtBytes(n)+'/s'}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function safeName(s){return String(s||'file').replace(/[\u0000-\u001f]/g,'').trim().slice(0,240)||'file'}
+function h32(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function aliasFor(id){const a=['Amber','Blue','Cedar','Clear','Copper','Gray','Indigo','Ivory','Jade','Lunar','Moss','Nova','Ochre','Quartz','Silver','Slate','Solar','Umber','Violet','Wild'];const b=['Badger','Crane','Falcon','Fox','Gecko','Heron','Kite','Lynx','Marten','Otter','Owl','Panda','Raven','Seal','Sparrow','Tern','Wolf','Wren'];const h=h32(id);return a[h%a.length]+' '+b[(h>>>8)%b.length]+' '+id.slice(0,2).toUpperCase()}
+function colorFor(id){const c=['#67d391','#f1bb37','#70a7ff','#e77fb3','#9c8cff','#62d5d0','#ef8b62','#b8d66a','#d08cff','#76c7ff','#f08c96','#a8aeb7'];return c[h32(id)%c.length]}
+function initials(name){return String(name||'?').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()}
+function nextV(){return{c:++clock,a:actor}}
+function absorbV(v){clock=Math.max(clock,Number(v?.c)||0)}
+function cmpV(a,b){a=a||{c:0,a:''};b=b||{c:0,a:''};return Number(a.c)!==Number(b.c)?Number(a.c)-Number(b.c):String(a.a).localeCompare(String(b.a))}
+function msg(type,data={}){return{v:2,mid:crypto.randomUUID(),type,actor,ts:Date.now(),...data}}
+function remember(mid){if(!mid)return false;if(seen.has(mid))return true;seen.set(mid,Date.now());if(seen.size>2500){const cut=Date.now()-600000;for(const[k,t]of seen)if(t<cut)seen.delete(k)}return false}
+function toast(html,kind=''){const d=document.createElement('div');d.className='toast '+kind;d.innerHTML=html;$('#toastBox').append(d);setTimeout(()=>d.remove(),5200)}
+function bitHas(bits,i){return !!(bits[i>>3]&(1<<(i&7)))}
+function bitSet(bits,i){bits[i>>3]|=1<<(i&7)}
+function chunkKey(cid,idx){return cid+':'+idx}
+function contentChunkSize(c){return Math.max(64*1024,Number(c?.chunkSize)||CHUNK_SIZE)}
+function contentTotal(c){return Math.max(1,Number(c?.totalChunks)||Math.ceil((Number(c?.size)||0)/contentChunkSize(c))||1)}
+
+async function initSecret(){
+  secret=decodeURIComponent(location.hash.slice(1).trim());
+  if(!secret){secret=randSecret();location.hash=encodeURIComponent(secret)}
+  roomHash=await sha256Hex('private-tracker-room|'+secret);
+  const base=await crypto.subtle.importKey('raw',enc.encode(secret),'PBKDF2',false,['deriveKey']);
+  aesKey=await crypto.subtle.deriveKey({name:'PBKDF2',salt:enc.encode('private-tracker-v2|'+roomHash),iterations:250000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  $('#roomCode').textContent='ROOM '+roomHash.slice(0,10).toUpperCase();
+}
+async function encryptBytes(input,aad=''){const bytes=input instanceof Uint8Array?input:new Uint8Array(input);const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},aesKey,bytes));const out=new Uint8Array(12+ct.length);out.set(iv);out.set(ct,12);return out.buffer}
+async function decryptBytes(packet,aad=''){const b=packet instanceof Uint8Array?packet:new Uint8Array(packet),iv=b.slice(0,12),ct=b.slice(12);return crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},aesKey,ct)}
+async function seal(o){return bytesToB64(new Uint8Array(await encryptBytes(enc.encode(JSON.stringify(o)),'ctl')))}
+async function openSeal(s){return JSON.parse(dec.decode(await decryptBytes(b64ToBytes(s),'ctl')))}
+
+function openDB(){return new Promise((resolve,reject)=>{
+  const r=indexedDB.open('robit-private-tracker-'+roomHash,2);
+  r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv');if(!d.objectStoreNames.contains('files'))d.createObjectStore('files');if(!d.objectStoreNames.contains('chunks'))d.createObjectStore('chunks');if(!d.objectStoreNames.contains('handles'))d.createObjectStore('handles')};
+  r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)
+})}
+function idbGet(store,key){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readonly').objectStore(store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function idbPut(store,key,val){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(val,key);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
+function idbDel(store,key){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
+async function putKV(k,v){await idbPut('kv',k,await encryptBytes(enc.encode(JSON.stringify(v)),'local:'+k))}
+async function getKV(k,fallback){try{const p=await idbGet('kv',k);if(!p)return fallback;return JSON.parse(dec.decode(await decryptBytes(p,'local:'+k)))}catch(_){return fallback}}
+async function saveState(){await putKV('catalog',[...catalog.values()]);await putKV('contents',[...contents.values()]);await putKV('selectedSeeds',[...selectedSeeds]);await putKV('seedMode',seedMode);await putKV('cachedComplete',[...cachedComplete])}
+async function loadLocal(){
+  db=await openDB();
+  actor=String(await getKV('actor',actor));await putKV('actor',actor);
+  seedMode=await getKV('seedMode','selected');
+  for(const x of await getKV('catalog',[]))catalog.set(x.id,x);
+  for(const x of await getKV('contents',[]))contents.set(x.id,x);
+  for(const x of await getKV('selectedSeeds',[]))selectedSeeds.add(x);
+  for(const x of await getKV('cachedComplete',[]))cachedComplete.add(x);
+  for(const cid of contents.keys()){
+    if(cachedComplete.has(cid)){localHave.add(cid);continue}
+    try{const h=await idbGet('handles',cid);if(h){const p=typeof h.queryPermission==='function'?await h.queryPermission({mode:'read'}):'granted';if(p==='granted'){sourceHandles.set(cid,h);localHave.add(cid);continue}}}catch(_){ }
+    try{if(await idbGet('files',cid))localHave.add(cid)}catch(_){ }
+  }
+  renderAll();
+}
+
+function seedEnabled(cid){if(!localHave.has(cid))return false;if(seedMode==='off')return false;if(seedMode==='all')return true;return selectedSeeds.has(cid)}
+function advertisedSeeds(){return [...localHave].filter(seedEnabled)}
+function parentChildren(parent=null){return [...catalog.values()].filter(x=>!x.deleted&&(x.parent||null)===(parent||null)).sort((a,b)=>a.kind===b.kind?String(a.name).localeCompare(String(b.name)):a.kind==='folder'?-1:1)}
+function entryPath(id){const parts=[],seenIds=new Set();let x=catalog.get(id);while(x&&!seenIds.has(x.id)){seenIds.add(x.id);parts.unshift(x.name);x=x.parent?catalog.get(x.parent):null}return '/'+parts.join('/')}
+function folderStats(id){let files=0,size=0,available=0;const walk=p=>{for(const x of parentChildren(p)){if(x.kind==='folder')walk(x.id);else{files++;const c=contents.get(x.contentId);size+=Number(c?.size)||0;if(seedCount(x.contentId)>0)available++}}};walk(id);return{files,size,available}}
+function seedActors(cid){const out=[];if(seedEnabled(cid))out.push(actor);for(const[a,set]of peerSeeds)if(set.has(cid)&&actorRoutes.has(a))out.push(a);return [...new Set(out)]}
+function seedCount(cid){return seedActors(cid).length}
+function profileFor(a){return a===actor?{alias:aliasFor(actor),color:colorFor(actor)}:(peerProfiles.get(a)||{alias:aliasFor(a),color:colorFor(a)})}
+function availabilityHtml(n){let h='<span class="seedDots">';for(let i=0;i<5;i++)h+=`<i class="${i<Math.min(5,n)?(n===1?'warn':'on'):''}"></i>`;return h+'</span><span>'+n+'</span>'}
+
+function renderAll(){renderTree();renderHeader();renderModes();renderDetails()}
+function renderHeader(){
+  const files=[...catalog.values()].filter(x=>!x.deleted&&x.kind==='file'),size=files.reduce((n,x)=>n+(Number(contents.get(x.contentId)?.size)||0),0);
+  $('#filePill').textContent=files.length+' FILE'+(files.length===1?'':'S');$('#sizePill').textContent=fmtBytes(size);
+  const peers=actorRoutes.size;$('#peerPill').textContent=peers+' PEER'+(peers===1?'':'S');$('#peerPill').className='pill '+(peers?'good':'');
+  $('#netDot').className='dot '+(networkReady?'good':'');$('#netText').textContent=networkReady?(peers?`room live · ${peers} peer${peers===1?'':'s'}`:'room live · waiting for peers'):'starting room';
+  const alias=aliasFor(actor);$('#meText').textContent='YOU · '+alias.toUpperCase();$('#sideAlias').textContent=alias;$('#sideActor').textContent=actor;
+  const seeds=advertisedSeeds().length;$('#seedStatus').textContent=`SEEDING ${seeds} FILE${seeds===1?'':'S'}`;$('#seedCount').textContent=seeds;$('#servedBytes').textContent=fmtBytes(served)
+}
+function renderModes(){document.querySelectorAll('.mode').forEach(b=>{const on=b.dataset.mode===seedMode;b.classList.toggle('active',on);b.textContent=(on?'● ':'○ ')+(b.dataset.mode==='off'?'OFF':b.dataset.mode==='selected'?'SELECTED FILES':'ALL LOCAL FILES')})}
+function renderTree(){
+  const token=++renderSeq,q=$('#search').value.trim().toLowerCase(),box=$('#tree');let html='';
+  const match=x=>!q||x.name.toLowerCase().includes(q)||entryPath(x.id).toLowerCase().includes(q);
+  const folderHasMatch=id=>{if(match(catalog.get(id)))return true;for(const c of parentChildren(id))if(c.kind==='folder'?folderHasMatch(c.id):match(c))return true;return false};
+  const walk=(parent,depth)=>{for(const x of parentChildren(parent)){
+    if(q&&!(x.kind==='folder'?folderHasMatch(x.id):match(x)))continue;
+    if(x.kind==='folder'){
+      const st=folderStats(x.id),open=q||expanded.has(x.id);
+      html+=`<div class="row folder ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><button class="chev ${open?'open':''}" data-toggle>›</button><span class="fileMark folderMark">▰</span><span class="nameText">${esc(x.name)}</span></div><div>${fmtBytes(st.size)}</div><div class="ownerCell"><span class="subtle">${st.files} file${st.files===1?'':'s'}</span></div><div class="avail"><span class="subtle">${st.available}/${st.files} live</span></div><div class="actionsCell"></div></div>`;
+      if(open)walk(x.id,depth+1)
+    }else{
+      const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||x.originActor||''),n=seedCount(x.contentId),have=localHave.has(x.contentId),seeding=seedEnabled(x.contentId);
+      html+=`<div class="row ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><span class="chev"></span><span class="fileMark">▱</span><span class="nameText">${esc(x.name)}</span></div><div>${fmtBytes(c.size)}</div><div class="ownerCell"><span class="avatar" style="--c:${esc(p.color)}">${esc(initials(p.alias))}</span><span class="ownerName">${esc(p.alias)}</span></div><div class="avail">${availabilityHtml(n)}</div><div class="actionsCell"><button class="mini" data-download>${have?'SAVE':'GET'}</button>${have?`<button class="mini ${seeding?'active good':'good'}" data-seed>${seeding?'SEEDING':'SEED'}</button>`:''}</div></div>`
+    }
+  }};
+  walk(null,0);box.innerHTML=html||'<div class="empty">No shared files yet.<br>Drop a directory or use ADD FILES / ADD FOLDER.</div>';if(token!==renderSeq)return
+}
+function renderDetails(){
+  const d=$('#details'),x=selectedId&&catalog.get(selectedId);
+  if(!x){d.innerHTML='<div class="sideHint">Select a file or folder to inspect provenance, availability, and local seeding state.</div>';return}
+  if(x.kind==='folder'){const st=folderStats(x.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>files</dt><dd>${st.files}</dd><dt>size</dt><dd>${fmtBytes(st.size)}</dd><dt>available</dt><dd>${st.available}/${st.files}</dd></dl>`;return}
+  const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||''),holders=seedActors(x.contentId),have=localHave.has(x.contentId);
+  d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>size</dt><dd>${fmtBytes(c.size)}</dd><dt>type</dt><dd>${esc(c.type||'application/octet-stream')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd></dl>${holders.length?`<div class="sideHint">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
+}
+
+async function ensureFolderPath(parts){let parent=null,path='';for(const raw of parts){const name=safeName(raw);path+=(path?'/':'')+name;const id='d-'+await shortHash('dir:'+path,28);let old=catalog.get(id);if(!old){old={id,kind:'folder',parent,name,created:Date.now(),createdBy:actor,v:nextV(),deleted:false};catalog.set(id,old);expanded.add(id);broadcast(msg('catalog',{entries:[old]}))}parent=id}return parent}
+async function swarmInit(size,total,chunkSize=CHUNK_SIZE){return sha256Bytes(`robit-swarm-v2\0${size}\0${chunkSize}\0${total}`)}
+async function swarmStep(state,chunkHash){return sha256Bytes(concatBytes(state,chunkHash))}
+async function hashFileStreaming(file,onProgress=null){
+  const chunkSize=CHUNK_SIZE,total=Math.max(1,Math.ceil(file.size/chunkSize)||1);let state=await swarmInit(file.size,total,chunkSize);
+  for(let i=0;i<total;i++){
+    const start=i*chunkSize,end=Math.min(file.size,start+chunkSize),part=new Uint8Array(await file.slice(start,end).arrayBuffer()),leaf=await sha256Bytes(part);state=await swarmStep(state,leaf);
+    if(onProgress&&(i===0||i===total-1||i%32===0))onProgress((i+1)/total)
+  }
+  return{root:bytesToHex(state),total,chunkSize}
+}
+async function persistHandle(cid,handle){if(!handle)return;sourceHandles.set(cid,handle);try{await idbPut('handles',cid,handle)}catch(e){console.warn('handle persistence unavailable',e)}}
+async function addFiles(items){
+  const changed=[];
+  for(const raw of [...items]){
+    const file=raw?.file||raw,handle=raw?.handle||null,relativePath=raw?.relativePath||file.webkitRelativePath||file._relativePath||file.name;
+    if(!file)continue;
+    try{
+      const rel=String(relativePath||file.name).replace(/^\/+/,''),parts=rel.split('/').filter(Boolean),name=safeName(parts.pop()||file.name),parent=await ensureFolderPath(parts);
+      let lastShown=-1;toast(`<b>Indexing</b> ${esc(name)} · streaming hash, no size cap`);
+      const hashed=await hashFileStreaming(file,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('hash',name,pct+'%')}}),cid='f-'+hashed.root;
+      let content=contents.get(cid);
+      if(!content){content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:file.size,type:file.type||'application/octet-stream',chunkSize:hashed.chunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now()};contents.set(cid,content)}
+      const pathKey=(parent||'root')+'/'+name.toLowerCase(),eid='r-'+await shortHash('entry:'+pathKey,28),old=catalog.get(eid),entry={id:eid,kind:'file',parent,name,contentId:cid,created:old?.created||Date.now(),v:nextV(),deleted:false};
+      catalog.set(eid,entry);sourceFiles.set(cid,file);localHave.add(cid);selectedSeeds.add(cid);if(handle)await persistHandle(cid,handle);changed.push(entry);await saveState();toast(`<b>Added</b> ${esc(name)} · ${fmtBytes(file.size)}`,'good')
+    }catch(e){toast(`<b>Add failed.</b> ${esc(e.message||e)}`,'bad')}
+  }
+  if(changed.length){await broadcast(msg('catalog',{entries:changed,contents:changed.map(x=>contents.get(x.contentId)).filter(Boolean)}));await broadcastAvailability();renderAll()}
+}
+
+function routeKey(w,p){return w.key+'|'+p}
+function trackActor(remote,w,p){if(!remote||remote===actor)return;routeActors.set(routeKey(w,p),remote);let m=actorRoutes.get(remote);if(!m){m=new Map;actorRoutes.set(remote,m)}m.set(w.key,p);renderHeader()}
+function untrack(w,p){const k=routeKey(w,p),a=routeActors.get(k);routeActors.delete(k);if(a){const m=actorRoutes.get(a);m?.delete(w.key);if(!m?.size){actorRoutes.delete(a);peerSeeds.delete(a);peerProfiles.delete(a)}for(const s of sessions.values())if(s.holders.has(a))s.holders.delete(a)}renderAll()}
+function chooseRoute(a){const m=actorRoutes.get(a);if(!m)return null;return [...m.entries()].map(([k,p])=>({w:wrappers.get(k),peerId:p})).filter(x=>x.w?.peers.has(x.peerId)).sort((a,b)=>STRATEGIES[a.w.strategy].priority-STRATEGIES[b.w.strategy].priority)[0]||null}
+async function sendCtlVia(w,o,p=null){try{await w.ctl.send(await seal(o),p?{target:p}:undefined);return true}catch(e){console.warn('ctl',w.strategy,e);return false}}
+async function sendActor(a,o){const r=chooseRoute(a);return r?sendCtlVia(r.w,o,r.peerId):false}
+async function broadcast(o){await Promise.allSettled([...wrappers.values()].filter(w=>w.peers.size).map(w=>sendCtlVia(w,o)))}
+async function importStrategy(pkg){let last;for(const u of [`https://cdn.jsdelivr.net/npm/${pkg}@${TRYSTERO_VERSION}/+esm`,`https://esm.run/${pkg}@${TRYSTERO_VERSION}`,`https://esm.sh/${pkg}@${TRYSTERO_VERSION}?bundle`]){try{const m=await import(u);if(!m.joinRoom)throw Error('joinRoom missing');return m}catch(e){last=e}}throw last}
+async function joinStrategy(strategy){try{const mod=await importStrategy(STRATEGIES[strategy].pkg),cfg={appId:APP_ID,relayConfig:{urls:RELAYS[strategy],warnOnRelayFailure:false},trickleIce:strategy!=='torrent'},room=mod.joinRoom(cfg,'private-room:'+roomHash.slice(0,40),{handshakeTimeoutMs:14000,onJoinError:d=>console.warn(strategy,d?.error||d)}),w={strategy,key:strategy+':main',room,ctl:room.makeAction('pr-ctl'),bin:room.makeAction('pr-bin'),peers:new Set};wrappers.set(w.key,w);room.onPeerJoin=p=>{w.peers.add(p);sendCtlVia(w,msg('hello',{profile:{alias:aliasFor(actor),color:colorFor(actor)}}),p);sendCtlVia(w,msg('state-req'),p)};room.onPeerLeave=p=>{w.peers.delete(p);untrack(w,p)};w.ctl.onMessage=(packet,meta)=>handleControl(packet,meta,w);w.bin.onMessage=(packet,meta)=>handleBinary(packet,meta,w);return true}catch(e){console.warn(strategy,e);return false}}
+async function startMesh(){const r=await Promise.allSettled(Object.keys(STRATEGIES).map(joinStrategy));networkReady=r.some(x=>x.status==='fulfilled'&&x.value);renderHeader();if(!networkReady)toast('<b>Room mesh unavailable.</b> Check HTTPS/CDN/network access.','bad')}
+async function broadcastAvailability(){await broadcast(msg('availability',{ids:advertisedSeeds()}));renderAll()}
+async function handleControl(packet,{peerId},w){
+  let m;try{m=await openSeal(packet)}catch(_){return}
+  if(!m||(m.v!==1&&m.v!==2)||m.actor===actor||remember(m.mid))return;
+  trackActor(m.actor,w,peerId);if(m.profile)peerProfiles.set(m.actor,m.profile);
+  switch(m.type){
+    case'hello':if(!m.reply)sendCtlVia(w,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)}}),peerId);sendCtlVia(w,msg('availability',{ids:advertisedSeeds()}),peerId);break;
+    case'state-req':sendCtlVia(w,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],availability:advertisedSeeds()}),peerId);break;
+    case'state':await mergeState(m.entries||[],m.contents||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));updateSessionSeeder(m.actor,m.availability||[]);break;
+    case'catalog':await mergeState(m.entries||[],m.contents||[]);break;
+    case'availability':peerSeeds.set(m.actor,new Set(m.ids||[]));updateSessionSeeder(m.actor,m.ids||[]);renderAll();refreshTransfer();break;
+    case'seed-query':if((m.ids||[]).some(id=>seedEnabled(id)))sendCtlVia(w,msg('availability',{ids:advertisedSeeds()}),peerId);break;
+    case'chunks-need':queueServeChunks(m,m.actor);break;
+  }
+}
+async function mergeState(entries,contentRows){for(const c of contentRows){if(!c?.id)continue;const old=contents.get(c.id);if(!old)contents.set(c.id,c)}for(const x of entries){if(!x?.id||!x.v)continue;absorbV(x.v);const old=catalog.get(x.id);if(!old||cmpV(x.v,old.v)>0)catalog.set(x.id,x)}await saveState();renderAll()}
+function updateSessionSeeder(remote,ids){const set=new Set(ids);for(const s of sessions.values()){if(set.has(s.cid)&&actorRoutes.has(remote))s.holders.add(remote);else s.holders.delete(remote);scheduleSession(s,0)}}
+
+async function getReadableFile(cid){
+  let f=sourceFiles.get(cid);if(f)return f;
+  const h=sourceHandles.get(cid);if(h){try{const p=typeof h.queryPermission==='function'?await h.queryPermission({mode:'read'}):'granted';if(p==='granted'){f=await h.getFile();sourceFiles.set(cid,f);return f}}catch(_){ }}
+  return null
+}
+async function readLocalChunk(cid,idx){
+  const c=contents.get(cid),chunkSize=contentChunkSize(c),start=idx*chunkSize,end=Math.min(Number(c?.size)||0,start+chunkSize);
+  const f=await getReadableFile(cid);if(f)return new Uint8Array(await f.slice(start,end).arrayBuffer());
+  try{const p=await idbGet('chunks',chunkKey(cid,idx));if(p)return new Uint8Array(await decryptBytes(p,`cache:${cid}:${idx}`))}catch(_){ }
+  try{const legacy=await idbGet('files',cid);if(legacy){const plain=new Uint8Array(await decryptBytes(legacy,'file:'+cid));return plain.slice(start,end)}}catch(_){ }
+  return null
+}
+async function queueServeChunks(m,remote){
+  const cid=String(m.id||''),key=remote+'|'+cid,prev=serveQueues.get(key)||Promise.resolve();
+  const next=prev.catch(()=>{}).then(()=>serveChunksNow(m,remote)).finally(()=>{if(serveQueues.get(key)===next)serveQueues.delete(key)});serveQueues.set(key,next);return next
+}
+async function serveChunksNow(m,remote){
+  const cid=String(m.id||''),c=contents.get(cid);if(!c||!seedEnabled(cid))return;const route=chooseRoute(remote);if(!route)return;const total=contentTotal(c),chunkSize=contentChunkSize(c);
+  for(const raw of (m.indexes||[]).slice(0,64)){
+    const idx=Number(raw);if(!Number.isInteger(idx)||idx<0||idx>=total)continue;
+    const part=await readLocalChunk(cid,idx);if(!part)continue;
+    const packet=await encryptBytes(part,`chunk:${cid}:${idx}:${total}`);
+    await route.w.bin.send(packet,{target:route.peerId,metadata:{kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size}});served+=part.length;renderHeader()
+  }
+}
+function liveSeeders(cid){return seedActors(cid).filter(a=>a!==actor&&actorRoutes.has(a))}
+async function prepareSink(entry,c){
+  if(typeof window.showSaveFilePicker==='function'){
+    try{const handle=await window.showSaveFilePicker({suggestedName:entry.name});const writable=await handle.createWritable({keepExistingData:false});return{kind:'handle',handle,writable}}
+    catch(e){if(e?.name==='AbortError')return null;console.warn('direct disk sink unavailable',e)}
+  }
+  return{kind:'idb'}
+}
+async function requestFile(entry){
+  const c=contents.get(entry.contentId);if(!c)return;
+  if(localHave.has(c.id)){await saveLocal(entry,c);return}
+  if(sessions.has(c.id)){openTransfer(c.id);return}
+  let holders=liveSeeders(c.id);if(!holders.length){await broadcast(msg('seed-query',{ids:[c.id]}));toast(`<b>No live source yet.</b> Waiting for a seeder of ${esc(entry.name)}.`,'bad');return}
+  const sink=await prepareSink(entry,c);if(!sink)return;
+  const total=contentTotal(c),rootState=await swarmInit(c.size,total,contentChunkSize(c));
+  const s={cid:c.id,entryId:entry.id,name:entry.name,total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set(holders),inflight:new Map(),inflightByPeer:new Map(),retry:[],cursor:0,providerBytes:new Map(),providerStarted:new Map(),started:performance.now(),timer:null,state:'downloading',sink,verifyCursor:0,verifyState:rootState,verifyPending:new Map(),verifyBusy:false,finishing:false};
+  sessions.set(c.id,s);openTransfer(c.id);scheduleSession(s,0)
+}
+function nextChunkFor(s){
+  while(s.retry.length){const i=s.retry.shift();if(!bitHas(s.receivedBits,i)&&!s.inflight.has(i))return i}
+  while(s.cursor<s.total){const i=s.cursor++;if(!bitHas(s.receivedBits,i)&&!s.inflight.has(i))return i}
+  return null
+}
+function scheduleSession(s,delay=SCHEDULER_TICK_MS){
+  clearTimeout(s.timer);if(s.state!=='downloading')return;
+  s.timer=setTimeout(()=>schedulerTick(s).catch(e=>failSession(s,e)),delay)
+}
+async function schedulerTick(s){
+  if(s.state!=='downloading')return;
+  const now=performance.now();
+  for(const[idx,inf]of [...s.inflight])if(now-inf.ts>CHUNK_TIMEOUT_MS){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.push(idx)}
+  for(const a of liveSeeders(s.cid))s.holders.add(a);
+  const live=[...s.holders].filter(a=>actorRoutes.has(a)&&peerSeeds.get(a)?.has(s.cid));
+  if(!live.length&&s.inflight.size===0){await broadcast(msg('seed-query',{ids:[s.cid]}));scheduleSession(s,900);return}
+  let assigned=0;
+  for(const a of live){
+    const used=s.inflightByPeer.get(a)||0,cap=Math.max(0,PER_SEEDER_WINDOW-used);if(!cap)continue;const indexes=[];
+    for(let n=0;n<cap;n++){const idx=nextChunkFor(s);if(idx==null)break;indexes.push(idx);s.inflight.set(idx,{actor:a,ts:now});s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++}
+    if(indexes.length){const ok=await sendActor(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize}));if(!ok){for(const idx of indexes){s.inflight.delete(idx);s.retry.push(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-indexes.length))}}
+  }
+  if(s.receivedCount<s.total)scheduleSession(s,assigned?SCHEDULER_TICK_MS:500)
+}
+async function storeReceivedChunk(s,idx,part){
+  if(s.sink.kind==='handle')await s.sink.writable.write({type:'write',position:idx*s.chunkSize,data:part});
+  else await idbPut('chunks',chunkKey(s.cid,idx),await encryptBytes(part,`cache:${s.cid}:${idx}`))
+}
+async function queueVerification(s,idx,part){
+  const leaf=await sha256Bytes(part);s.verifyPending.set(idx,leaf);if(s.verifyBusy)return;s.verifyBusy=true;
+  try{while(s.verifyPending.has(s.verifyCursor)){const h=s.verifyPending.get(s.verifyCursor);s.verifyPending.delete(s.verifyCursor);s.verifyState=await swarmStep(s.verifyState,h);s.verifyCursor++}}
+  finally{s.verifyBusy=false}
+  if(s.receivedCount===s.total&&s.verifyCursor===s.total)await finishDownload(s)
+}
+async function handleBinary(packet,{peerId,metadata},w){
+  if(metadata?.kind!=='chunk')return;const cid=String(metadata.id||''),s=sessions.get(cid);if(!s||s.state!=='downloading')return;const idx=Number(metadata.idx);if(!Number.isInteger(idx)||idx<0||idx>=s.total||bitHas(s.receivedBits,idx))return;
+  try{
+    const part=new Uint8Array(await decryptBytes(packet,`chunk:${cid}:${idx}:${s.total}`)),c=contents.get(cid),expected=Math.max(0,Math.min(s.chunkSize,(Number(c?.size)||0)-idx*s.chunkSize));
+    if(part.length!==expected)throw new Error(`chunk ${idx} length mismatch`);
+    await storeReceivedChunk(s,idx,part);
+    bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;
+    const inf=s.inflight.get(idx),remote=routeActors.get(routeKey(w,peerId||''))||inf?.actor||'unknown';if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}
+    if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);
+    queueVerification(s,idx,part).catch(e=>failSession(s,e));refreshTransfer();scheduleSession(s,0)
+  }catch(e){failSession(s,e)}
+}
+async function finishDownload(s){
+  if(s.finishing||s.state!=='downloading')return;s.finishing=true;clearTimeout(s.timer);s.state='verifying';refreshTransfer();
+  try{
+    const meta=contents.get(s.cid),root=bytesToHex(s.verifyState);if(root!==(meta.root||meta.sha))throw new Error('swarm SHA-256 root mismatch');
+    s.state='storing';refreshTransfer();
+    if(s.sink.kind==='handle'){
+      await s.sink.writable.close();await persistHandle(s.cid,s.sink.handle);try{sourceFiles.set(s.cid,await s.sink.handle.getFile())}catch(_){ }
+    }else cachedComplete.add(s.cid);
+    localHave.add(s.cid);s.state='complete';s.completed=performance.now();await saveState();renderAll();refreshTransfer();await broadcastAvailability();
+    if(s.sink.kind==='idb'){const entry=catalog.get(s.entryId);if(entry)await saveLocal(entry,meta)}
+  }catch(e){failSession(s,e)}
+}
+function failSession(s,e){clearTimeout(s.timer);if(s.state==='error')return;s.state='error';s.error=String(e?.message||e);if(s.sink?.kind==='handle'&&s.sink.writable){try{s.sink.writable.abort?.()}catch(_){ }}refreshTransfer();toast(`<b>Transfer failed.</b> ${esc(s.error)}`,'bad')}
+async function streamLocalToWritable(cid,writable,c){for(let i=0;i<contentTotal(c);i++){const part=await readLocalChunk(cid,i);if(!part)throw Error('local chunk missing');await writable.write(part)}}
+async function saveLocal(entry,c){
+  try{
+    if(typeof window.showSaveFilePicker==='function'){
+      const h=await window.showSaveFilePicker({suggestedName:entry.name}),w=await h.createWritable({keepExistingData:false});await streamLocalToWritable(c.id,w,c);await w.close();toast(`<b>Saved</b> ${esc(entry.name)} · streamed from local source`,'good');return
+    }
+    const parts=[];for(let i=0;i<contentTotal(c);i++){const p=await readLocalChunk(c.id,i);if(!p)throw Error('local chunk missing');parts.push(p)}const blob=new Blob(parts,{type:c.type||'application/octet-stream'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=entry.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),15000);toast(`<b>Ready locally.</b> ${esc(entry.name)}`,'good')
+  }catch(e){if(e?.name!=='AbortError')toast(`<b>Save failed.</b> ${esc(e.message||e)}`,'bad')}
+}
+
+function openTransfer(cid){$('#transferModal').classList.add('show');$('#transferModal').dataset.cid=cid;refreshTransfer()}
+function refreshTransfer(){
+  const cid=$('#transferModal').dataset.cid,s=cid&&sessions.get(cid);if(!s)return;const meta=contents.get(cid)||{},entry=catalog.get(s.entryId),done=s.receivedCount,pct=s.total?done/s.total:0,elapsed=Math.max(.1,(performance.now()-s.started)/1000),rate=s.bytesReceived/elapsed;
+  $('#transferTitle').textContent=s.state==='complete'?'TRANSFER COMPLETE':'SWARM TRANSFER';const seg=Math.min(180,s.total),doneSeg=Math.round(seg*pct),bars=Array.from({length:seg},(_,i)=>`<i class="${i<doneSeg?'done':''}" style="width:${100/seg}%"></i>`).join('');
+  const holders=[...s.holders],rows=holders.map(a=>{const p=profileFor(a),bytes=s.providerBytes.get(a)||0,start=s.providerStarted.get(a)||s.started,secs=Math.max(.1,(performance.now()-start)/1000),pr=meta.size?Math.min(100,bytes/meta.size*100):0;return`<div class="sourceRow"><div>${esc(p.alias)}</div><div class="sourceBar"><i style="width:${pr}%"></i></div><div>${fmtBytes(bytes)}</div><div>${s.state==='downloading'?fmtRate(bytes/secs):'—'}</div></div>`}).join('');
+  const transferred=Math.min(Number(meta.size)||0,s.bytesReceived);
+  $('#transferBody').innerHTML=`<div class="transferTop"><div><div class="transferName">${esc(entry?.name||s.name)}</div><div class="transferMeta">${fmtBytes(transferred)} / ${fmtBytes(meta.size)} · ${done}/${s.total} chunks · ${holders.length} sources · ${fmtRate(rate)} · ${s.inflight.size} in flight · up to ${PER_SEEDER_WINDOW} lanes/source</div></div></div><div class="bigProgress">${bars}</div><div class="sourceRows">${rows}</div><div class="transferState"><span class="stateTag ${s.state==='downloading'?'on':''}">DOWNLOADING</span><span class="stateTag ${s.state==='verifying'?'warn':''}">VERIFY SWARM ROOT</span><span class="stateTag ${s.state==='storing'?'warn':''}">FINALIZE LOCAL</span><span class="stateTag ${s.state==='complete'?'on':''}">COMPLETE</span>${s.state==='error'?`<span class="stateTag warn">${esc(s.error)}</span>`:''}</div>${s.state==='complete'&&!seedEnabled(cid)?`<div class="seedPrompt"><div class="seedPromptText"><b>Verified local copy.</b><br>Help keep this file available while this tab remains open?</div><button class="mini good" data-modal-seed>SEED THIS FILE</button><button class="mini" data-modal-dismiss>NOT NOW</button></div>`:''}`;
+  const b=$('[data-modal-seed]');if(b)b.onclick=()=>toggleSeed(cid,true);const n=$('[data-modal-dismiss]');if(n)n.onclick=()=>{$('.seedPrompt')?.remove()}
+}
+
+async function toggleSeed(cid,force=null){if(!localHave.has(cid))return;if(seedMode==='all'&&force==null){selectedSeeds.clear();for(const id of localHave)if(id!==cid)selectedSeeds.add(id);seedMode='selected';toast('<b>Selected-files mode.</b> This file is no longer being seeded.','good')}else{const currently=selectedSeeds.has(cid),next=force==null?!currently:!!force;if(next)selectedSeeds.add(cid);else selectedSeeds.delete(cid);if(seedMode==='off'&&next)seedMode='selected';if(next)toast('<b>Seeding enabled.</b> More active seeders create more parallel download lanes.','good')}await saveState();await broadcastAvailability();renderAll();refreshTransfer()}
+async function setSeedMode(mode){seedMode=mode;await saveState();await broadcastAvailability();renderAll()}
+
+async function pickFiles(){
+  if(typeof window.showOpenFilePicker==='function'){
+    try{const handles=await window.showOpenFilePicker({multiple:true});const rows=[];for(const handle of handles){const file=await handle.getFile();rows.push({file,handle,relativePath:file.name})}await addFiles(rows);return}catch(e){if(e?.name==='AbortError')return;console.warn(e)}
+  }
+  $('#fileInput').click()
+}
+async function walkDirectoryHandle(dir,prefix=''){const rows=[];for await(const [name,h]of dir.entries()){if(h.kind==='file')rows.push({file:await h.getFile(),handle:h,relativePath:prefix+name});else rows.push(...await walkDirectoryHandle(h,prefix+name+'/'))}return rows}
+async function pickFolder(){
+  if(typeof window.showDirectoryPicker==='function'){
+    try{const dir=await window.showDirectoryPicker();await addFiles(await walkDirectoryHandle(dir,dir.name+'/'));return}catch(e){if(e?.name==='AbortError')return;console.warn(e)}
+  }
+  $('#folderInput').click()
+}
+
+$('#tree').addEventListener('click',e=>{const row=e.target.closest('.row[data-id]');if(!row)return;const id=row.dataset.id,x=catalog.get(id);if(e.target.closest('[data-toggle]')){expanded.has(id)?expanded.delete(id):expanded.add(id);renderTree();return}if(e.target.closest('[data-download]')){requestFile(x);return}if(e.target.closest('[data-seed]')){toggleSeed(x.contentId);return}selectedId=id;renderAll()});
+$('#search').addEventListener('input',renderTree);document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>setSeedMode(b.dataset.mode));
+$('#filesBtn').onclick=pickFiles;$('#folderBtn').onclick=pickFolder;$('#fileInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('#folderInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('#shareBtn').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);toast('<b>Room link copied.</b> Anyone with the complete URL can enter this room.','good')}catch(_){prompt('Copy room URL',location.href)}};
+$('#transferClose').onclick=()=>$('#transferModal').classList.remove('show');$('#transferModal').addEventListener('click',e=>{if(e.target===$('#transferModal'))$('#transferModal').classList.remove('show')});
+let dragDepth=0;window.addEventListener('dragenter',e=>{e.preventDefault();dragDepth++;document.body.classList.add('dragging')});window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging')}});window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',async e=>{e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');const items=[...e.dataTransfer.items||[]],files=[];async function walk(entry,path=''){if(entry.isFile)await new Promise(r=>entry.file(f=>{f._relativePath=path+f.name;files.push(f);r()}));else if(entry.isDirectory){const reader=entry.createReader();let batch;do{batch=await new Promise(r=>reader.readEntries(r));for(const c of batch)await walk(c,path+entry.name+'/')}while(batch.length)}}if(items.length&&items[0]?.webkitGetAsEntry){for(const it of items){const ent=it.webkitGetAsEntry();if(ent)await walk(ent,'')}}else files.push(...e.dataTransfer.files);addFiles(files)});
+
+(async()=>{try{if(!crypto?.subtle||!indexedDB)throw Error('Secure WebCrypto + IndexedDB are required. Serve this file over HTTPS or localhost.');await initSecret();await loadLocal();await startMesh();await broadcastAvailability()}catch(e){console.error(e);toast(`<b>Startup failed.</b> ${esc(e.message||e)}`,'bad')}})();
+})();
+
+</script>
+</body>
+</html>
