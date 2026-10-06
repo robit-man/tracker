@@ -19,11 +19,11 @@ button{cursor:pointer}.hidden{display:none!important}
 header{height:54px;flex:0 0 54px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 14px;background:rgba(8,9,10,.96);backdrop-filter:blur(12px)}
 .brand{font:900 11px var(--mono);letter-spacing:.13em;white-space:nowrap}.brand b{color:var(--accent)}
 .headerMeta{display:flex;align-items:center;gap:6px;min-width:0}.pill{height:27px;display:flex;align-items:center;border:1px solid var(--line);padding:0 8px;color:var(--muted);font:800 8px var(--mono);white-space:nowrap}.pill.good{color:var(--good);border-color:#315740}.pill.warn{color:var(--warn);border-color:#59461f}
-.headerActions{margin-left:auto;display:flex;align-items:center;gap:6px;min-width:0}.btn{height:31px;border:1px solid var(--line2);background:#111419;color:var(--text);padding:0 9px;font:800 8px var(--mono);letter-spacing:.05em;text-transform:uppercase}.btn:hover{background:#171b20;border-color:#59636e}.btn.primary{background:var(--accent);border-color:var(--accent);color:#08090a}.btn.good{border-color:#315740;color:var(--good)}
+.headerActions{margin-left:auto;display:flex;align-items:center;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:none}.headerActions::-webkit-scrollbar{display:none}.btn{height:31px;border:1px solid var(--line2);background:#111419;color:var(--text);padding:0 9px;font:800 8px var(--mono);letter-spacing:.05em;text-transform:uppercase}.btn:hover{background:#171b20;border-color:#59636e}.btn.primary{background:var(--accent);border-color:var(--accent);color:#08090a}.btn.good{border-color:#315740;color:var(--good)}
 main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;overflow:hidden}.workspace{min-width:0;min-height:0;display:flex;flex-direction:column}.side{border-left:1px solid var(--line);background:#0a0c0e;min-width:0;min-height:0;display:flex;flex-direction:column}
 .toolbar{height:43px;flex:0 0 43px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 10px}.crumbs{min-width:0;flex:1;font:800 8px var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crumbs span{color:var(--muted)}
 .search{width:min(280px,35vw);height:28px;border:1px solid var(--line);background:#090b0d;color:var(--text);padding:0 8px;outline:none;font:9px var(--mono)}.search:focus{border-color:#58636d}
-.tableHead,.row{display:grid;grid-template-columns:minmax(280px,1fr) 92px 150px 118px 116px;align-items:center;min-width:760px}.tableHead{height:31px;flex:0 0 31px;padding:0 10px;border-bottom:1px solid var(--line);color:var(--dim);font:800 7px var(--mono);letter-spacing:.08em;text-transform:uppercase}.tableHead>div:not(:first-child){padding-left:8px}
+.tableHead,.row{display:grid;grid-template-columns:minmax(280px,1fr) 92px 150px 118px 180px;align-items:center;min-width:760px}.tableHead{height:31px;flex:0 0 31px;padding:0 10px;border-bottom:1px solid var(--line);color:var(--dim);font:800 7px var(--mono);letter-spacing:.08em;text-transform:uppercase}.tableHead>div:not(:first-child){padding-left:8px}
 .tree{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.row{min-height:39px;padding:0 10px;border-bottom:1px solid #12161a;color:var(--muted);font:9px var(--mono);position:relative}.row:hover{background:#0d1013}.row.selected{background:#111419}.nameCell{height:38px;display:flex;align-items:center;min-width:0;padding-left:var(--indent,0px)}.chev{width:20px;height:30px;flex:0 0 20px;border:0;background:transparent;color:var(--dim);padding:0;font-size:12px}.chev.open{transform:rotate(90deg)}.fileMark{width:18px;height:18px;flex:0 0 18px;margin:0 5px 0 1px;display:flex;align-items:center;justify-content:center;color:#87919a}.folderMark{color:var(--accent)}.nameText{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cbd2d8;font-weight:800}.row.folder .nameText{color:#e0e4e7}.subtle{color:var(--dim)}
 .ownerCell{display:flex;align-items:center;gap:6px;min-width:0;padding-left:8px}.avatar{width:18px;height:18px;border-radius:50%;border:1px solid color-mix(in srgb,var(--c) 70%,#252a2e);background:color-mix(in srgb,var(--c) 14%,#0b0d0f);color:var(--c);display:flex;align-items:center;justify-content:center;font:900 6px var(--mono);flex:0 0 18px}.ownerName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .avail{display:flex;align-items:center;gap:6px;padding-left:8px}.seedDots{display:flex;gap:2px;min-width:40px}.seedDots i{width:5px;height:5px;border-radius:50%;background:#293039}.seedDots i.on{background:var(--good);box-shadow:0 0 7px rgba(103,211,145,.25)}.seedDots i.warn{background:var(--warn)}
@@ -36,8 +36,13 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
 .modalBack{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.72)}.modalBack.show{display:flex}.modal{width:min(760px,100%);max-height:min(760px,90vh);overflow:hidden;border:1px solid var(--line2);background:#0d0f11;box-shadow:0 24px 80px rgba(0,0,0,.58);display:flex;flex-direction:column}.modalTitle{height:43px;flex:0 0 43px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;font:900 9px var(--mono);letter-spacing:.09em;text-transform:uppercase}.modalTitle button{margin-left:auto}.modalBody{padding:12px;overflow:auto}.transferTop{display:flex;align-items:flex-start;gap:10px}.transferName{font:900 11px var(--mono)}.transferMeta{margin-top:5px;color:var(--dim);font:8px var(--mono)}.bigProgress{height:8px;background:#171b20;margin:14px 0 8px;display:flex;overflow:hidden}.bigProgress i{height:100%;flex:0 0 auto;background:#414a53;border-right:1px solid #0d0f11}.bigProgress i.done{background:var(--accent)}.sourceRows{margin-top:10px;border-top:1px solid var(--line)}.sourceRow{display:grid;grid-template-columns:140px minmax(0,1fr) 74px 78px;gap:8px;align-items:center;min-height:36px;border-bottom:1px solid var(--line);font:8px var(--mono)}.sourceBar{height:4px;background:#171b20;overflow:hidden}.sourceBar i{display:block;height:100%;background:var(--good)}.transferState{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}.stateTag{border:1px solid var(--line);padding:5px 7px;color:var(--dim);font:800 7px var(--mono)}.stateTag.on{color:var(--good);border-color:#315740}.stateTag.warn{color:var(--warn);border-color:#59461f}
 .toastBox{position:fixed;right:14px;top:65px;z-index:500;width:min(360px,calc(100vw - 28px));display:flex;flex-direction:column;gap:6px;pointer-events:none}.toast{border:1px solid var(--line2);background:#111419;padding:9px 10px;box-shadow:0 12px 40px rgba(0,0,0,.45);color:var(--muted);font:8px/1.5 var(--mono);pointer-events:auto}.toast b{color:var(--text)}.toast.good{border-color:#315740}.toast.bad{border-color:#653737;color:#d99595}
 .seedPrompt{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center;border:1px solid #315740;background:#0d1712;padding:9px;margin-top:10px}.seedPromptText{font:8px/1.5 var(--mono);color:#a9c9b6}.seedPromptText b{color:var(--good)}
-@media(max-width:900px){main{grid-template-columns:1fr}.side{display:none}.tableHead,.row{grid-template-columns:minmax(230px,1fr) 78px 120px 90px 94px}.headerMeta .optional{display:none}.search{width:150px}}
-@media(max-width:640px){header{padding:0 8px}.brand{font-size:9px}.headerMeta{display:none}.toolbar{padding:0 7px}.search{width:120px}.tableHead,.row{min-width:600px;grid-template-columns:minmax(220px,1fr) 72px 110px 82px 96px}.tree{overflow:auto}.tableHead{overflow:hidden}.row{padding-left:7px}.headerActions .btn:nth-child(1){display:none}}
+
+.fileMark svg{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.fileMark.locked{color:var(--warn)}.fileMark.video{color:#8fc0ff}.fileMark.audio{color:#c7a4ff}.fileMark.image{color:#72d7aa}.fileMark.model{color:#f1bb37}.fileMark.pdf{color:#ed8585}.fileMark.archive{color:#d4b873}.fileMark.code{color:#80c7ff}.fileMark.text{color:#b8c0c7}
+.unlockRow{display:grid;grid-template-columns:minmax(280px,1fr) 92px 150px 118px 180px;min-width:760px;min-height:43px;padding:0 10px;border-bottom:1px solid #1d242a;background:#0c1013;font:8px var(--mono)}.unlockInline{grid-column:1/-1;display:flex;align-items:center;gap:7px;padding-left:var(--indent,0px)}.unlockInline input{width:min(330px,50vw);height:28px;border:1px solid var(--line2);background:#07090b;color:var(--text);padding:0 8px;outline:none;font:9px var(--mono)}.unlockInline input:focus{border-color:var(--accent)}.unlockInline input.bad{border-color:var(--bad);color:#e6a0a0}.lockedName{cursor:pointer}.lockedName:hover{color:var(--warn)}
+.previewBack{position:fixed;inset:0;z-index:420;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.86);backdrop-filter:blur(9px)}.previewBack.show{display:flex}.previewShell{width:min(1480px,96vw);height:min(920px,94vh);border:1px solid var(--line2);background:#080a0c;box-shadow:0 28px 100px rgba(0,0,0,.7);display:flex;flex-direction:column;min-width:0;min-height:0}.previewBack.theater .previewShell{width:100vw;height:100vh;max-width:none;max-height:none;border:0}.previewHead{height:48px;flex:0 0 48px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 10px}.previewTitleWrap{min-width:0;flex:1}.previewName{font:900 10px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.previewMeta{margin-top:3px;color:var(--dim);font:7px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.previewActions{display:flex;gap:5px}.previewStage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#040506}.previewStage video,.previewStage img,.previewStage iframe{max-width:100%;max-height:100%}.previewStage video{width:100%;height:100%;object-fit:contain;background:#000}.previewStage audio{width:min(860px,90%)}.previewStage img{object-fit:contain}.previewStage iframe{width:100%;height:100%;border:0;background:#fff}.previewStage pre{position:absolute;inset:0;margin:0;padding:22px;overflow:auto;color:#d5dce2;background:#07090b;font:12px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}.previewCanvas{width:100%;height:100%;display:block}.previewEmpty{max-width:620px;padding:28px;color:var(--muted);font:10px/1.65 var(--mono);text-align:center}.previewEmpty b{color:var(--text)}.previewFoot{min-height:40px;flex:0 0 auto;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:6px 10px;color:var(--dim);font:8px var(--mono)}.previewProgress{height:4px;flex:1;min-width:100px;background:#171b20;overflow:hidden}.previewProgress i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s}.previewPeerStat{white-space:nowrap}.previewBadge{border:1px solid var(--line);padding:4px 6px;color:var(--muted);font:800 7px var(--mono)}.previewBadge.good{border-color:#315740;color:var(--good)}.previewBadge.warn{border-color:#59461f;color:var(--warn)}
+.lockModal .modal{width:min(500px,100%)}.lockFields{display:grid;gap:8px}.lockFields label{display:grid;gap:4px;color:var(--dim);font:800 7px var(--mono);letter-spacing:.06em;text-transform:uppercase}.lockFields input{height:34px;border:1px solid var(--line2);background:#080a0c;color:var(--text);padding:0 9px;outline:none;font:10px var(--mono)}.lockFields input:focus{border-color:var(--accent)}.lockNote{margin-top:9px;color:var(--dim);font:8px/1.55 var(--mono)}.modalFoot{border-top:1px solid var(--line);padding:9px 12px;display:flex;justify-content:flex-end;gap:6px}
+@media(max-width:900px){main{grid-template-columns:1fr}.side{display:none}.tableHead,.row{grid-template-columns:minmax(230px,1fr) 78px 120px 90px 154px}.headerMeta .optional{display:none}.search{width:150px}}
+@media(max-width:640px){header{padding:0 8px}.brand{font-size:9px}.headerMeta{display:none}.toolbar{padding:0 7px}.search{width:120px}.tableHead,.row{min-width:600px;grid-template-columns:minmax(220px,1fr) 72px 110px 82px 150px}.tree{overflow:auto}.tableHead{overflow:hidden}.row{padding-left:7px}.headerActions .btn:nth-child(1){display:none}}
 </style>
 </head>
 <body>
@@ -53,6 +58,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
   <div class="headerActions">
     <button class="btn" id="shareBtn">COPY ROOM LINK</button>
     <button class="btn" id="folderBtn">ADD FOLDER</button>
+    <button class="btn" id="lockedBtn">ADD LOCKED</button>
     <button class="btn primary" id="filesBtn">ADD FILES</button>
   </div>
 </header>
@@ -91,7 +97,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
       </section>
       <section class="card">
         <div class="cardHead">Room behavior</div>
-        <div class="cardBody"><div class="sideHint">The room replicates only the nested catalog and metadata. File bytes stay on peers who possess them. Downloads stream encrypted chunks across all available seeders in parallel. There is no application file-size cap: large transfers are written directly to disk when the browser supports it, and more seeders create more concurrent transfer lanes. Content is verified with a streaming SHA-256 swarm root.</div></div>
+        <div class="cardBody"><div class="sideHint">The room replicates only the nested catalog and metadata. File bytes stay on peers who possess them. GET and STREAM pull verified chunks across all available seeders in parallel. STREAM is ephemeral and does not make the viewer a seeder. Password-locked files expose only scrambled catalog names and ciphertext until locally unlocked. There is no application file-size cap; practical limits are browser, filesystem, codec, and device resources.</div></div>
       </section>
     </div>
   </aside>
@@ -99,9 +105,13 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
 </div>
 <input id="fileInput" type="file" multiple hidden>
 <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
+<input id="lockedInput" type="file" multiple hidden>
 <div class="dropOverlay"><div class="dropBox">DROP FILES OR FOLDERS<span>Nested relative paths are preserved when the browser exposes them.</span></div></div>
 <div class="toastBox" id="toastBox"></div>
 <div class="modalBack" id="transferModal"><div class="modal"><div class="modalTitle"><span id="transferTitle">TRANSFER</span><button class="mini" id="transferClose">CLOSE</button></div><div class="modalBody" id="transferBody"></div></div></div>
+<div class="modalBack lockModal" id="lockSetupModal"><div class="modal"><div class="modalTitle"><span>ADD PASSWORD-LOCKED FILES</span><button class="mini" id="lockSetupClose">CLOSE</button></div><div class="modalBody"><div class="lockFields"><label>Password<input id="lockPassword" type="password" autocomplete="new-password" placeholder="PASSWORD"></label><label>Confirm password<input id="lockPassword2" type="password" autocomplete="new-password" placeholder="CONFIRM PASSWORD"></label></div><div class="lockNote">The visible filename is randomized. The original filename, MIME type, and file bytes are encrypted under a random per-file AES-256 key. The password only wraps that random key using a salted PBKDF2-derived key; seeders can relay ciphertext without knowing the password.</div></div><div class="modalFoot"><button class="btn primary" id="lockChooseBtn">CHOOSE FILES</button></div></div></div>
+<div class="previewBack" id="previewModal"><div class="previewShell" id="previewShell"><div class="previewHead"><div class="previewTitleWrap"><div class="previewName" id="previewName">PREVIEW</div><div class="previewMeta" id="previewMeta">—</div></div><div class="previewActions"><button class="mini" id="previewTheater">THEATER</button><button class="mini" id="previewFullscreen">FULLSCREEN</button><button class="mini" id="previewClose">CLOSE</button></div></div><div class="previewStage" id="previewStage"><div class="previewEmpty">Preparing stream…</div></div><div class="previewFoot"><span class="previewBadge" id="previewState">IDLE</span><div class="previewProgress"><i id="previewProgressBar"></i></div><span class="previewPeerStat" id="previewPeerStat">0 sources</span><span class="previewPeerStat" id="previewRate">0 B/s</span></div></div></div>
+
 <script>
 (()=>{'use strict';
 const $=q=>document.querySelector(q), enc=new TextEncoder(), dec=new TextDecoder();
@@ -115,9 +125,9 @@ const HASH_ALG='sha256-chain-v1';
 const STRATEGIES={nostr:{pkg:'@trystero-p2p/nostr',priority:0},mqtt:{pkg:'@trystero-p2p/mqtt',priority:1},torrent:{pkg:'@trystero-p2p/torrent',priority:2}};
 const RELAYS={nostr:['wss://nos.lol','wss://nostr.data.haus','wss://relay.mostro.network','wss://relay.primal.net'],mqtt:['wss://test.mosquitto.org:8081/mqtt','wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'],torrent:['wss://open.ftorrent.com','wss://tracker.webtorrent.dev','wss://tracker.openwebtorrent.com']};
 let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
-const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map();
-const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map();
-let selectedId=null,renderSeq=0;
+const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map();
+const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map();
+let selectedId=null,renderSeq=0,activePreview=null,pendingLockedPassword='';
 
 function randSecret(){const b=crypto.getRandomValues(new Uint8Array(24));return [...b].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function bytesToB64(bytes){let s='',step=0x8000;for(let i=0;i<bytes.length;i+=step)s+=String.fromCharCode(...bytes.subarray(i,i+step));return btoa(s)}
@@ -147,6 +157,37 @@ function chunkKey(cid,idx){return cid+':'+idx}
 function contentChunkSize(c){return Math.max(64*1024,Number(c?.chunkSize)||CHUNK_SIZE)}
 function contentTotal(c){return Math.max(1,Number(c?.totalChunks)||Math.ceil((Number(c?.size)||0)/contentChunkSize(c))||1)}
 
+function randomBytes(n){const b=new Uint8Array(n);crypto.getRandomValues(b);return b}
+function equalBytes(a,b){if(!a||!b||a.length!==b.length)return false;let x=0;for(let i=0;i<a.length;i++)x|=a[i]^b[i];return x===0}
+async function importAesKey(raw,usages=['encrypt','decrypt']){return crypto.subtle.importKey('raw',raw,{name:'AES-GCM'},false,usages)}
+async function aesEncryptKey(key,plain,iv,aad=''){return new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},key,plain))}
+async function aesDecryptKey(key,cipher,iv,aad=''){return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},key,cipher))}
+async function derivePasswordBits(password,salt,iterations=600000){const base=await crypto.subtle.importKey('raw',enc.encode(String(password)),'PBKDF2',false,['deriveBits']);return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations,hash:'SHA-256'},base,256))}
+async function lockVerifier(bits,lockId){return sha256Bytes(concatBytes(bits,enc.encode('|verify|'+lockId)))}
+async function makeFileLock(password,name,type,size){
+  const lockId='lk-'+bytesToHex(randomBytes(12)),salt=randomBytes(16),iterations=600000,bits=await derivePasswordBits(password,salt,iterations),verifier=await lockVerifier(bits,lockId),wrapKey=await importAesKey(bits),fileKeyRaw=randomBytes(32),fileKey=await importAesKey(fileKeyRaw),wrapIv=randomBytes(12),wrappedKey=await aesEncryptKey(wrapKey,fileKeyRaw,wrapIv,'wrap:'+lockId),metaIv=randomBytes(12),metaCipher=await aesEncryptKey(fileKey,enc.encode(JSON.stringify({name,type:type||'application/octet-stream',plainSize:size})),metaIv,'meta:'+lockId),ivSalt=randomBytes(24);
+  return{fileKey,fileKeyRaw,lock:{id:lockId,salt:bytesToB64(salt),iterations,verifier:bytesToHex(verifier),wrapIv:bytesToB64(wrapIv),wrappedKey:bytesToB64(wrappedKey),metaIv:bytesToB64(metaIv),metaCipher:bytesToB64(metaCipher),ivSalt:bytesToB64(ivSalt),version:1}}
+}
+async function unlockContent(c,password){
+  if(!c?.locked)return true;if(unlockedKeys.has(c.id))return true;const l=c.lock;if(!l)throw Error('lock metadata missing');const salt=b64ToBytes(l.salt),bits=await derivePasswordBits(password,salt,Number(l.iterations)||600000),ver=await lockVerifier(bits,l.id);if(!equalBytes(ver,hexToBytes(l.verifier)))throw Error('wrong password');
+  const wrapKey=await importAesKey(bits),raw=await aesDecryptKey(wrapKey,b64ToBytes(l.wrappedKey),b64ToBytes(l.wrapIv),'wrap:'+l.id),fileKey=await importAesKey(raw),metaBytes=await aesDecryptKey(fileKey,b64ToBytes(l.metaCipher),b64ToBytes(l.metaIv),'meta:'+l.id),meta=JSON.parse(dec.decode(metaBytes));unlockedKeys.set(c.id,fileKey);unlockedMeta.set(c.id,meta);return true
+}
+function hexToBytes(h){h=String(h||'');const out=new Uint8Array(Math.floor(h.length/2));for(let i=0;i<out.length;i++)out[i]=parseInt(h.slice(i*2,i*2+2),16)||0;return out}
+async function lockedChunkIv(c,idx,plain){const ph=await sha256Bytes(plain),seed=concatBytes(concatBytes(b64ToBytes(c.lock.ivSalt),ph),enc.encode('|'+idx));return (await sha256Bytes(seed)).slice(0,12)}
+async function encryptLockedChunk(c,idx,plain,key=unlockedKeys.get(c.id)){if(!key)throw Error('locked file is not unlocked');const iv=await lockedChunkIv(c,idx,plain),ct=await aesEncryptKey(key,plain,iv,`locked:${c.lock.id}:${idx}:${contentTotal(c)}`);return concatBytes(iv,ct)}
+async function decryptLockedChunk(c,idx,canonical,key=unlockedKeys.get(c.id)){if(!key)throw Error('password required');if(canonical.length<29)throw Error('locked chunk truncated');const iv=canonical.slice(0,12),cipher=canonical.slice(12);return aesDecryptKey(key,cipher,iv,`locked:${c.lock.id}:${idx}:${contentTotal(c)}`)}
+function seedSaltFor(cid){let s=seedSalts.get(cid);if(!s){s=bytesToHex(randomBytes(16));seedSalts.set(cid,s);saveState().catch(()=>{})}return s}
+async function seedEnvelopeKey(cid,seeder,salt){const raw=await sha256Bytes(`seed-envelope|${secret}|${cid}|${seeder}|${salt}`);return importAesKey(raw)}
+function visibleName(entry){const c=entry?.contentId&&contents.get(entry.contentId),m=c&&unlockedMeta.get(c.id);return m?.name||entry?.name||'file'}
+function visibleType(entry,c=entry?.contentId&&contents.get(entry.contentId)){return unlockedMeta.get(c?.id)?.type||c?.type||'application/octet-stream'}
+function visibleSize(entry,c=entry?.contentId&&contents.get(entry.contentId)){return unlockedMeta.get(c?.id)?.plainSize??c?.size??0}
+function extOf(name){const m=String(name||'').toLowerCase().match(/\.([a-z0-9]{1,8})$/);return m?m[1]:''}
+function inferMime(name,type=''){if(type&&type!=='application/octet-stream')return type;const e=extOf(name),m={mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',ogv:'video/ogg',ogg:'audio/ogg',mkv:'video/x-matroska',avi:'video/x-msvideo',mpg:'video/mpeg',mpeg:'video/mpeg',ts:'video/mp2t',m2ts:'video/mp2t','3gp':'video/3gpp',mp3:'audio/mpeg',m4a:'audio/mp4',aac:'audio/aac',flac:'audio/flac',wav:'audio/wav',oga:'audio/ogg',opus:'audio/ogg',wma:'audio/x-ms-wma',amr:'audio/amr',aif:'audio/aiff',aiff:'audio/aiff',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',avif:'image/avif',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',pdf:'application/pdf',txt:'text/plain',md:'text/markdown',json:'application/json',js:'text/javascript',tsv:'text/tab-separated-values',csv:'text/csv',html:'text/html',css:'text/css',xml:'application/xml',glb:'model/gltf-binary',gltf:'model/gltf+json',obj:'model/obj',stl:'model/stl',ply:'model/ply','3mf':'model/3mf',step:'model/step',stp:'model/step'};return m[e]||'application/octet-stream'}
+function previewKind(entry,c){const name=visibleName(entry),type=inferMime(name,visibleType(entry,c)),e=extOf(name);if(type.startsWith('video/'))return'video';if(type.startsWith('audio/'))return'audio';if(type.startsWith('image/'))return'image';if(type==='application/pdf')return'pdf';if(type.startsWith('text/')||['json','js','ts','css','html','xml','md','csv'].includes(e))return'text';if(type.startsWith('model/')||['glb','gltf','obj','stl','ply','3mf','step','stp'].includes(e))return'model';return'unknown'}
+function previewable(entry,c){return previewKind(entry,c)!=='unknown'}
+function svgIcon(kind){const paths={folder:'<path d="M3 6h7l2 2h9v11H3z"/>',locked:'<rect x="5" y="10" width="14" height="11" rx="1"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',video:'<rect x="3" y="5" width="18" height="14" rx="1"/><path d="m10 9 5 3-5 3z"/>',audio:'<path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/>',image:'<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="9" r="2"/><path d="m4 17 5-5 4 4 3-3 4 4"/>',model:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',pdf:'<path d="M6 3h8l4 4v14H6zM14 3v5h5"/><path d="M8 15h8M8 18h6"/>',archive:'<path d="M6 3h12v18H6zM9 3v3h3V3m-3 6h3m-3 3h3m-3 3h3"/>',code:'<path d="m9 8-4 4 4 4m6-8 4 4-4 4m-3-10-2 12"/>',text:'<path d="M6 3h8l4 4v14H6zM14 3v5h5M8 12h8M8 15h8M8 18h5"/>',file:'<path d="M6 3h8l4 4v14H6zM14 3v5h5"/>'};return`<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]||paths.file}</svg>`}
+function iconKind(entry,c){if(entry?.kind==='folder')return'folder';if(c?.locked&&!unlockedMeta.has(c.id))return'locked';const name=visibleName(entry),type=inferMime(name,visibleType(entry,c)),e=extOf(name);if(type.startsWith('video/'))return'video';if(type.startsWith('audio/'))return'audio';if(type.startsWith('image/'))return'image';if(type==='application/pdf')return'pdf';if(type.startsWith('model/')||['glb','gltf','obj','stl','ply','3mf','step','stp'].includes(e))return'model';if(['zip','rar','7z','tar','gz','bz2','xz'].includes(e))return'archive';if(['js','ts','jsx','tsx','py','c','cpp','h','hpp','rs','go','java','sh','css','html','xml','json','yaml','yml'].includes(e))return'code';if(type.startsWith('text/'))return'text';return'file'}
+
 async function initSecret(){
   secret=decodeURIComponent(location.hash.slice(1).trim());
   if(!secret){secret=randSecret();location.hash=encodeURIComponent(secret)}
@@ -170,7 +211,7 @@ function idbPut(store,key,val){return new Promise((resolve,reject)=>{const r=db.
 function idbDel(store,key){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readwrite').objectStore(store).delete(key);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
 async function putKV(k,v){await idbPut('kv',k,await encryptBytes(enc.encode(JSON.stringify(v)),'local:'+k))}
 async function getKV(k,fallback){try{const p=await idbGet('kv',k);if(!p)return fallback;return JSON.parse(dec.decode(await decryptBytes(p,'local:'+k)))}catch(_){return fallback}}
-async function saveState(){await putKV('catalog',[...catalog.values()]);await putKV('contents',[...contents.values()]);await putKV('selectedSeeds',[...selectedSeeds]);await putKV('seedMode',seedMode);await putKV('cachedComplete',[...cachedComplete])}
+async function saveState(){await putKV('catalog',[...catalog.values()]);await putKV('contents',[...contents.values()]);await putKV('selectedSeeds',[...selectedSeeds]);await putKV('seedMode',seedMode);await putKV('cachedComplete',[...cachedComplete]);await putKV('seedSalts',[...seedSalts])}
 async function loadLocal(){
   db=await openDB();
   actor=String(await getKV('actor',actor));await putKV('actor',actor);
@@ -179,6 +220,7 @@ async function loadLocal(){
   for(const x of await getKV('contents',[]))contents.set(x.id,x);
   for(const x of await getKV('selectedSeeds',[]))selectedSeeds.add(x);
   for(const x of await getKV('cachedComplete',[]))cachedComplete.add(x);
+  for(const [k,v] of await getKV('seedSalts',[]))seedSalts.set(k,v);
   for(const cid of contents.keys()){
     if(cachedComplete.has(cid)){localHave.add(cid);continue}
     try{const h=await idbGet('handles',cid);if(h){const p=typeof h.queryPermission==='function'?await h.queryPermission({mode:'read'}):'granted';if(p==='granted'){sourceHandles.set(cid,h);localHave.add(cid);continue}}}catch(_){ }
@@ -187,8 +229,9 @@ async function loadLocal(){
   renderAll();
 }
 
-function seedEnabled(cid){if(!localHave.has(cid))return false;if(seedMode==='off')return false;if(seedMode==='all')return true;return selectedSeeds.has(cid)}
+function seedEnabled(cid){if(!localHave.has(cid))return false;const c=contents.get(cid);if(c?.locked&&!cachedComplete.has(cid)&&!unlockedKeys.has(cid))return false;if(seedMode==='off')return false;if(seedMode==='all')return true;return selectedSeeds.has(cid)}
 function advertisedSeeds(){return [...localHave].filter(seedEnabled)}
+function advertisedSeedSalts(){const o={};for(const cid of advertisedSeeds())if(contents.get(cid)?.locked)o[cid]=seedSaltFor(cid);return o}
 function parentChildren(parent=null){return [...catalog.values()].filter(x=>!x.deleted&&(x.parent||null)===(parent||null)).sort((a,b)=>a.kind===b.kind?String(a.name).localeCompare(String(b.name)):a.kind==='folder'?-1:1)}
 function entryPath(id){const parts=[],seenIds=new Set();let x=catalog.get(id);while(x&&!seenIds.has(x.id)){seenIds.add(x.id);parts.unshift(x.name);x=x.parent?catalog.get(x.parent):null}return '/'+parts.join('/')}
 function folderStats(id){let files=0,size=0,available=0;const walk=p=>{for(const x of parentChildren(p)){if(x.kind==='folder')walk(x.id);else{files++;const c=contents.get(x.contentId);size+=Number(c?.size)||0;if(seedCount(x.contentId)>0)available++}}};walk(id);return{files,size,available}}
@@ -209,17 +252,18 @@ function renderHeader(){
 function renderModes(){document.querySelectorAll('.mode').forEach(b=>{const on=b.dataset.mode===seedMode;b.classList.toggle('active',on);b.textContent=(on?'● ':'○ ')+(b.dataset.mode==='off'?'OFF':b.dataset.mode==='selected'?'SELECTED FILES':'ALL LOCAL FILES')})}
 function renderTree(){
   const token=++renderSeq,q=$('#search').value.trim().toLowerCase(),box=$('#tree');let html='';
-  const match=x=>!q||x.name.toLowerCase().includes(q)||entryPath(x.id).toLowerCase().includes(q);
+  const match=x=>{const n=visibleName(x).toLowerCase();return!q||n.includes(q)||entryPath(x.id).toLowerCase().includes(q)};
   const folderHasMatch=id=>{if(match(catalog.get(id)))return true;for(const c of parentChildren(id))if(c.kind==='folder'?folderHasMatch(c.id):match(c))return true;return false};
   const walk=(parent,depth)=>{for(const x of parentChildren(parent)){
     if(q&&!(x.kind==='folder'?folderHasMatch(x.id):match(x)))continue;
     if(x.kind==='folder'){
       const st=folderStats(x.id),open=q||expanded.has(x.id);
-      html+=`<div class="row folder ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><button class="chev ${open?'open':''}" data-toggle>›</button><span class="fileMark folderMark">▰</span><span class="nameText">${esc(x.name)}</span></div><div>${fmtBytes(st.size)}</div><div class="ownerCell"><span class="subtle">${st.files} file${st.files===1?'':'s'}</span></div><div class="avail"><span class="subtle">${st.available}/${st.files} live</span></div><div class="actionsCell"></div></div>`;
+      html+=`<div class="row folder ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><button class="chev ${open?'open':''}" data-toggle>›</button><span class="fileMark folderMark">${svgIcon('folder')}</span><span class="nameText">${esc(x.name)}</span></div><div>${fmtBytes(st.size)}</div><div class="ownerCell"><span class="subtle">${st.files} file${st.files===1?'':'s'}</span></div><div class="avail"><span class="subtle">${st.available}/${st.files} live</span></div><div class="actionsCell"></div></div>`;
       if(open)walk(x.id,depth+1)
     }else{
-      const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||x.originActor||''),n=seedCount(x.contentId),have=localHave.has(x.contentId),seeding=seedEnabled(x.contentId);
-      html+=`<div class="row ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><span class="chev"></span><span class="fileMark">▱</span><span class="nameText">${esc(x.name)}</span></div><div>${fmtBytes(c.size)}</div><div class="ownerCell"><span class="avatar" style="--c:${esc(p.color)}">${esc(initials(p.alias))}</span><span class="ownerName">${esc(p.alias)}</span></div><div class="avail">${availabilityHtml(n)}</div><div class="actionsCell"><button class="mini" data-download>${have?'SAVE':'GET'}</button>${have?`<button class="mini ${seeding?'active good':'good'}" data-seed>${seeding?'SEEDING':'SEED'}</button>`:''}</div></div>`
+      const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||x.originActor||''),n=seedCount(x.contentId),have=localHave.has(x.contentId),seeding=seedEnabled(x.contentId),locked=!!c.locked,unlocked=!locked||unlockedMeta.has(c.id),name=visibleName(x),kind=iconKind(x,c),canPreview=unlocked&&previewable(x,c);
+      html+=`<div class="row ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><span class="chev"></span><span class="fileMark ${esc(kind)}">${svgIcon(kind)}</span><span class="nameText ${locked&&!unlocked?'lockedName':''}" ${locked&&!unlocked?'data-unlock-title title="Click to unlock"':''}>${esc(name)}</span></div><div>${fmtBytes(visibleSize(x,c))}</div><div class="ownerCell"><span class="avatar" style="--c:${esc(p.color)}">${esc(initials(p.alias))}</span><span class="ownerName">${esc(p.alias)}</span></div><div class="avail">${availabilityHtml(n)}</div><div class="actionsCell">${locked&&!unlocked?'<button class="mini" data-unlock>UNLOCK</button>':`${canPreview?'<button class="mini" data-stream>STREAM</button>':''}<button class="mini" data-download>${have?'SAVE':'GET'}</button>${have?`<button class="mini ${seeding?'active good':'good'}" data-seed>${seeding?'SEEDING':'SEED'}</button>`:''}`}</div></div>`;
+      if(locked&&!unlocked&&unlockRows.has(x.id))html+=`<div class="unlockRow" data-unlock-for="${esc(x.id)}"><div class="unlockInline" style="--indent:${depth*16+43}px"><span class="subtle">PASSWORD</span><input type="password" autocomplete="current-password" data-unlock-pass placeholder="Enter password"><button class="mini good" data-unlock-submit>UNLOCK</button><span class="subtle">salted verifier + wrapped AES-256 key</span></div></div>`;
     }
   }};
   walk(null,0);box.innerHTML=html||'<div class="empty">No shared files yet.<br>Drop a directory or use ADD FILES / ADD FOLDER.</div>';if(token!==renderSeq)return
@@ -228,8 +272,8 @@ function renderDetails(){
   const d=$('#details'),x=selectedId&&catalog.get(selectedId);
   if(!x){d.innerHTML='<div class="sideHint">Select a file or folder to inspect provenance, availability, and local seeding state.</div>';return}
   if(x.kind==='folder'){const st=folderStats(x.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>files</dt><dd>${st.files}</dd><dt>size</dt><dd>${fmtBytes(st.size)}</dd><dt>available</dt><dd>${st.available}/${st.files}</dd></dl>`;return}
-  const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||''),holders=seedActors(x.contentId),have=localHave.has(x.contentId);
-  d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>size</dt><dd>${fmtBytes(c.size)}</dd><dt>type</dt><dd>${esc(c.type||'application/octet-stream')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd></dl>${holders.length?`<div class="sideHint">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
+  const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||''),holders=seedActors(x.contentId),have=localHave.has(x.contentId),locked=!!c.locked,unlocked=!locked||unlockedMeta.has(c.id),m=unlockedMeta.get(c.id);
+  d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>display name</dt><dd>${esc(visibleName(x))}</dd><dt>size</dt><dd>${fmtBytes(visibleSize(x,c))}</dd><dt>type</dt><dd>${esc(unlocked?inferMime(visibleName(x),visibleType(x,c)):'encrypted / hidden')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd>${locked?`<dt>lock</dt><dd>${unlocked?'unlocked in this tab':'password locked'}</dd><dt>PBKDF2</dt><dd>${Number(c.lock?.iterations)||600000} iterations</dd><dt>seeder envelopes</dt><dd>${holders.length} independent salt${holders.length===1?'':'s'}</dd>`:''}</dl>${locked&&!unlocked?'<div class="sideHint">The real filename and MIME type are encrypted. Click the scrambled title to enter the password.</div>':''}${holders.length?`<div class="sideHint" style="margin-top:7px">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
 }
 
 async function ensureFolderPath(parts){let parent=null,path='';for(const raw of parts){const name=safeName(raw);path+=(path?'/':'')+name;const id='d-'+await shortHash('dir:'+path,28);let old=catalog.get(id);if(!old){old={id,kind:'folder',parent,name,created:Date.now(),createdBy:actor,v:nextV(),deleted:false};catalog.set(id,old);expanded.add(id);broadcast(msg('catalog',{entries:[old]}))}parent=id}return parent}
@@ -243,20 +287,28 @@ async function hashFileStreaming(file,onProgress=null){
   }
   return{root:bytesToHex(state),total,chunkSize}
 }
+async function hashLockedFileStreaming(file,key,lock,onProgress=null){
+  const plainChunkSize=CHUNK_SIZE,total=Math.max(1,Math.ceil(file.size/plainChunkSize)||1),cipherChunkSize=plainChunkSize+28,cipherSize=file.size+28*total;let state=await swarmInit(cipherSize,total,cipherChunkSize);
+  for(let i=0;i<total;i++){
+    const start=i*plainChunkSize,end=Math.min(file.size,start+plainChunkSize),plain=new Uint8Array(await file.slice(start,end).arrayBuffer()),ph=await sha256Bytes(plain),iv=(await sha256Bytes(concatBytes(concatBytes(b64ToBytes(lock.ivSalt),ph),enc.encode('|'+i)))).slice(0,12),ct=await aesEncryptKey(key,plain,iv,`locked:${lock.id}:${i}:${total}`),canonical=concatBytes(iv,ct),leaf=await sha256Bytes(canonical);state=await swarmStep(state,leaf);if(onProgress&&(i===0||i===total-1||i%32===0))onProgress((i+1)/total)
+  }
+  return{root:bytesToHex(state),total,chunkSize:cipherChunkSize,cipherSize,plainChunkSize}
+}
 async function persistHandle(cid,handle){if(!handle)return;sourceHandles.set(cid,handle);try{await idbPut('handles',cid,handle)}catch(e){console.warn('handle persistence unavailable',e)}}
-async function addFiles(items){
+async function addFiles(items,{password=null}={}){
   const changed=[];
   for(const raw of [...items]){
     const file=raw?.file||raw,handle=raw?.handle||null,relativePath=raw?.relativePath||file.webkitRelativePath||file._relativePath||file.name;
     if(!file)continue;
     try{
-      const rel=String(relativePath||file.name).replace(/^\/+/,''),parts=rel.split('/').filter(Boolean),name=safeName(parts.pop()||file.name),parent=await ensureFolderPath(parts);
-      let lastShown=-1;toast(`<b>Indexing</b> ${esc(name)} · streaming hash, no size cap`);
-      const hashed=await hashFileStreaming(file,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('hash',name,pct+'%')}}),cid='f-'+hashed.root;
-      let content=contents.get(cid);
-      if(!content){content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:file.size,type:file.type||'application/octet-stream',chunkSize:hashed.chunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now()};contents.set(cid,content)}
-      const pathKey=(parent||'root')+'/'+name.toLowerCase(),eid='r-'+await shortHash('entry:'+pathKey,28),old=catalog.get(eid),entry={id:eid,kind:'file',parent,name,contentId:cid,created:old?.created||Date.now(),v:nextV(),deleted:false};
-      catalog.set(eid,entry);sourceFiles.set(cid,file);localHave.add(cid);selectedSeeds.add(cid);if(handle)await persistHandle(cid,handle);changed.push(entry);await saveState();toast(`<b>Added</b> ${esc(name)} · ${fmtBytes(file.size)}`,'good')
+      const rel=String(relativePath||file.name).replace(/^\/+/,''),parts=rel.split('/').filter(Boolean),realName=safeName(parts.pop()||file.name),parent=await ensureFolderPath(parts);let lastShown=-1,cid,content,entryName=realName,hashed;
+      if(password){
+        toast(`<b>Encrypting + indexing</b> ${esc(realName)} · password locked`);const lockCtx=await makeFileLock(password,realName,file.type||inferMime(realName,''),file.size);hashed=await hashLockedFileStreaming(file,lockCtx.fileKey,lockCtx.lock,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('locked hash',realName,pct+'%')}});cid='f-'+hashed.root;entryName='locked-'+bytesToHex(randomBytes(7))+'.vault';content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:hashed.cipherSize,type:'application/octet-stream',chunkSize:hashed.chunkSize,plainChunkSize:hashed.plainChunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now(),locked:true,lock:lockCtx.lock};contents.set(cid,content);unlockedKeys.set(cid,lockCtx.fileKey);unlockedMeta.set(cid,{name:realName,type:file.type||inferMime(realName,''),plainSize:file.size})
+      }else{
+        toast(`<b>Indexing</b> ${esc(realName)} · streaming hash, no size cap`);hashed=await hashFileStreaming(file,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('hash',realName,pct+'%')}});cid='f-'+hashed.root;content=contents.get(cid);if(!content){content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:file.size,type:file.type||inferMime(realName,''),chunkSize:hashed.chunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now()};contents.set(cid,content)}
+      }
+      const pathKey=(parent||'root')+'/'+entryName.toLowerCase(),eid='r-'+await shortHash('entry:'+pathKey,28),old=catalog.get(eid),entry={id:eid,kind:'file',parent,name:entryName,contentId:cid,created:old?.created||Date.now(),v:nextV(),deleted:false,locked:!!password};
+      catalog.set(eid,entry);sourceFiles.set(cid,file);localHave.add(cid);selectedSeeds.add(cid);seedSaltFor(cid);if(handle)await persistHandle(cid,handle);changed.push(entry);await saveState();toast(`<b>Added</b> ${esc(password?entryName:realName)} · ${fmtBytes(file.size)}${password?' · locked':''}`,'good')
     }catch(e){toast(`<b>Add failed.</b> ${esc(e.message||e)}`,'bad')}
   }
   if(changed.length){await broadcast(msg('catalog',{entries:changed,contents:changed.map(x=>contents.get(x.contentId)).filter(Boolean)}));await broadcastAvailability();renderAll()}
@@ -272,18 +324,18 @@ async function broadcast(o){await Promise.allSettled([...wrappers.values()].filt
 async function importStrategy(pkg){let last;for(const u of [`https://cdn.jsdelivr.net/npm/${pkg}@${TRYSTERO_VERSION}/+esm`,`https://esm.run/${pkg}@${TRYSTERO_VERSION}`,`https://esm.sh/${pkg}@${TRYSTERO_VERSION}?bundle`]){try{const m=await import(u);if(!m.joinRoom)throw Error('joinRoom missing');return m}catch(e){last=e}}throw last}
 async function joinStrategy(strategy){try{const mod=await importStrategy(STRATEGIES[strategy].pkg),cfg={appId:APP_ID,relayConfig:{urls:RELAYS[strategy],warnOnRelayFailure:false},trickleIce:strategy!=='torrent'},room=mod.joinRoom(cfg,'private-room:'+roomHash.slice(0,40),{handshakeTimeoutMs:14000,onJoinError:d=>console.warn(strategy,d?.error||d)}),w={strategy,key:strategy+':main',room,ctl:room.makeAction('pr-ctl'),bin:room.makeAction('pr-bin'),peers:new Set};wrappers.set(w.key,w);room.onPeerJoin=p=>{w.peers.add(p);sendCtlVia(w,msg('hello',{profile:{alias:aliasFor(actor),color:colorFor(actor)}}),p);sendCtlVia(w,msg('state-req'),p)};room.onPeerLeave=p=>{w.peers.delete(p);untrack(w,p)};w.ctl.onMessage=(packet,meta)=>handleControl(packet,meta,w);w.bin.onMessage=(packet,meta)=>handleBinary(packet,meta,w);return true}catch(e){console.warn(strategy,e);return false}}
 async function startMesh(){const r=await Promise.allSettled(Object.keys(STRATEGIES).map(joinStrategy));networkReady=r.some(x=>x.status==='fulfilled'&&x.value);renderHeader();if(!networkReady)toast('<b>Room mesh unavailable.</b> Check HTTPS/CDN/network access.','bad')}
-async function broadcastAvailability(){await broadcast(msg('availability',{ids:advertisedSeeds()}));renderAll()}
+async function broadcastAvailability(){await broadcast(msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()}));renderAll()}
 async function handleControl(packet,{peerId},w){
   let m;try{m=await openSeal(packet)}catch(_){return}
   if(!m||(m.v!==1&&m.v!==2)||m.actor===actor||remember(m.mid))return;
   trackActor(m.actor,w,peerId);if(m.profile)peerProfiles.set(m.actor,m.profile);
   switch(m.type){
-    case'hello':if(!m.reply)sendCtlVia(w,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)}}),peerId);sendCtlVia(w,msg('availability',{ids:advertisedSeeds()}),peerId);break;
-    case'state-req':sendCtlVia(w,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],availability:advertisedSeeds()}),peerId);break;
-    case'state':await mergeState(m.entries||[],m.contents||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));updateSessionSeeder(m.actor,m.availability||[]);break;
+    case'hello':if(!m.reply)sendCtlVia(w,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)}}),peerId);sendCtlVia(w,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()}),peerId);break;
+    case'state-req':sendCtlVia(w,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],availability:advertisedSeeds(),salts:advertisedSeedSalts()}),peerId);break;
+    case'state':await mergeState(m.entries||[],m.contents||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.availability||[]);break;
     case'catalog':await mergeState(m.entries||[],m.contents||[]);break;
-    case'availability':peerSeeds.set(m.actor,new Set(m.ids||[]));updateSessionSeeder(m.actor,m.ids||[]);renderAll();refreshTransfer();break;
-    case'seed-query':if((m.ids||[]).some(id=>seedEnabled(id)))sendCtlVia(w,msg('availability',{ids:advertisedSeeds()}),peerId);break;
+    case'availability':peerSeeds.set(m.actor,new Set(m.ids||[]));peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.ids||[]);renderAll();refreshTransfer();refreshPreviewStats();break;
+    case'seed-query':if((m.ids||[]).some(id=>seedEnabled(id)))sendCtlVia(w,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()}),peerId);break;
     case'chunks-need':queueServeChunks(m,m.actor);break;
   }
 }
@@ -297,11 +349,16 @@ async function getReadableFile(cid){
 }
 async function readLocalChunk(cid,idx){
   const c=contents.get(cid),chunkSize=contentChunkSize(c),start=idx*chunkSize,end=Math.min(Number(c?.size)||0,start+chunkSize);
-  const f=await getReadableFile(cid);if(f)return new Uint8Array(await f.slice(start,end).arrayBuffer());
+  const f=await getReadableFile(cid);
+  if(f){
+    if(c?.locked){const key=unlockedKeys.get(cid);if(!key)throw Error('original locked source needs password in this tab');const plainChunk=Number(c.plainChunkSize)||CHUNK_SIZE,ps=idx*plainChunk,pe=Math.min(f.size,ps+plainChunk),plain=new Uint8Array(await f.slice(ps,pe).arrayBuffer());return encryptLockedChunk(c,idx,plain,key)}
+    return new Uint8Array(await f.slice(start,end).arrayBuffer())
+  }
   try{const p=await idbGet('chunks',chunkKey(cid,idx));if(p)return new Uint8Array(await decryptBytes(p,`cache:${cid}:${idx}`))}catch(_){ }
   try{const legacy=await idbGet('files',cid);if(legacy){const plain=new Uint8Array(await decryptBytes(legacy,'file:'+cid));return plain.slice(start,end)}}catch(_){ }
   return null
 }
+
 async function queueServeChunks(m,remote){
   const cid=String(m.id||''),key=remote+'|'+cid,prev=serveQueues.get(key)||Promise.resolve();
   const next=prev.catch(()=>{}).then(()=>serveChunksNow(m,remote)).finally(()=>{if(serveQueues.get(key)===next)serveQueues.delete(key)});serveQueues.set(key,next);return next
@@ -310,96 +367,119 @@ async function serveChunksNow(m,remote){
   const cid=String(m.id||''),c=contents.get(cid);if(!c||!seedEnabled(cid))return;const route=chooseRoute(remote);if(!route)return;const total=contentTotal(c),chunkSize=contentChunkSize(c);
   for(const raw of (m.indexes||[]).slice(0,64)){
     const idx=Number(raw);if(!Number.isInteger(idx)||idx<0||idx>=total)continue;
-    const part=await readLocalChunk(cid,idx);if(!part)continue;
-    const packet=await encryptBytes(part,`chunk:${cid}:${idx}:${total}`);
-    await route.w.bin.send(packet,{target:route.peerId,metadata:{kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size}});served+=part.length;renderHeader()
+    const part=await readLocalChunk(cid,idx);if(!part)continue;let wirePart=part,seedSalt='';
+    if(c.locked){seedSalt=seedSaltFor(cid);const sk=await seedEnvelopeKey(cid,actor,seedSalt),iv=randomBytes(12),ct=await aesEncryptKey(sk,part,iv,`seedwrap:${cid}:${idx}`);wirePart=concatBytes(iv,ct)}
+    const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`);
+    await route.w.bin.send(packet,{target:route.peerId,metadata:{kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seedSalt}});served+=part.length;renderHeader()
   }
 }
+
 function liveSeeders(cid){return seedActors(cid).filter(a=>a!==actor&&actorRoutes.has(a))}
 async function prepareSink(entry,c){
+  const name=visibleName(entry);if(c.locked&&!unlockedKeys.has(c.id))return null;
   if(typeof window.showSaveFilePicker==='function'){
-    try{const handle=await window.showSaveFilePicker({suggestedName:entry.name});const writable=await handle.createWritable({keepExistingData:false});return{kind:'handle',handle,writable}}
+    try{const handle=await window.showSaveFilePicker({suggestedName:name});const writable=await handle.createWritable({keepExistingData:false});return{kind:c.locked?'locked-handle':'handle',handle,writable}}
     catch(e){if(e?.name==='AbortError')return null;console.warn('direct disk sink unavailable',e)}
   }
-  return{kind:'idb'}
+  return{kind:c.locked?'locked-idb':'idb'}
 }
+async function requireUnlocked(entry){const c=contents.get(entry?.contentId);if(!c?.locked||unlockedKeys.has(c.id))return true;unlockRows.add(entry.id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(entry.id)}"] input`)?.focus());toast('<b>Password required.</b> Unlock this file first.');return false}
 async function requestFile(entry){
-  const c=contents.get(entry.contentId);if(!c)return;
+  const c=contents.get(entry.contentId);if(!c)return;if(!await requireUnlocked(entry))return;
   if(localHave.has(c.id)){await saveLocal(entry,c);return}
   if(sessions.has(c.id)){openTransfer(c.id);return}
-  let holders=liveSeeders(c.id);if(!holders.length){await broadcast(msg('seed-query',{ids:[c.id]}));toast(`<b>No live source yet.</b> Waiting for a seeder of ${esc(entry.name)}.`,'bad');return}
+  let holders=liveSeeders(c.id);if(!holders.length){await broadcast(msg('seed-query',{ids:[c.id]}));toast(`<b>No live source yet.</b> Waiting for a seeder of ${esc(visibleName(entry))}.`,'bad');return}
   const sink=await prepareSink(entry,c);if(!sink)return;
-  const total=contentTotal(c),rootState=await swarmInit(c.size,total,contentChunkSize(c));
-  const s={cid:c.id,entryId:entry.id,name:entry.name,total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set(holders),inflight:new Map(),inflightByPeer:new Map(),retry:[],cursor:0,providerBytes:new Map(),providerStarted:new Map(),started:performance.now(),timer:null,state:'downloading',sink,verifyCursor:0,verifyState:rootState,verifyPending:new Map(),verifyBusy:false,finishing:false};
-  sessions.set(c.id,s);openTransfer(c.id);scheduleSession(s,0)
+  const total=contentTotal(c),rootState=await swarmInit(c.size,total,contentChunkSize(c)),sid=crypto.randomUUID();
+  const sess={sid,mode:'download',cid:c.id,entryId:entry.id,name:visibleName(entry),total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set(holders),inflight:new Map(),inflightByPeer:new Map(),retry:[],cursor:0,providerBytes:new Map(),providerStarted:new Map(),started:performance.now(),timer:null,state:'downloading',sink,verifyCursor:0,verifyState:rootState,verifyPending:new Map(),verifyBusy:false,finishing:false};
+  sessions.set(c.id,sess);sessionBySid.set(sid,sess);openTransfer(c.id);scheduleSession(sess,0)
 }
 function nextChunkFor(s){
   while(s.retry.length){const i=s.retry.shift();if(!bitHas(s.receivedBits,i)&&!s.inflight.has(i))return i}
   while(s.cursor<s.total){const i=s.cursor++;if(!bitHas(s.receivedBits,i)&&!s.inflight.has(i))return i}
   return null
 }
-function scheduleSession(s,delay=SCHEDULER_TICK_MS){
-  clearTimeout(s.timer);if(s.state!=='downloading')return;
-  s.timer=setTimeout(()=>schedulerTick(s).catch(e=>failSession(s,e)),delay)
-}
+function scheduleSession(s,delay=SCHEDULER_TICK_MS){clearTimeout(s.timer);if(s.state!=='downloading')return;s.timer=setTimeout(()=>schedulerTick(s).catch(e=>failSession(s,e)),delay)}
 async function schedulerTick(s){
-  if(s.state!=='downloading')return;
-  const now=performance.now();
+  if(s.state!=='downloading')return;const now=performance.now();
   for(const[idx,inf]of [...s.inflight])if(now-inf.ts>CHUNK_TIMEOUT_MS){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.push(idx)}
-  for(const a of liveSeeders(s.cid))s.holders.add(a);
-  const live=[...s.holders].filter(a=>actorRoutes.has(a)&&peerSeeds.get(a)?.has(s.cid));
+  for(const a of liveSeeders(s.cid))s.holders.add(a);const live=[...s.holders].filter(a=>actorRoutes.has(a)&&peerSeeds.get(a)?.has(s.cid));
   if(!live.length&&s.inflight.size===0){await broadcast(msg('seed-query',{ids:[s.cid]}));scheduleSession(s,900);return}
-  let assigned=0;
-  for(const a of live){
-    const used=s.inflightByPeer.get(a)||0,cap=Math.max(0,PER_SEEDER_WINDOW-used);if(!cap)continue;const indexes=[];
-    for(let n=0;n<cap;n++){const idx=nextChunkFor(s);if(idx==null)break;indexes.push(idx);s.inflight.set(idx,{actor:a,ts:now});s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++}
-    if(indexes.length){const ok=await sendActor(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize}));if(!ok){for(const idx of indexes){s.inflight.delete(idx);s.retry.push(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-indexes.length))}}
-  }
+  let assigned=0;for(const a of live){const used=s.inflightByPeer.get(a)||0,cap=Math.max(0,PER_SEEDER_WINDOW-used);if(!cap)continue;const indexes=[];for(let n=0;n<cap;n++){const idx=nextChunkFor(s);if(idx==null)break;indexes.push(idx);s.inflight.set(idx,{actor:a,ts:now});s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++}if(indexes.length){const ok=await sendActor(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize,sid:s.sid}));if(!ok){for(const idx of indexes){s.inflight.delete(idx);s.retry.push(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-indexes.length))}}}
   if(s.receivedCount<s.total)scheduleSession(s,assigned?SCHEDULER_TICK_MS:500)
 }
+async function canonicalToPlain(c,idx,part){return c.locked?decryptLockedChunk(c,idx,part):part}
 async function storeReceivedChunk(s,idx,part){
-  if(s.sink.kind==='handle')await s.sink.writable.write({type:'write',position:idx*s.chunkSize,data:part});
-  else await idbPut('chunks',chunkKey(s.cid,idx),await encryptBytes(part,`cache:${s.cid}:${idx}`))
+  const c=contents.get(s.cid);if(s.mode==='stream'){await consumePreviewChunk(s,idx,part);return}
+  if(c?.locked){await idbPut('chunks',chunkKey(s.cid,idx),await encryptBytes(part,`cache:${s.cid}:${idx}`));if(s.sink.kind==='locked-handle'){const plain=await decryptLockedChunk(c,idx,part),pos=idx*(Number(c.plainChunkSize)||CHUNK_SIZE);await s.sink.writable.write({type:'write',position:pos,data:plain})}return}
+  if(s.sink.kind==='handle')await s.sink.writable.write({type:'write',position:idx*s.chunkSize,data:part});else await idbPut('chunks',chunkKey(s.cid,idx),await encryptBytes(part,`cache:${s.cid}:${idx}`))
 }
-async function queueVerification(s,idx,part){
-  const leaf=await sha256Bytes(part);s.verifyPending.set(idx,leaf);if(s.verifyBusy)return;s.verifyBusy=true;
-  try{while(s.verifyPending.has(s.verifyCursor)){const h=s.verifyPending.get(s.verifyCursor);s.verifyPending.delete(s.verifyCursor);s.verifyState=await swarmStep(s.verifyState,h);s.verifyCursor++}}
-  finally{s.verifyBusy=false}
-  if(s.receivedCount===s.total&&s.verifyCursor===s.total)await finishDownload(s)
-}
+async function queueVerification(s,idx,part){const leaf=await sha256Bytes(part);s.verifyPending.set(idx,leaf);if(s.verifyBusy)return;s.verifyBusy=true;try{while(s.verifyPending.has(s.verifyCursor)){const h=s.verifyPending.get(s.verifyCursor);s.verifyPending.delete(s.verifyCursor);s.verifyState=await swarmStep(s.verifyState,h);s.verifyCursor++}}finally{s.verifyBusy=false}if(s.receivedCount===s.total&&s.verifyCursor===s.total)await finishDownload(s)}
 async function handleBinary(packet,{peerId,metadata},w){
-  if(metadata?.kind!=='chunk')return;const cid=String(metadata.id||''),s=sessions.get(cid);if(!s||s.state!=='downloading')return;const idx=Number(metadata.idx);if(!Number.isInteger(idx)||idx<0||idx>=s.total||bitHas(s.receivedBits,idx))return;
+  if(metadata?.kind!=='chunk')return;const cid=String(metadata.id||''),s=metadata.sid?sessionBySid.get(metadata.sid):(sessions.get(cid)||(activePreview?.session?.cid===cid?activePreview.session:null));if(!s||s.state!=='downloading')return;const idx=Number(metadata.idx);if(!Number.isInteger(idx)||idx<0||idx>=s.total||bitHas(s.receivedBits,idx))return;
   try{
-    const part=new Uint8Array(await decryptBytes(packet,`chunk:${cid}:${idx}:${s.total}`)),c=contents.get(cid),expected=Math.max(0,Math.min(s.chunkSize,(Number(c?.size)||0)-idx*s.chunkSize));
-    if(part.length!==expected)throw new Error(`chunk ${idx} length mismatch`);
-    await storeReceivedChunk(s,idx,part);
-    bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;
-    const inf=s.inflight.get(idx),remote=routeActors.get(routeKey(w,peerId||''))||inf?.actor||'unknown';if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}
-    if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);
-    queueVerification(s,idx,part).catch(e=>failSession(s,e));refreshTransfer();scheduleSession(s,0)
+    let part=new Uint8Array(await decryptBytes(packet,`chunk:${cid}:${idx}:${s.total}`)),c=contents.get(cid),remote=routeActors.get(routeKey(w,peerId||''))||s.inflight.get(idx)?.actor||'unknown';
+    if(c?.locked&&metadata.seedSalt){if(part.length<29)throw Error('seed envelope truncated');const sk=await seedEnvelopeKey(cid,remote,metadata.seedSalt),iv=part.slice(0,12);part=await aesDecryptKey(sk,part.slice(12),iv,`seedwrap:${cid}:${idx}`)}
+    const expected=Math.max(0,Math.min(s.chunkSize,(Number(c?.size)||0)-idx*s.chunkSize));if(part.length!==expected)throw new Error(`chunk ${idx} length mismatch`);
+    await storeReceivedChunk(s,idx,part);bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;const inf=s.inflight.get(idx);if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);queueVerification(s,idx,part).catch(e=>failSession(s,e));if(s.mode==='stream')refreshPreviewStats();else refreshTransfer();scheduleSession(s,0)
   }catch(e){failSession(s,e)}
 }
 async function finishDownload(s){
-  if(s.finishing||s.state!=='downloading')return;s.finishing=true;clearTimeout(s.timer);s.state='verifying';refreshTransfer();
-  try{
-    const meta=contents.get(s.cid),root=bytesToHex(s.verifyState);if(root!==(meta.root||meta.sha))throw new Error('swarm SHA-256 root mismatch');
-    s.state='storing';refreshTransfer();
-    if(s.sink.kind==='handle'){
-      await s.sink.writable.close();await persistHandle(s.cid,s.sink.handle);try{sourceFiles.set(s.cid,await s.sink.handle.getFile())}catch(_){ }
-    }else cachedComplete.add(s.cid);
-    localHave.add(s.cid);s.state='complete';s.completed=performance.now();await saveState();renderAll();refreshTransfer();await broadcastAvailability();
-    if(s.sink.kind==='idb'){const entry=catalog.get(s.entryId);if(entry)await saveLocal(entry,meta)}
+  if(s.finishing||s.state!=='downloading')return;s.finishing=true;clearTimeout(s.timer);s.state='verifying';if(s.mode==='stream')refreshPreviewStats();else refreshTransfer();
+  try{const meta=contents.get(s.cid),root=bytesToHex(s.verifyState);if(root!==(meta.root||meta.sha))throw new Error('swarm SHA-256 root mismatch');if(s.mode==='stream'){s.state='complete';await finishPreviewSession(s);refreshPreviewStats();return}
+    s.state='storing';refreshTransfer();if(s.sink.kind==='handle'){await s.sink.writable.close();await persistHandle(s.cid,s.sink.handle);try{sourceFiles.set(s.cid,await s.sink.handle.getFile())}catch(_){ }}else if(s.sink.kind==='locked-handle'){await s.sink.writable.close();cachedComplete.add(s.cid)}else cachedComplete.add(s.cid);localHave.add(s.cid);seedSaltFor(s.cid);s.state='complete';s.completed=performance.now();await saveState();renderAll();refreshTransfer();await broadcastAvailability();if(s.sink.kind==='idb'||s.sink.kind==='locked-idb'){const entry=catalog.get(s.entryId);if(entry)await saveLocal(entry,meta)}
   }catch(e){failSession(s,e)}
 }
-function failSession(s,e){clearTimeout(s.timer);if(s.state==='error')return;s.state='error';s.error=String(e?.message||e);if(s.sink?.kind==='handle'&&s.sink.writable){try{s.sink.writable.abort?.()}catch(_){ }}refreshTransfer();toast(`<b>Transfer failed.</b> ${esc(s.error)}`,'bad')}
-async function streamLocalToWritable(cid,writable,c){for(let i=0;i<contentTotal(c);i++){const part=await readLocalChunk(cid,i);if(!part)throw Error('local chunk missing');await writable.write(part)}}
+function failSession(s,e){clearTimeout(s.timer);if(s.state==='error')return;s.state='error';s.error=String(e?.message||e);if(s.sink?.writable){try{s.sink.writable.abort?.()}catch(_){ }}if(s.mode==='stream'){showPreviewError(s.error);refreshPreviewStats()}else{refreshTransfer();toast(`<b>Transfer failed.</b> ${esc(s.error)}`,'bad')}}
+async function streamLocalToWritable(cid,writable,c){for(let i=0;i<contentTotal(c);i++){const canonical=await readLocalChunk(cid,i);if(!canonical)throw Error('local chunk missing');const part=await canonicalToPlain(c,i,canonical);await writable.write(part)}}
 async function saveLocal(entry,c){
-  try{
-    if(typeof window.showSaveFilePicker==='function'){
-      const h=await window.showSaveFilePicker({suggestedName:entry.name}),w=await h.createWritable({keepExistingData:false});await streamLocalToWritable(c.id,w,c);await w.close();toast(`<b>Saved</b> ${esc(entry.name)} · streamed from local source`,'good');return
-    }
-    const parts=[];for(let i=0;i<contentTotal(c);i++){const p=await readLocalChunk(c.id,i);if(!p)throw Error('local chunk missing');parts.push(p)}const blob=new Blob(parts,{type:c.type||'application/octet-stream'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=entry.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),15000);toast(`<b>Ready locally.</b> ${esc(entry.name)}`,'good')
+  try{if(c.locked&&!unlockedKeys.has(c.id)){await requireUnlocked(entry);return}const name=visibleName(entry),type=inferMime(name,visibleType(entry,c));if(typeof window.showSaveFilePicker==='function'){const h=await window.showSaveFilePicker({suggestedName:name}),w=await h.createWritable({keepExistingData:false});await streamLocalToWritable(c.id,w,c);await w.close();toast(`<b>Saved</b> ${esc(name)} · streamed from local source`,'good');return}
+    const parts=[];for(let i=0;i<contentTotal(c);i++){const canonical=await readLocalChunk(c.id,i);if(!canonical)throw Error('local chunk missing');parts.push(await canonicalToPlain(c,i,canonical))}const blob=new Blob(parts,{type}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),15000);toast(`<b>Ready locally.</b> ${esc(name)}`,'good')
   }catch(e){if(e?.name!=='AbortError')toast(`<b>Save failed.</b> ${esc(e.message||e)}`,'bad')}
+}
+
+function showPreviewError(message){const st=$('#previewStage');if(st)st.innerHTML=`<div class="previewEmpty"><b>Preview unavailable</b><br><br>${esc(message)}</div>`;const tag=$('#previewState');if(tag){tag.textContent='ERROR';tag.className='previewBadge warn'}}
+function refreshPreviewStats(){
+  if(!activePreview)return;const s=activePreview.session,c=activePreview.c;if(!s){$('#previewPeerStat').textContent=localHave.has(c.id)?'local source':'—';$('#previewRate').textContent='—';return}const pct=s.total?Math.min(1,s.receivedCount/s.total):0,elapsed=Math.max(.1,(performance.now()-s.started)/1000),rate=s.bytesReceived/elapsed;$('#previewProgressBar').style.width=(pct*100).toFixed(1)+'%';$('#previewPeerStat').textContent=`${s.holders.size} source${s.holders.size===1?'':'s'} · ${s.receivedCount}/${s.total} chunks`;$('#previewRate').textContent=fmtRate(rate);const tag=$('#previewState');tag.textContent=s.state==='downloading'?(activePreview.mode==='mse'?'LIVE STREAM':'BUFFERING'):s.state.toUpperCase();tag.className='previewBadge '+(s.state==='complete'?'good':s.state==='error'?'warn':'')
+}
+function cleanupPreview(){
+  const p=activePreview;if(p?.session){clearTimeout(p.session.timer);p.session.state='closed';sessionBySid.delete(p.session.sid)}if(p?.objectUrl)URL.revokeObjectURL(p.objectUrl);if(p?.mediaSourceUrl)URL.revokeObjectURL(p.mediaSourceUrl);try{p?.threeCleanup?.()}catch(_){}activePreview=null;$('#previewStage').innerHTML='';$('#previewProgressBar').style.width='0%';$('#previewModal').classList.remove('theater')
+}
+async function closePreview(){cleanupPreview();$('#previewModal').classList.remove('show')}
+async function openPreview(entry){
+  const c=contents.get(entry.contentId);if(!c)return;if(!await requireUnlocked(entry))return;cleanupPreview();const kind=previewKind(entry,c),name=visibleName(entry),mime=inferMime(name,visibleType(entry,c));activePreview={entry,c,kind,name,mime,mode:'buffer',parts:new Array(contentTotal(c)),pending:new Map(),appendIndex:0,appending:false,allReceived:false,session:null,objectUrl:null,mediaSourceUrl:null,threeCleanup:null};$('#previewName').textContent=name;$('#previewMeta').textContent=`${mime} · ${fmtBytes(visibleSize(entry,c))} · ${seedCount(c.id)} source${seedCount(c.id)===1?'':'s'}`;$('#previewStage').innerHTML='<div class="previewEmpty">Preparing peer stream…</div>';$('#previewModal').classList.add('show');$('#previewState').textContent='PREPARING';refreshPreviewStats();
+  const f=await getReadableFile(c.id);if(f){await renderPreviewBlob(f);$('#previewState').textContent='LOCAL';$('#previewState').className='previewBadge good';$('#previewProgressBar').style.width='100%';return}
+  if(localHave.has(c.id)){await previewFromLocalChunks(entry,c);return}
+  await startRemotePreview(entry,c)
+}
+async function initStreamingMedia(){
+  const p=activePreview;if(!p||!['video','audio'].includes(p.kind))return false;const el=document.createElement(p.kind);el.controls=true;el.autoplay=true;el.playsInline=true;el.preload='auto';el.style.maxWidth='100%';el.style.maxHeight='100%';if(p.kind==='video'){el.style.width='100%';el.style.height='100%';el.style.objectFit='contain'}$('#previewStage').replaceChildren(el);p.media=el;
+  const can=el.canPlayType(p.mime);if(!can){p.mode='buffer';$('#previewStage').innerHTML=`<div class="previewEmpty"><b>Compatibility buffering</b><br><br>This browser does not advertise native decoding for <span class="mono">${esc(p.mime)}</span>. The room can still pull the file from peers, but playback depends on the browser's installed codecs.</div>`;return false}
+  if(!('MediaSource'in window)||!MediaSource.isTypeSupported(p.mime)){p.mode='buffer';return false}
+  try{const ms=new MediaSource(),url=URL.createObjectURL(ms);p.mediaSource=ms;p.mediaSourceUrl=url;p.mode='mse';el.src=url;await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('MediaSource open timeout')),5000);ms.addEventListener('sourceopen',()=>{clearTimeout(t);resolve()},{once:true})});p.sourceBuffer=ms.addSourceBuffer(p.mime);p.sourceBuffer.mode='segments';p.sourceBuffer.addEventListener('updateend',()=>{p.appending=false;p.appendIndex++;pumpMsePreview()});p.sourceBuffer.addEventListener('error',()=>msePreviewFailed('The browser rejected this container/codec as an incremental MediaSource stream. Use GET to save it, or try a browser/encoding with MediaSource-compatible segments.'));return true}catch(e){p.mode='buffer';console.warn('MSE unavailable',e);return false}
+}
+function msePreviewFailed(message){const p=activePreview;if(!p)return;p.mode='mse-error';if(p.session){clearTimeout(p.session.timer);p.session.state='error';sessionBySid.delete(p.session.sid)}showPreviewError(message);refreshPreviewStats()}
+function pumpMsePreview(){const p=activePreview;if(!p||p.mode!=='mse'||!p.sourceBuffer||p.sourceBuffer.updating||p.appending)return;const part=p.pending.get(p.appendIndex);if(part){p.pending.delete(p.appendIndex);p.appending=true;try{p.sourceBuffer.appendBuffer(part)}catch(e){p.appending=false;msePreviewFailed('This media container is not appendable in raw file chunks on this browser. Download remains available.')}}else if(p.allReceived&&p.appendIndex>=contentTotal(p.c)&&p.mediaSource?.readyState==='open'){try{p.mediaSource.endOfStream()}catch(_){}}}
+async function consumePreviewChunk(s,idx,canonical){const p=activePreview;if(!p||p.session!==s)return;const plain=await canonicalToPlain(p.c,idx,canonical);if(p.mode==='mse'){p.pending.set(idx,plain);pumpMsePreview()}else p.parts[idx]=plain;refreshPreviewStats()}
+async function startRemotePreview(entry,c){
+  const holders=liveSeeders(c.id);if(!holders.length){await broadcast(msg('seed-query',{ids:[c.id]}));showPreviewError('No live seeder currently has this file.');return}await initStreamingMedia();const total=contentTotal(c),sid=crypto.randomUUID(),rootState=await swarmInit(c.size,total,contentChunkSize(c)),sess={sid,mode:'stream',cid:c.id,entryId:entry.id,name:visibleName(entry),total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set(holders),inflight:new Map(),inflightByPeer:new Map(),retry:[],cursor:0,providerBytes:new Map(),providerStarted:new Map(),started:performance.now(),timer:null,state:'downloading',sink:{kind:'preview'},verifyCursor:0,verifyState:rootState,verifyPending:new Map(),verifyBusy:false,finishing:false};activePreview.session=sess;sessionBySid.set(sid,sess);refreshPreviewStats();scheduleSession(sess,0)
+}
+async function previewFromLocalChunks(entry,c){
+  await initStreamingMedia();const total=contentTotal(c);$('#previewState').textContent=activePreview.mode==='mse'?'LOCAL STREAM':'LOCAL BUFFER';for(let i=0;i<total;i++){if(!activePreview)return;const canonical=await readLocalChunk(c.id,i);if(!canonical)throw Error('local preview chunk missing');const plain=await canonicalToPlain(c,i,canonical);if(activePreview.mode==='mse'){activePreview.pending.set(i,plain);pumpMsePreview()}else activePreview.parts[i]=plain;$('#previewProgressBar').style.width=(((i+1)/total)*100).toFixed(1)+'%'}activePreview.allReceived=true;if(activePreview.mode==='mse'){pumpMsePreview();$('#previewState').textContent='LOCAL';$('#previewState').className='previewBadge good'}else await renderPreviewBlob(new Blob(activePreview.parts,{type:activePreview.mime}))
+}
+async function finishPreviewSession(s){const p=activePreview;if(!p||p.session!==s)return;p.allReceived=true;if(p.mode==='mse-error')return;if(p.mode==='mse'){pumpMsePreview();$('#previewState').textContent='LIVE · COMPLETE';$('#previewState').className='previewBadge good'}else{await renderPreviewBlob(new Blob(p.parts,{type:p.mime}));$('#previewState').textContent='READY';$('#previewState').className='previewBadge good'}sessionBySid.delete(s.sid)}
+async function renderPreviewBlob(blob){
+  const p=activePreview;if(!p)return;if(p.objectUrl)URL.revokeObjectURL(p.objectUrl);const url=URL.createObjectURL(blob);p.objectUrl=url;const stage=$('#previewStage');
+  if(p.kind==='image'){stage.innerHTML='<img alt="preview">';stage.querySelector('img').src=url}
+  else if(p.kind==='video'||p.kind==='audio'){const el=document.createElement(p.kind);el.controls=true;el.autoplay=true;el.playsInline=true;el.src=url;el.addEventListener('error',()=>showPreviewError(`This browser cannot decode ${p.mime}. The peer transfer succeeded; use GET or a browser with the required container/codec support.`),{once:true});if(p.kind==='video'){el.style.width='100%';el.style.height='100%';el.style.objectFit='contain'}else el.style.width='min(860px,90%)';stage.replaceChildren(el);p.media=el}
+  else if(p.kind==='pdf'){stage.innerHTML=`<iframe title="PDF preview" src="${url}"></iframe>`}
+  else if(p.kind==='text'){const text=await blob.text();const pre=document.createElement('pre');pre.textContent=text;stage.replaceChildren(pre)}
+  else if(p.kind==='model'){await render3DModel(blob,p.name)}
+  else stage.innerHTML='<div class="previewEmpty"><b>No in-browser viewer for this type.</b><br><br>Use GET to save the file locally.</div>';$('#previewProgressBar').style.width='100%'
+}
+async function render3DModel(blob,name){
+  const stage=$('#previewStage');stage.innerHTML='<div class="previewEmpty">Loading 3D viewer…</div>';const ext=extOf(name);if(['step','stp'].includes(ext)){stage.innerHTML='<div class="previewEmpty"><b>STEP/STP model detected.</b><br><br>The swarm transfer works, but this monofile does not ship a full OpenCascade WASM kernel. GLB/GLTF, OBJ, STL, PLY and 3MF render directly; STEP/STP remains downloadable.</div>';return}
+  try{const THREE=await import('https://esm.sh/three@0.180.0'),{OrbitControls}=await import('https://esm.sh/three@0.180.0/examples/jsm/controls/OrbitControls.js'),canvas=document.createElement('canvas');canvas.className='previewCanvas';stage.replaceChildren(canvas);const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(45,1,.01,100000),controls=new OrbitControls(camera,renderer.domElement);scene.add(new THREE.HemisphereLight(0xffffff,0x303030,2));const dl=new THREE.DirectionalLight(0xffffff,2);dl.position.set(3,5,4);scene.add(dl);let object=null,url=URL.createObjectURL(blob);try{if(ext==='glb'||ext==='gltf'){const{GLTFLoader}=await import('https://esm.sh/three@0.180.0/examples/jsm/loaders/GLTFLoader.js');object=(await new Promise((res,rej)=>new GLTFLoader().load(url,g=>res(g.scene),undefined,rej)))}else if(ext==='obj'){const{OBJLoader}=await import('https://esm.sh/three@0.180.0/examples/jsm/loaders/OBJLoader.js');object=await new Promise((res,rej)=>new OBJLoader().load(url,res,undefined,rej))}else if(ext==='stl'){const{STLLoader}=await import('https://esm.sh/three@0.180.0/examples/jsm/loaders/STLLoader.js'),g=await new Promise((res,rej)=>new STLLoader().load(url,res,undefined,rej));object=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0xb9c1c8,metalness:.05,roughness:.65}))}else if(ext==='ply'){const{PLYLoader}=await import('https://esm.sh/three@0.180.0/examples/jsm/loaders/PLYLoader.js'),g=await new Promise((res,rej)=>new PLYLoader().load(url,res,undefined,rej));g.computeVertexNormals();object=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0xb9c1c8,metalness:.05,roughness:.65,vertexColors:!!g.getAttribute('color')}))}else if(ext==='3mf'){const{ThreeMFLoader}=await import('https://esm.sh/three@0.180.0/examples/jsm/loaders/3MFLoader.js');object=await new Promise((res,rej)=>new ThreeMFLoader().load(url,res,undefined,rej))}else throw Error('Unsupported 3D extension') }finally{URL.revokeObjectURL(url)}scene.add(object);const box=new THREE.Box3().setFromObject(object),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),radius=Math.max(size.x,size.y,size.z,1);controls.target.copy(center);camera.position.set(center.x+radius*1.5,center.y+radius*.9,center.z+radius*1.5);camera.near=Math.max(radius/10000,.001);camera.far=radius*100;camera.updateProjectionMatrix();controls.update();let raf=0,dead=false;const resize=()=>{const r=stage.getBoundingClientRect();renderer.setSize(Math.max(1,r.width),Math.max(1,r.height),false);camera.aspect=Math.max(.1,r.width/Math.max(1,r.height));camera.updateProjectionMatrix()};const draw=()=>{if(dead)return;resize();controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(draw)};draw();activePreview.threeCleanup=()=>{dead=true;cancelAnimationFrame(raf);controls.dispose();renderer.dispose();scene.traverse(o=>{o.geometry?.dispose?.();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose?.())}})}}catch(e){showPreviewError('3D viewer failed: '+(e.message||e))}
 }
 
 function openTransfer(cid){$('#transferModal').classList.add('show');$('#transferModal').dataset.cid=cid;refreshTransfer()}
@@ -408,7 +488,7 @@ function refreshTransfer(){
   $('#transferTitle').textContent=s.state==='complete'?'TRANSFER COMPLETE':'SWARM TRANSFER';const seg=Math.min(180,s.total),doneSeg=Math.round(seg*pct),bars=Array.from({length:seg},(_,i)=>`<i class="${i<doneSeg?'done':''}" style="width:${100/seg}%"></i>`).join('');
   const holders=[...s.holders],rows=holders.map(a=>{const p=profileFor(a),bytes=s.providerBytes.get(a)||0,start=s.providerStarted.get(a)||s.started,secs=Math.max(.1,(performance.now()-start)/1000),pr=meta.size?Math.min(100,bytes/meta.size*100):0;return`<div class="sourceRow"><div>${esc(p.alias)}</div><div class="sourceBar"><i style="width:${pr}%"></i></div><div>${fmtBytes(bytes)}</div><div>${s.state==='downloading'?fmtRate(bytes/secs):'—'}</div></div>`}).join('');
   const transferred=Math.min(Number(meta.size)||0,s.bytesReceived);
-  $('#transferBody').innerHTML=`<div class="transferTop"><div><div class="transferName">${esc(entry?.name||s.name)}</div><div class="transferMeta">${fmtBytes(transferred)} / ${fmtBytes(meta.size)} · ${done}/${s.total} chunks · ${holders.length} sources · ${fmtRate(rate)} · ${s.inflight.size} in flight · up to ${PER_SEEDER_WINDOW} lanes/source</div></div></div><div class="bigProgress">${bars}</div><div class="sourceRows">${rows}</div><div class="transferState"><span class="stateTag ${s.state==='downloading'?'on':''}">DOWNLOADING</span><span class="stateTag ${s.state==='verifying'?'warn':''}">VERIFY SWARM ROOT</span><span class="stateTag ${s.state==='storing'?'warn':''}">FINALIZE LOCAL</span><span class="stateTag ${s.state==='complete'?'on':''}">COMPLETE</span>${s.state==='error'?`<span class="stateTag warn">${esc(s.error)}</span>`:''}</div>${s.state==='complete'&&!seedEnabled(cid)?`<div class="seedPrompt"><div class="seedPromptText"><b>Verified local copy.</b><br>Help keep this file available while this tab remains open?</div><button class="mini good" data-modal-seed>SEED THIS FILE</button><button class="mini" data-modal-dismiss>NOT NOW</button></div>`:''}`;
+  $('#transferBody').innerHTML=`<div class="transferTop"><div><div class="transferName">${esc(entry?visibleName(entry):s.name)}</div><div class="transferMeta">${fmtBytes(transferred)} / ${fmtBytes(meta.size)} · ${done}/${s.total} chunks · ${holders.length} sources · ${fmtRate(rate)} · ${s.inflight.size} in flight · up to ${PER_SEEDER_WINDOW} lanes/source</div></div></div><div class="bigProgress">${bars}</div><div class="sourceRows">${rows}</div><div class="transferState"><span class="stateTag ${s.state==='downloading'?'on':''}">DOWNLOADING</span><span class="stateTag ${s.state==='verifying'?'warn':''}">VERIFY SWARM ROOT</span><span class="stateTag ${s.state==='storing'?'warn':''}">FINALIZE LOCAL</span><span class="stateTag ${s.state==='complete'?'on':''}">COMPLETE</span>${s.state==='error'?`<span class="stateTag warn">${esc(s.error)}</span>`:''}</div>${s.state==='complete'&&!seedEnabled(cid)?`<div class="seedPrompt"><div class="seedPromptText"><b>Verified local copy.</b><br>Help keep this file available while this tab remains open?</div><button class="mini good" data-modal-seed>SEED THIS FILE</button><button class="mini" data-modal-dismiss>NOT NOW</button></div>`:''}`;
   const b=$('[data-modal-seed]');if(b)b.onclick=()=>toggleSeed(cid,true);const n=$('[data-modal-dismiss]');if(n)n.onclick=()=>{$('.seedPrompt')?.remove()}
 }
 
@@ -421,6 +501,15 @@ async function pickFiles(){
   }
   $('#fileInput').click()
 }
+async function pickLockedFiles(password){
+  pendingLockedPassword=password;
+  if(typeof window.showOpenFilePicker==='function'){
+    try{const handles=await window.showOpenFilePicker({multiple:true});const rows=[];for(const handle of handles){const file=await handle.getFile();rows.push({file,handle,relativePath:file.name})}const pw=pendingLockedPassword;pendingLockedPassword='';await addFiles(rows,{password:pw});return}catch(e){if(e?.name==='AbortError'){pendingLockedPassword='';return}console.warn(e)}
+  }
+  $('#lockedInput').click()
+}
+function openLockSetup(){$('#lockPassword').value='';$('#lockPassword2').value='';$('#lockSetupModal').classList.add('show');requestAnimationFrame(()=>$('#lockPassword').focus())}
+async function submitLockSetup(){const a=$('#lockPassword').value,b=$('#lockPassword2').value;if(!a||a.length<6){toast('<b>Password too short.</b> Use at least 6 characters.','bad');return}if(a!==b){toast('<b>Passwords do not match.</b>','bad');return}$('#lockSetupModal').classList.remove('show');await pickLockedFiles(a);$('#lockPassword').value='';$('#lockPassword2').value=''}
 async function walkDirectoryHandle(dir,prefix=''){const rows=[];for await(const [name,h]of dir.entries()){if(h.kind==='file')rows.push({file:await h.getFile(),handle:h,relativePath:prefix+name});else rows.push(...await walkDirectoryHandle(h,prefix+name+'/'))}return rows}
 async function pickFolder(){
   if(typeof window.showDirectoryPicker==='function'){
@@ -429,11 +518,17 @@ async function pickFolder(){
   $('#folderInput').click()
 }
 
-$('#tree').addEventListener('click',e=>{const row=e.target.closest('.row[data-id]');if(!row)return;const id=row.dataset.id,x=catalog.get(id);if(e.target.closest('[data-toggle]')){expanded.has(id)?expanded.delete(id):expanded.add(id);renderTree();return}if(e.target.closest('[data-download]')){requestFile(x);return}if(e.target.closest('[data-seed]')){toggleSeed(x.contentId);return}selectedId=id;renderAll()});
+$('#tree').addEventListener('click',async e=>{
+  const unlockRow=e.target.closest('.unlockRow[data-unlock-for]');if(unlockRow){const id=unlockRow.dataset.unlockFor,entry=catalog.get(id);if(e.target.closest('[data-unlock-submit]')){const input=unlockRow.querySelector('[data-unlock-pass]');try{await unlockContent(contents.get(entry.contentId),input.value);unlockRows.delete(id);input.value='';toast(`<b>Unlocked</b> ${esc(visibleName(entry))}`,'good');await broadcastAvailability();selectedId=id;renderAll()}catch(err){input.classList.add('bad');input.select();toast('<b>Unlock failed.</b> Wrong password or damaged lock metadata.','bad')}return}return}
+  const row=e.target.closest('.row[data-id]');if(!row)return;const id=row.dataset.id,x=catalog.get(id);if(e.target.closest('[data-toggle]')){expanded.has(id)?expanded.delete(id):expanded.add(id);renderTree();return}if(e.target.closest('[data-unlock], [data-unlock-title]')){unlockRows.has(id)?unlockRows.delete(id):unlockRows.add(id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(id)}"] input`)?.focus());return}if(e.target.closest('[data-stream]')){await openPreview(x);return}if(e.target.closest('[data-download]')){await requestFile(x);return}if(e.target.closest('[data-seed]')){await toggleSeed(x.contentId);return}selectedId=id;renderAll()
+});
+$('#tree').addEventListener('keydown',async e=>{if(e.key!=='Enter')return;const input=e.target.closest('[data-unlock-pass]');if(!input)return;e.preventDefault();input.closest('.unlockRow')?.querySelector('[data-unlock-submit]')?.click()});
 $('#search').addEventListener('input',renderTree);document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>setSeedMode(b.dataset.mode));
-$('#filesBtn').onclick=pickFiles;$('#folderBtn').onclick=pickFolder;$('#fileInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('#folderInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('#filesBtn').onclick=pickFiles;$('#folderBtn').onclick=pickFolder;$('#lockedBtn').onclick=openLockSetup;$('#fileInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('#folderInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('#lockedInput').onchange=async e=>{const pw=pendingLockedPassword;pendingLockedPassword='';if(pw&&e.target.files.length)await addFiles(e.target.files,{password:pw});e.target.value=''};
+$('#lockSetupClose').onclick=()=>$('#lockSetupModal').classList.remove('show');$('#lockChooseBtn').onclick=submitLockSetup;$('#lockSetupModal').addEventListener('click',e=>{if(e.target===$('#lockSetupModal'))$('#lockSetupModal').classList.remove('show')});$('#lockPassword2').addEventListener('keydown',e=>{if(e.key==='Enter')submitLockSetup()});
 $('#shareBtn').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);toast('<b>Room link copied.</b> Anyone with the complete URL can enter this room.','good')}catch(_){prompt('Copy room URL',location.href)}};
 $('#transferClose').onclick=()=>$('#transferModal').classList.remove('show');$('#transferModal').addEventListener('click',e=>{if(e.target===$('#transferModal'))$('#transferModal').classList.remove('show')});
+$('#previewClose').onclick=closePreview;$('#previewModal').addEventListener('click',e=>{if(e.target===$('#previewModal'))closePreview()});$('#previewTheater').onclick=()=>$('#previewModal').classList.toggle('theater');$('#previewFullscreen').onclick=async()=>{try{if(!document.fullscreenElement)await $('#previewShell').requestFullscreen();else await document.exitFullscreen()}catch(e){toast('<b>Fullscreen unavailable.</b> '+esc(e.message||e),'bad')}};document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#previewModal').classList.contains('show')&&!document.fullscreenElement)closePreview()});
 let dragDepth=0;window.addEventListener('dragenter',e=>{e.preventDefault();dragDepth++;document.body.classList.add('dragging')});window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging')}});window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',async e=>{e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');const items=[...e.dataTransfer.items||[]],files=[];async function walk(entry,path=''){if(entry.isFile)await new Promise(r=>entry.file(f=>{f._relativePath=path+f.name;files.push(f);r()}));else if(entry.isDirectory){const reader=entry.createReader();let batch;do{batch=await new Promise(r=>reader.readEntries(r));for(const c of batch)await walk(c,path+entry.name+'/')}while(batch.length)}}if(items.length&&items[0]?.webkitGetAsEntry){for(const it of items){const ent=it.webkitGetAsEntry();if(ent)await walk(ent,'')}}else files.push(...e.dataTransfer.files);addFiles(files)});
 
 (async()=>{try{if(!crypto?.subtle||!indexedDB)throw Error('Secure WebCrypto + IndexedDB are required. Serve this file over HTTPS or localhost.');await initSecret();await loadLocal();await startMesh();await broadcastAvailability()}catch(e){console.error(e);toast(`<b>Startup failed.</b> ${esc(e.message||e)}`,'bad')}})();
