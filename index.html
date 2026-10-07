@@ -175,7 +175,7 @@ const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Ma
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set();
 const peerIngress=new Map(),controlChunkRx=new Map(),remoteStreamDemands=new Map(),fileTraffic=new Map();
-let selectedId=null,renderSeq=0,activePreview=null,pendingLockedPassword='',rapidDiscoveryTimer=0,meshStartedAt=0;
+let selectedId=null,renderSeq=0,activePreview=null,previewWarmTimer=0,pendingLockedPassword='',rapidDiscoveryTimer=0,meshStartedAt=0;
 let headerRenderTimer=0,previewStatsTimer=0,transferRenderTimer=0,downloadRowRenderTimer=0;
 const peerPromotionAt=new Map();
 
