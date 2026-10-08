@@ -148,7 +148,7 @@ const PER_SEEDER_WINDOW=IS_MOBILEISH?6:12;
 const STREAM_MIN_PER_SOURCE=IS_MOBILEISH?4:8,DOWNLOAD_MIN_PER_SOURCE=IS_MOBILEISH?3:6,STREAM_STALE_SOURCE_MS=IS_MOBILEISH?1800:1600;
 const TRANSFER_PROBE_TIMEOUT_MS=IS_MOBILEISH?1200:900,CHUNK_TIMEOUT_MS=IS_MOBILEISH?5000:6000;
 /* Declare recovery cadence before any dependent transfer constants: avoid TDZ at bootstrap. */
-const SAFE_HEDGE_INTERVAL_MS=1800,SAFE_RECOVERY_INTERVAL_MS=5000,SAFE_HARD_RESCUE_INTERVAL_MS=8000;
+const SAFE_HEDGE_INTERVAL_MS=800,SAFE_RECOVERY_INTERVAL_MS=5000,SAFE_HARD_RESCUE_INTERVAL_MS=8000;
 /* Frontier rescue operates independently of bulk reservations and seeder queues. */
 const SAFE_FRONTIER_RESCUE_MS=IS_MOBILEISH?1700:1250,SAFE_FRONTIER_FANOUT=3,SAFE_FRONTIER_RETRY_MS=IS_MOBILEISH?1150:900;
 const TRANSFER_FAILOVER_NO_BYTE_MS=IS_MOBILEISH?2600:2300,TRANSFER_RECOVERY_COOLDOWN_MS=SAFE_RECOVERY_INTERVAL_MS,TRANSFER_ALT_PLANE_WAKE_MS=IS_MOBILEISH?350:220;
@@ -185,7 +185,7 @@ const NATS_VERSION='3.4.0',NKN_VERSION='1.3.6',MQTTJS_VERSION='5.15.2',NOSTR_TOO
 const MP4BOX_VERSION='2.4.1';
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?96:160,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?24:40,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?64:128)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?20:36)*1024*1024,MP4_HOT_CHUNKS=IS_MOBILEISH?48:96;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-safe-plant-v59';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-healthy-unblocked-v60';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -1060,7 +1060,10 @@ function nextPrefetchChunkFor(s){
 }
 function nextDecoderRefillChunkFor(s){
   if(!s||s.mode!=='stream'||!s.decoderRefillActive)return null;
-  const start=Math.max(0,mp4ProgressiveCursor(s)),p=activePreview,ahead=p?.session===s?streamBufferedAhead(p):0,window=ahead<SAFE_GUARD_SECONDS*2?SAFE_CRITICAL_WINDOW:(ahead<SAFE_START_GATE_SECONDS?Math.max(64,SAFE_CRITICAL_WINDOW*2):Math.min(192,STREAM_REFILL_MIN_WINDOW*3)),end=Math.min(s.total,start+window);
+  /* Restore the contiguous refill coverage used by the long-running healthy/v43
+     build. A tiny SAFE must *expand* the contiguous supply horizon, not shrink
+     it to 32 chunks while the rest of the swarm fills distant reservations. */
+  const start=Math.max(0,mp4ProgressiveCursor(s)),p=activePreview,ahead=p?.session===s?streamBufferedAhead(p):0,high=Math.max(STREAM_REFILL_MIN_WINDOW,Number(s.decoderRefillEnd)||Number(s.decoderLimit)||start+STREAM_REFILL_MIN_WINDOW),end=Math.min(s.total,Math.max(start+STREAM_REFILL_MIN_WINDOW,Math.min(start+STREAM_REFILL_MAX_WINDOW,high)));
   /* During REFILL the plant is the contiguous parser supply line. All scheduler
      lanes first fill the nearest holes ahead of MP4Box; far-ahead prefetch only
      receives spare capacity after this window is already received/in-flight. */
@@ -1144,7 +1147,14 @@ async function schedulerTickBody(s){
       for(const idx of requests[i].indexes){const inf=s.inflight.get(idx);if(inf?.actor===a){s.inflight.delete(idx);reclaimed++}if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.unshift(idx)}
       s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-reclaimed))
     }
-    return ok})())}if(jobs.length)await Promise.allSettled(jobs);
+    return ok})())}
+  /* Never hold the *global* scheduler mutex while broker/relay ingress promises
+     settle. That turns one slow messaging plane into head-of-line blocking of
+     every healthy data route. Reservations already cap concurrent work, and
+     each failure handler reclaims only the reservations it still owns. */
+  if(jobs.length)Promise.allSettled(jobs).then(()=>{
+    if(s.state==='downloading')scheduleSession(s,0)
+  }).catch(e=>previewDebugEvent('DISPATCH SETTLE',String(e?.message||e),'warn',s));
   if(s.mode==='stream'&&noByteFor>5000&&now-(s.lastHeadDiagnosticAt||0)>5000){
     s.lastHeadDiagnosticAt=now;const head=mp4ProgressiveCursor(s),owner=s.inflight.get(head);
     previewDebugEvent('DECODER HOLE',`head ${head} · recv ${bitHas(s.receivedBits,head)?'yes':'NO'} · cached ${s.streamCached?.has(head)?'yes':'NO'} · owner ${owner?(profileFor(owner.actor)?.alias||owner.actor):'unreserved'} · inflight ${s.inflight.size} · no byte ${(noByteFor/1000).toFixed(1)}s`,'warn',s)
