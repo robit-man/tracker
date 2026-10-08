@@ -194,7 +194,7 @@ const MP4BOX_VERSION='2.4.1';
 const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-bounded-lifecycle-v66';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-direct-playback-v67';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -1302,8 +1302,8 @@ async function promoteStreamCacheToDecoder(s){const p=activePreview;if(!p||p.ses
     if(s.networkComplete&&(s.decoderFedCount||0)>=s.total&&s.state==='downloading'){s.state='complete';await finishPreviewSession(s);refreshPreviewStats();return}
     if(p.mode==='mp4box'&&!s.playbackStarted&&streamBufferedAhead(p)<STREAM_START_PLAY_SECONDS){const next=mp4ProgressiveCursor(s);if(Number.isInteger(next)&&next>=0&&next<s.total&&!bitHas(s.decoderFedBits,next)&&!bitHas(s.receivedBits,next))requestDecoderUrgent(s,next,IS_MOBILEISH?12:20)}
     if(p.mode==='mp4box'&&s.state==='downloading'){const next=mp4ProgressiveCursor(s),q=mp4QueuePressure(p),ready=!!(s.decoderHot?.has(next)||s.streamCached?.has(next));if(ready&&q.segments<MP4_QUEUE_HIGH_SEGMENTS&&q.bytes<MP4_QUEUE_HIGH_BYTES)s.decoderContinuationPending=true}
-  }finally{s.decoderPromoting=false;if(s.decoderContinuationPending){s.decoderContinuationPending=false;scheduleDecoderPromotion(s,IS_MOBILEISH?24:12)}}}
-function scheduleDecoderPromotion(s,delay=0){const p=activePreview;if(!p||p.session!==s||s.state!=='downloading')return;if(p.decoderPromoteTimer)return;p.decoderPromoteTimer=setTimeout(()=>{p.decoderPromoteTimer=0;promoteStreamCacheToDecoder(s).catch(e=>console.warn('decoder promotion',e))},Math.max(delay,IS_MOBILEISH?18:8))}
+  }finally{s.decoderPromoting=false;if(s.decoderContinuationPending||s.decoderPromotionWanted){s.decoderContinuationPending=false;s.decoderPromotionWanted=false;scheduleDecoderPromotion(s,IS_MOBILEISH?24:12)}}}
+function scheduleDecoderPromotion(s,delay=0){const p=activePreview;if(!p||p.session!==s||s.state!=='downloading')return;if(s.decoderPromoting){s.decoderPromotionWanted=true;return}if(p.decoderPromoteTimer)return;p.decoderPromoteTimer=setTimeout(()=>{p.decoderPromoteTimer=0;promoteStreamCacheToDecoder(s).catch(e=>console.warn('decoder promotion',e))},Math.max(delay,IS_MOBILEISH?18:8))}
 function ensureDecoderFrontier(s,idx,radius=0,reason='decoder'){if(!s||!Number.isInteger(idx))return 0;const p=activePreview,base=IS_MOBILEISH?96:144,timeChunks=p?.mode==='mp4box'?streamChunksForSeconds(p,s,STREAM_PROACTIVE_DECODE_SECONDS*1.25):0,want=Math.min(s.total,idx+Math.max(base,Math.max(0,radius),timeChunks)+1),prev=Math.max(0,Number(s.decoderLimit)||0);if(want>prev){s.decoderLimit=want;s.streamRequestLimit=Math.max(Number(s.streamRequestLimit)||0,want);s.prefetchLimit=Math.max(Number(s.prefetchLimit)||0,want);previewDebugEvent('DECODER FRONTIER',`${prev} → ${want} · cursor ${idx} · ${reason}`,'info',s)}return want}
 function preemptForDecoderUrgent(s,lo,hi,need=0,force=false){if(!s||!s.inflight?.size||need<=0)return 0;const p=activePreview,ahead=p?.session===s?streamBufferedAhead(p):Infinity;if(!force&&ahead>=STREAM_CRITICAL_DECODE_SECONDS)return 0;const victims=[...s.inflight.entries()].filter(([i])=>i<lo||i>hi).sort((a,b)=>b[0]-a[0]||((b[1]?.ts||0)-(a[1]?.ts||0)));let n=0;for(const[idx,inf]of victims){if(n>=need)break;s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.push(idx);n++}if(n){previewDebugEvent('DECODER PREEMPT',`${n} far-ahead reservations reclaimed · safe ${ahead.toFixed(1)}s`,'warn',s)}return n}
 function decoderChunkExpectedBytes(s,idx){const c=contents.get(s?.cid);return Math.max(0,Math.min(Number(s?.chunkSize)||CHUNK_SIZE,(Number(c?.size)||0)-idx*(Number(s?.chunkSize)||CHUNK_SIZE)))}
@@ -1355,10 +1355,35 @@ function hedgeDecoderHead(s,idx,width=DECODER_HEAD_HEDGE_WIDTH,reason='decoder-h
 }
 function requestDecoderUrgent(s,idx,radius=2){if(!s||!Number.isInteger(idx))return;s.decoderUrgent=s.decoderUrgent||new Set();s.priority=s.priority||[];if(!Number.isInteger(s.decoderFeedCursor))s.decoderFeedCursor=Math.max(0,idx);const lo=Math.max(0,idx),fullHi=Math.min(s.total-1,idx+Math.max(0,radius)),queueCap=streamRefillWindowCaps(s).queue,hi=Math.min(fullHi,lo+queueCap-1);ensureDecoderFrontier(s,lo,radius,'urgent');let cachedHit=false,missing=0;const urgentMissing=[];for(let i=lo;i<=hi;i++){if(bitHas(s.decoderFedBits,i))continue;s.decoderUrgent.add(i);if(bitHas(s.receivedBits,i)){if(s.streamCached?.has(i)||s.decoderHot?.has(i))cachedHit=true;else if(i===lo)recoverDecoderChunkFromCache(s,i).then(ok=>{if(ok)scheduleDecoderPromotion(s);else{hedgeDecoderHead(s,i,DECODER_HEAD_HEDGE_WIDTH,'received-without-bytes');scheduleSession(s,0)}}).catch(()=>{});continue}missing++;if(!s.inflight.has(i)&&!s.priority.includes(i))urgentMissing.push(i)}/* Keep only a bounded nearest-first urgent queue. A huge far-ahead urgent list is counterproductive for a sequential parser. */for(let j=urgentMissing.length-1;j>=0;j--)s.priority.unshift(urgentMissing[j]);if(cachedHit)scheduleDecoderPromotion(s);if(!bitHas(s.receivedBits,lo)&&!s.decoderHot?.has(lo)&&!s.streamCached?.has(lo))hedgeDecoderHead(s,lo,Math.max(DECODER_HEAD_HEDGE_WIDTH,IS_MOBILEISH?6:8),'urgent-miss');scheduleSession(s,0)}
 async function storeReceivedChunk(s,idx,part){
-  const c=contents.get(s.cid);if(s.mode==='stream'){const p=activePreview;s.decoderFedBits=s.decoderFedBits||new Uint8Array(Math.ceil(s.total/8));s.decoderHot=s.decoderHot||new Map();
-    /* Persist every canonical stream chunk before any decoder bookkeeping. This makes receivedBits/networkComplete a truthful statement: every received chunk is recoverable until warm-session cleanup. */await cacheStreamChunk(s,idx,part);
-    if(p?.mode==='mp4box'&&p.mp4boxReady){const near=streamDecoderShouldConsume(p,s,idx)||s.decoderUrgent?.has(idx);if(near&&s.decoderHot.size<MP4_HOT_CHUNKS)s.decoderHot.set(idx,part);scheduleDecoderPromotion(s);return}
-    if(streamDecoderShouldConsume(p,s,idx)){const consumed=await consumePreviewChunk(s,idx,part);if(consumed){if(!bitHas(s.decoderFedBits,idx)){bitSet(s.decoderFedBits,idx);s.decoderFedCount=(s.decoderFedCount||0)+1}}}return}
+  const c=contents.get(s.cid);if(s.mode==='stream'){
+    const p=activePreview,owned=p?.session===s&&!p.lifecycleClosed;
+    s.decoderFedBits=s.decoderFedBits||new Uint8Array(Math.ceil(s.total/8));
+    s.decoderHot=s.decoderHot||new Map();
+    /* Single-writer sequential MP4Box feed, including BEFORE onReady. Never call
+       mp4box.appendBuffer() directly from an out-of-order network receive. A
+       received chunk close to the parser head is handed to the bounded hot
+       window immediately; the IndexedDB write may continue in parallel. */
+    if(owned&&p.mode==='mp4box'){
+      const head=mp4ProgressiveCursor(s);
+      const near=idx>=head&&idx<head+MP4_HOT_CHUNKS;
+      if(near&&!bitHas(s.decoderFedBits,idx)&&!s.decoderHot.has(idx)&&s.decoderHot.size<MP4_HOT_CHUNKS){
+        s.decoderHot.set(idx,part);
+        scheduleDecoderPromotion(s,0);
+      }
+    }
+    /* Cache remains authoritative for verified download accounting and recovery;
+       decoder delivery of hot chunks must not wait on IndexedDB/WC encryption. */
+    await cacheStreamChunk(s,idx,part);
+    if(s.state==='closed')return;
+    if(owned&&p.mode==='mp4box'){scheduleDecoderPromotion(s,0);return}
+    if(owned&&streamDecoderShouldConsume(p,s,idx)){
+      const consumed=await consumePreviewChunk(s,idx,part);
+      if(consumed&&!bitHas(s.decoderFedBits,idx)){
+        bitSet(s.decoderFedBits,idx);s.decoderFedCount=(s.decoderFedCount||0)+1;
+      }
+    }
+    return;
+  }
   if(s.mode==='download'){await cacheDownloadChunk(s.cid,idx,part);if(s.sink?.writable){try{const plain=await canonicalToPlain(c,idx,part),off=idx*(Number(c?.plainChunkSize)||s.chunkSize);await s.sink.writable.write({type:'write',position:off,data:plain})}catch(e){console.warn('download destination write failed; resumable cache retained',e);try{await s.sink.writable?.abort?.()}catch(_){}s.sink.writable=null;s.sink.kind='cache'}}scheduleDownloadJobPersist(s);return}
 }
 async function queueVerification(s,idx,part){if(s.mode==='download'){if(s.receivedCount===s.total)await finishDownload(s);return}const leaf=await sha256Bytes(part);s.verifyPending.set(idx,leaf);if(s.verifyBusy)return;s.verifyBusy=true;try{while(s.verifyPending.has(s.verifyCursor)){const h=s.verifyPending.get(s.verifyCursor);s.verifyPending.delete(s.verifyCursor);s.verifyState=await swarmStep(s.verifyState,h);s.verifyCursor++}}finally{s.verifyBusy=false}if(s.receivedCount===s.total&&s.verifyCursor===s.total)await finishDownload(s)}
@@ -1433,7 +1458,7 @@ function cleanupPreview(){
       Promise.allSettled([...(s.cacheWrites||[])]).then(()=>idbDeletePrefix('streamChunks',s.sid+':')).catch(()=>{});
     }
     for(const name of ['decoderHot','streamCached','decoderUrgent','inflight','inflightByPeer','providerBytes','providerStarted','providerLastAt','providerPenalty','pathStats','frontierFailedSource','decoderHeadHedgeAt','verifyPending','receiving'])try{s[name]?.clear?.()}catch(_){}
-    s.retry=[];s.priority=[];s.rateSamples=[];
+    s.retry=[];s.priority=[];s.rateSamples=[];s.decoderPromotionWanted=false;s.decoderContinuationPending=false;
   }
   /* Tear down the media first: revoking a blob URL alone does not release the
      decoder, buffered SourceBuffers or MP4Box references. */
