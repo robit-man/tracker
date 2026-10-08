@@ -197,7 +197,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-seg-repair-v74';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-safe-feedback-v75';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -1366,6 +1366,53 @@ function mp4DecoderSupplyGate(p,s){
 
 /* The ticker does NOT depend on a new network event, video timeupdate, or
    MSE updateend: a healthy prefix must continue to enter MP4Box after refill. */
+function wakeSafePlant(p=activePreview,reason='event'){
+  if(!p||p.lifecycleClosed||p.safePlantWakeQueued)return;
+  p.safePlantWakeQueued=true;
+  queueMicrotask(()=>{
+    p.safePlantWakeQueued=false;
+    if(activePreview===p&&!p.lifecycleClosed)driveSafePlant(p,reason);
+  });
+}
+function driveSafePlant(p=activePreview,reason='tick'){
+  const s=p?.session;
+  if(!p||!s||p.mode!=='mp4box'||!p.mp4boxReady||s.state!=='downloading'||p.lifecycleClosed)return;
+  const safe=streamBufferedAhead(p),band=streamSafeBand(s,p),ctl=updateSafeRateController(p,s,safe,band);
+  const head=mp4ProgressiveCursor(s),q=mp4QueuePressure(p);
+  const queueRoom=q.segments<MP4_QUEUE_HIGH_SEGMENTS&&q.bytes<Math.min(MP4_QUEUE_HIGH_BYTES,MP4_RAM_QUEUE_BUDGET_BYTES);
+  const ready=!!(s.decoderHeadPin?.idx===head||s.decoderHot?.has(head)||s.streamCached?.has(head));
+  s.decoderRefillActive=true;
+  /* Make every tick useful: drain enqueued fragments first, then present the
+     earliest verified bytes to MP4Box before asking peers for more bytes. */
+  drainMp4SourceBuffers(p);
+  if(ready&&queueRoom&&mp4DecoderSupplyGate(p,s))scheduleDecoderPromotion(s,0);
+  if(!ready&&bitHas(s.receivedBits,head)){
+    /* Received is not the same as decoder-readable. Never hold the controller
+       behind a pending IndexedDB operation. */
+    if(!s.cacheWritesByIndex?.has(head))recoverDecoderChunkFromCache(s,head).catch(()=>{});
+  }
+  if(ctl.deficit>0){
+    /* Always maintain a contiguous decoder window. More SAFE deficit means
+       more of the finite global window belongs to the parser rather than
+       far-ahead speculative prefetch. */
+    const caps=streamRefillWindowCaps(s),pressure=ctl.pressure;
+    const desired=Math.max(caps.min,Math.min(caps.max,Math.ceil(caps.min+(caps.max-caps.min)*pressure)));
+    s.decoderRefillEnd=Math.min(s.total,head+desired);
+    ensureDecoderFrontier(s,head,desired,'safe-feedback');
+    const missing=!bitHas(s.receivedBits,head)&&!s.decoderHot?.has(head)&&s.decoderHeadPin?.idx!==head;
+    const trigger=s.safePlantHead!==head||!s.inflight?.has(head)||pressure>(Number(s.safePlantRequestedPressure)||0)+.08;
+    s.safePlantHead=head;
+    if(missing&&trigger){
+      s.safePlantRequestedPressure=pressure;
+      const inUse=s.inflight?.size||0,capacity=streamPendingCap(s),wantFree=Math.max(4,Math.ceil(SAFE_HOT_BATCH_CHUNKS*pressure));
+      if(capacity-inUse<wantFree)preemptForDecoderUrgent(s,head,Math.min(s.total-1,head+SAFE_HOT_BATCH_CHUNKS),Math.min(wantFree,12),true);
+      requestDecoderUrgent(s,head,Math.max(SAFE_HOT_BATCH_CHUNKS,Math.min(desired,SAFE_CRITICAL_WINDOW*3)));
+      hedgeDecoderHead(s,head,DECODER_HEAD_HEDGE_WIDTH,'safe-deficit');
+    }
+    if(missing&&trigger)scheduleSession(s,0);
+  }
+  s.safePlantLastStage={head,safe,queue:q.segments,deficit:ctl.deficit,reason};
+}
 function superviseMp4Supply(p=activePreview){
   const s=p?.session;if(!p||!s||p.mode!=='mp4box'||!p.mp4boxReady||s.state!=='downloading'||p.lifecycleClosed)return;
   const now=performance.now();if(now-(s.lastDecoderSupplyTick||0)<250)return;s.lastDecoderSupplyTick=now;
@@ -1479,12 +1526,47 @@ function markDecoderChunkMissing(s,idx,reason='cache-miss'){if(!s||!Number.isInt
   const previous=s.inflight?.get(idx);
   if(previous){s.inflight.delete(idx);s.inflightByPeer?.set(previous.actor,Math.max(0,(s.inflightByPeer.get(previous.actor)||1)-1))}
   if(!s.priority?.includes(idx))s.priority?.unshift(idx);return true}
-async function recoverDecoderChunkFromCache(s,idx){if(!s||!Number.isInteger(idx)||bitHas(s.decoderFedBits,idx))return false;if(s.decoderHeadPin?.idx===idx||s.decoderHot?.has(idx))return true;try{const part=await loadStreamCachedChunk(s,idx);if(part?.length){s.decoderRepairNeeded?.delete(idx);s.decoderHot=s.decoderHot||new Map();s.decoderHot.set(idx,part);s.streamCached=s.streamCached||new Set();s.streamCached.add(idx);return true}}catch(e){previewDebugEvent('DECODER CACHE READ',`chunk ${idx} · ${String(e?.message||e)}`,'warn',s)}if(bitHas(s.receivedBits,idx)){
-    // A background write may not have committed yet. Wait for its resolution
-    // instead of clearing the receive index and requesting redundant packets.
-    if(s.cacheWritesByIndex?.has(idx)){scheduleDecoderPromotion(s,80);return false}
-    markDecoderChunkMissing(s,idx,'bytes unavailable');
-  }return false}
+async function recoverDecoderChunkFromCache(s,idx){
+  if(!s||!Number.isInteger(idx)||bitHas(s.decoderFedBits,idx))return false;
+  if(s.decoderHeadPin?.idx===idx||s.decoderHot?.has(idx))return true;
+  /* A write still in progress is not a cache miss. Its completion schedules
+     the next feed; never block the single decoder worker behind the write. */
+  if(s.cacheWritesByIndex?.has(idx)){
+    /* A stalled writer must not monopolize a verified decoder frontier: peer
+       retransmission can repair the head while persistence finishes. */
+    if(idx===mp4ProgressiveCursor(s)&&bitHas(s.receivedBits,idx)){
+      s.decoderRepairNeeded=s.decoderRepairNeeded||new Set();
+      s.decoderRepairNeeded.add(idx);
+      hedgeDecoderHead(s,idx,DECODER_HEAD_HEDGE_WIDTH,'safe-plant-pending-write');
+    }
+    return false;
+  }
+  let part=null;
+  try{part=await decoderCacheReadBounded(s,idx)}
+  catch(e){previewDebugEvent('DECODER CACHE READ',`chunk ${idx} · ${String(e?.message||e)}`,'warn',s)}
+  if(part?.length){
+    if(s.state!=='downloading'||bitHas(s.decoderFedBits,idx))return false;
+    s.decoderRepairNeeded?.delete(idx);
+    s.decoderHot=s.decoderHot||new Map();
+    if(idx===mp4ProgressiveCursor(s))s.decoderHeadPin={idx,part};
+    else if(s.decoderHot.size<MP4_HOT_CHUNKS)s.decoderHot.set(idx,part);
+    s.streamCached=s.streamCached||new Set();s.streamCached.add(idx);
+    scheduleDecoderPromotion(s,0);
+    return true;
+  }
+  /* A bounded IDB timeout does not imply the record is missing: the late
+     single-flight completion or an independent peer repair may still arrive.
+     Do not falsely clear receivedBits or invalidate verified byte accounting. */
+  if(bitHas(s.receivedBits,idx)&&s.streamCached?.has(idx)){
+    s.decoderRepairNeeded=s.decoderRepairNeeded||new Set();
+    s.decoderRepairNeeded.add(idx);
+    if(idx===mp4ProgressiveCursor(s))hedgeDecoderHead(s,idx,DECODER_HEAD_HEDGE_WIDTH,'safe-plant-cache-read');
+    return false;
+  }
+  if(bitHas(s.receivedBits,idx)&&!s.cacheWritesByIndex?.has(idx))
+    markDecoderChunkMissing(s,idx,'cache-record-absent');
+  return false;
+}
 function hedgeDecoderHead(s,idx,width=DECODER_HEAD_HEDGE_WIDTH,reason='decoder-head'){
   if(!s||s.state!=='downloading'||!Number.isInteger(idx))return;
   /* v73: the first absent parser byte always outranks speculative missing
@@ -1630,7 +1712,7 @@ async function handleBinary(packet,{peerId,metadata},w){
     /* Reinforcement is granted only after the chunk survives transport decrypt,
        optional seed-envelope decrypt, length validation, and local storage. */
     if(w&&!metadata?.relayPlane)s.binaryProven?.add(remote);s.dataProven?.add(remote);{const ps=rewardProviderPath(s,remote,path,part.length);if(w&&!metadata?.relayPlane){const rid=routeKey(w,peerId||''),rr=peerRoutes.get(remote)?.get(rid);if(rr){const rbps=recentPathBps(ps);rr.bps=rr.bps?rr.bps*.72+rbps*.28:rbps;rr.lastSeen=Date.now();rr.failures=Math.max(0,(rr.failures||0)-.2);recomputePrimaryRoute(remote)}}previewDebugNoteProtocol(s,path,part.length,remote)}
-    bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;if(idx===(s.rxPrefix||0)){let rp=s.rxPrefix||0;while(rp<s.total&&bitHas(s.receivedBits,rp))rp++;s.rxPrefix=rp;s.frontierLastAdvanceAt=performance.now();}s.frontierFailedSource?.delete(idx);const inf=s.inflight.get(idx);if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);s.providerLastAt=s.providerLastAt||new Map();s.providerLastAt.set(remote,performance.now());s.lastByteAt=performance.now();s.rateSamples=s.rateSamples||[];s.rateSamples.push([performance.now(),part.length]);while(s.rateSamples.length&&performance.now()-s.rateSamples[0][0]>6500)s.rateSamples.shift();noteFileTraffic(cid,part.length);queueVerification(s,idx,part).catch(e=>failSession(s,e));if(s.mode==='stream')refreshPreviewStats();else{scheduleDownloadJobPersist(s);refreshTransfer();scheduleDownloadRowRender()}scheduleSession(s,0)
+    bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;if(idx===(s.rxPrefix||0)){let rp=s.rxPrefix||0;while(rp<s.total&&bitHas(s.receivedBits,rp))rp++;s.rxPrefix=rp;s.frontierLastAdvanceAt=performance.now();}s.frontierFailedSource?.delete(idx);const inf=s.inflight.get(idx);if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);s.providerLastAt=s.providerLastAt||new Map();s.providerLastAt.set(remote,performance.now());s.lastByteAt=performance.now();s.rateSamples=s.rateSamples||[];s.rateSamples.push([performance.now(),part.length]);while(s.rateSamples.length&&performance.now()-s.rateSamples[0][0]>6500)s.rateSamples.shift();noteFileTraffic(cid,part.length);queueVerification(s,idx,part).catch(e=>failSession(s,e));if(s.mode==='stream'){refreshPreviewStats();if(activePreview?.session===s&&activePreview.mode==='mp4box')wakeSafePlant(activePreview,'receive');}else{scheduleDownloadJobPersist(s);refreshTransfer();scheduleDownloadRowRender()}scheduleSession(s,0)
   }catch(e){failSession(s,e)}finally{s.receiving?.delete(idx);s.receivingSince?.delete(idx)}
 }
 async function finishDownload(s){
@@ -1831,9 +1913,37 @@ function kickBufferedDecoder(p,state=streamBufferedState(p)){const m=p?.media,no
 function streamContentBytes(s){return Math.max(0,Number(contents.get(s?.cid)?.size)||0)}
 function streamLargeTier(s){const b=streamContentBytes(s);return b>=XLARGE_MEDIA_BYTES?2:b>=LARGE_MEDIA_BYTES?1:0}
 function streamSafeBand(s,p){const tier=streamLargeTier(s),remaining=Math.max(0,mediaOriginalDuration(p)-(Number(p?.media?.currentTime)||0));let low=STREAM_SAFE_LOW_SECONDS,high=STREAM_SAFE_HIGH_SECONDS;if(tier===1){low=LARGE_SAFE_LOW_SECONDS;high=LARGE_SAFE_HIGH_SECONDS}else if(tier===2){low=XLARGE_SAFE_LOW_SECONDS;high=XLARGE_SAFE_HIGH_SECONDS}if(remaining>0){high=Math.max(low,Math.min(high,remaining));low=Math.min(low,Math.max(8,high*.72))}return{tier,low,high}}
-function updateSafeRateController(p,s,ahead,band){const now=performance.now(),prevAt=Number(s.safeCtlAt)||0,prev=Number.isFinite(Number(s.safeCtlAhead))?Number(s.safeCtlAhead):ahead,dt=prevAt?Math.max(.05,(now-prevAt)/1000):0,raw=dt?((ahead-prev)/dt):0,ema=prevAt?(Number(s.safeSlopeEma)||0)*.58+raw*.42:0;s.safeCtlAt=now;s.safeCtlAhead=ahead;s.safeSlopeEma=ema;const error=Math.max(0,band.high-ahead),errN=band.high?error/band.high:0,drain=Math.max(0,-ema),tierBoost=band.tier===2?1.7:band.tier===1?1.15:0,timeToLow=drain>.03?Math.max(0,(ahead-band.low)/drain):Infinity;let aggression=1+tierBoost+errN*3.4+Math.min(3.4,drain*1.9);if(band.tier)aggression=Math.max(LARGE_REFILL_MIN_GAIN,aggression);if(timeToLow<180)aggression+=1.0;if(timeToLow<90)aggression+=1.1;if(timeToLow<45)aggression+=1.3;if(ahead<band.low)aggression+=1.4;if(ahead<STREAM_CRITICAL_DECODE_SECONDS)aggression+=1.8;aggression=Math.max(1,Math.min(band.tier?LARGE_REFILL_MAX_GAIN:4.0,aggression));s.safeAggression=aggression;s.safeError=error;s.safeDrainRate=drain;s.safeTimeToLow=timeToLow;return{aggression,slope:ema,drain,timeToLow}}
+function updateSafeRateController(p,s,ahead,band){
+  /* The set point is the playable (intersection A/V) MSE reserve, not network
+     throughput and not a timeout. Negative SAFE slope and normalized reserve
+     deficit increase actuator demand; positive growth reduces it smoothly. */
+  const now=performance.now(),prior=Number(s.safeCtlAhead),prevAt=Number(s.safeCtlAt)||0;
+  const dt=prevAt?Math.max(.05,(now-prevAt)/1000):0;
+  const slope=dt&&Number.isFinite(prior)?(ahead-prior)/dt:0;
+  const ema=prevAt?(Number(s.safeSlopeEma)||0)*.55+slope*.45:0;
+  s.safeCtlAt=now;s.safeCtlAhead=ahead;s.safeSlopeEma=ema;
+  const target=Math.max(1,Math.min(band.high,mp4SafeRamHorizon(p)));
+  const deficit=Math.max(0,target-ahead),error=deficit/target;
+  const falling=Math.max(0,-ema/Math.max(.5,Number(p?.media?.playbackRate)||1));
+  const gain=Math.min(8,Math.max(1,1+4.0*error+2.1*Math.min(1.7,falling)+(band.tier?1.1:0)));
+  s.safeAggression=gain;s.safeError=deficit;s.safeDrainRate=Math.max(0,-ema);
+  s.safePlantTarget=target;s.safePlantDeficit=deficit;s.safePlantPressure=Math.min(1,Math.max(error,Math.min(1,falling/2)));
+  return{aggression:gain,slope:ema,drain:s.safeDrainRate,deficit,target,pressure:s.safePlantPressure};
+}
 function streamRefillWindowCaps(s){const tier=streamLargeTier(s),aggr=Math.max(1,Number(s?.safeAggression)||1);if(!tier)return{min:STREAM_REFILL_MIN_WINDOW,max:STREAM_REFILL_MAX_WINDOW,queue:STREAM_REFILL_QUEUE_CHUNKS};const bytesPerChunk=Math.max(1,Number(s?.chunkSize)||512*1024),reserveChunks=Math.max(LARGE_REFILL_MIN_WINDOW,Math.ceil(LARGE_CONTIGUOUS_RESERVE_BYTES/bytesPerChunk)),max=Math.min(s.total,Math.max(reserveChunks,Math.round(reserveChunks*Math.min(1.35,1+.04*(aggr-LARGE_REFILL_MIN_GAIN))))),queue=Math.min(max,Math.max(LARGE_REFILL_QUEUE_CHUNKS,Math.round(reserveChunks*Math.min(1.2,.82+.05*aggr))));return{min:Math.min(reserveChunks,max),max,queue}}
-function updateDecoderRefillState(p,s,ahead){if(!p||!s)return false;const band=streamSafeBand(s,p),ctl=updateSafeRateController(p,s,ahead,band),falling=ctl.slope<-.12,restart=band.low,remaining=Math.max(0,mediaOriginalDuration(p)-(Number(p?.media?.currentTime)||0));/* Large-file invariant: startup-style contiguous refill stays ON for the entire active playback session. Do not enter HOLD merely because SAFE briefly reaches high water; the 200 MiB decoder reserve is maintained continuously and bulk prefetch only receives spare capacity. */if(band.tier){if(!s.decoderRefillActive)previewDebugEvent('LARGE REFILL LOCK',`${ahead.toFixed(1)}s · permanent contiguous reserve · gain ${ctl.aggression.toFixed(1)}x`,'warn',s);s.decoderRefillActive=remaining>Math.max(2,ahead+.5)}else if(!s.playbackStarted){s.decoderRefillActive=true}else if(s.decoderRefillActive){/* SAFE high water is a milestone, not an idle/hold mode. Keep decoding and prefetching. */}else if(ahead<=restart||falling&&ahead<band.high){s.decoderRefillActive=true;previewDebugEvent('SAFE REFILL START',`${ahead.toFixed(1)}s · slope ${ctl.slope.toFixed(2)}s/s · target ${band.high.toFixed(0)}s · gain ${ctl.aggression.toFixed(1)}x`,'warn',s)}s.decoderRefillTarget=band.high;s.decoderRefillRestart=restart;s.safeBandTier=band.tier;return !!s.decoderRefillActive}
+function updateDecoderRefillState(p,s,ahead){
+  if(!p||!s)return false;
+  const band=streamSafeBand(s,p),ctl=updateSafeRateController(p,s,ahead,band);
+  const remaining=Math.max(0,mediaOriginalDuration(p)-(Number(p?.media?.currentTime)||0));
+  /* No SAFE-dependent IDLE/HOLD state: keep the verified sequential supply
+     moving whenever downstream MSE capacity exists. Near EOF there can be
+     no additional media to acquire; that is not a controller failure. */
+  s.decoderRefillActive=!(mediaOriginalDuration(p)>0&&remaining<=Math.max(.25,ahead));
+  s.decoderRefillTarget=ctl.target;
+  s.decoderRefillRestart=band.low;
+  s.safeBandTier=band.tier;
+  return s.decoderRefillActive;
+}
 function maintainContinuousPlayback(p=activePreview,reason='tick',force=false){const s=p?.session,m=p?.media;if(!p||!s||!m||s.mode!=='stream'||s.state!=='downloading'||p.hiddenAt)return;const now=performance.now();if(!force&&now-(s.lastPlaybackMaintenanceAt||0)<STREAM_MAINTENANCE_MS)return;s.lastPlaybackMaintenanceAt=now;latchPlaybackStarted(p);ensureStreamHorizon(reason,force);if(p.mode!=='mp4box'||!p.mp4boxReady)return;const state=streamBufferedState(p),ahead=state.ahead,next=mp4ProgressiveCursor(s),q=mp4QueuePressure(p),queueSafe=q.segments<MP4_QUEUE_HIGH_SEGMENTS&&q.bytes<MP4_QUEUE_HIGH_BYTES,refilling=updateDecoderRefillState(p,s,ahead),target=Number(s.decoderRefillTarget)||STREAM_SAFE_HIGH_SECONDS,caps=streamRefillWindowCaps(s),aggr=Math.max(1,Number(s.safeAggression)||1),tier=streamLargeTier(s);const extraLead=(tier?Math.round(120+120*Math.min(4,aggr)):45),targetChunks=Math.max(caps.min,streamChunksForSeconds(p,s,target+extraLead)),refillWidth=tier?caps.max:Math.max(caps.min,Math.min(caps.max,Math.round(targetChunks*Math.min(1.5,.85+aggr*.12)))),holdWidth=Math.max(caps.min,Math.min(caps.max,streamChunksForSeconds(p,s,STREAM_PROACTIVE_DECODE_SECONDS*(tier?1.7:1)))),radius=refilling?refillWidth:holdWidth;s.decoderRefillEnd=Math.min(s.total,next+radius);ensureDecoderFrontier(s,next,radius,refilling?'pid-refill':'prefix-hold');
   /* Large-file plant: keep the contiguous parser supply line full. Negative SAFE
      slope immediately increases reserve width, in-flight capacity and preemption. */
@@ -1842,7 +1952,7 @@ function maintainContinuousPlayback(p=activePreview,reason='tick',force=false){c
   if(queueSafe&&(refilling||ahead<STREAM_PROACTIVE_DECODE_SECONDS||s.decoderHot?.has(next)||s.streamCached?.has(next)))scheduleDecoderPromotion(s,0);
   if(refilling){s.lastSafeRefillAt=now;const demandMs=tier?Math.max(160,420/aggr):700;if(!s.lastProactiveDemandAt||now-s.lastProactiveDemandAt>demandMs){s.lastProactiveDemandAt=now;announceStreamDemand(s).catch(()=>{});wakeTransferTransports()}}else if(ahead<STREAM_CRITICAL_DECODE_SECONDS){if(!s.lastProactiveDemandAt||now-s.lastProactiveDemandAt>700){s.lastProactiveDemandAt=now;announceStreamDemand(s).catch(()=>{});wakeTransferTransports();scheduleSession(s,0)}}if(s.playbackStarted&&!m.seeking&&p.wantPlayback!==false&&m.paused&&streamCanStartPlayback(p,s,state)){s.safeHeld=false;p.controllerPause=false;const qplay=m.play();qplay?.catch?.(()=>{})}}
 
-function playbackWatchdogTick(){const p=activePreview,s=p?.session,m=p?.media;if(!p||!s||!m||s.mode!=='stream'||!['downloading','complete'].includes(s.state)||document.hidden)return;latchPlaybackStarted(p);drainPreviewSourceBuffers(p);if(s.state==='downloading'){maintainContinuousPlayback(p,'tick',false);superviseMp4Supply(p);watchdogMp4Segmentation(p)}const now=performance.now(),state=streamBufferedState(p),t=Number(m.currentTime)||0;
+function playbackWatchdogTick(){const p=activePreview,s=p?.session,m=p?.media;if(!p||!s||!m||s.mode!=='stream'||!['downloading','complete'].includes(s.state)||document.hidden)return;latchPlaybackStarted(p);drainPreviewSourceBuffers(p);if(s.state==='downloading'){maintainContinuousPlayback(p,'tick',false);driveSafePlant(p,'watchdog');superviseMp4Supply(p);watchdogMp4Segmentation(p)}const now=performance.now(),state=streamBufferedState(p),t=Number(m.currentTime)||0;
   /* Acquisition continues regardless of playback state. Never forcibly pause
      the media element to enforce a target buffer depth. */
   enforceSafePlaybackGuard(p,state);if(!m.paused&&!m.seeking){if(Math.abs(t-(p.watchdogLastTime??-1))>.015){p.watchdogLastTime=t;p.watchdogLastProgressAt=now;p.waitingSince=0}else if(!p.watchdogLastProgressAt)p.watchdogLastProgressAt=now}
@@ -1893,8 +2003,13 @@ function queueSourceBuffer(sb,buffer){if(!sb||!buffer||sb.__preview?.lifecycleCl
 function trimPreviewBehind(p=activePreview){if(!p?.media)return;const cut=Math.max(0,(Number(p.media.currentTime)||0)-STREAM_KEEP_BEHIND_SECONDS),buffers=p.mp4TrackBuffers?.size?[...p.mp4TrackBuffers.values()]:(p.sourceBuffer?[p.sourceBuffer]:[]);if(cut<=0)return;for(const sb of buffers)try{if(!sb.updating&&sb.buffered?.length&&sb.buffered.start(0)<cut-1)sb.remove(sb.buffered.start(0),Math.min(cut,sb.buffered.end(0)))}catch(_){}}
 function drainSourceBuffer(sb){if(!sb||sb.__preview?.lifecycleClosed||sb.updating||!sb.__q?.length)return;const next=sb.__q[0];try{sb.__appendStartedAt=performance.now();sb.__lastAppendBytes=next.byteLength||0;sb.appendBuffer(next);if(sb.__preview){sb.__preview.mseQuotaBlocked=false;sb.__preview.lastSuccessfulMseQueueAt=performance.now()}sb.__q.shift();sb.__qBytes=Math.max(0,(sb.__qBytes||0)-(next.byteLength||0))}catch(e){sb.__appendStartedAt=0;if(e?.name==='QuotaExceededError'){previewDebugEvent('MSE QUOTA',`${sb.__trackKind||'T'} · q${sb.__q?.length||0}`,'warn',sb.__preview?.session);trimPreviewBehind(sb.__preview||activePreview);const q=sb.__preview;if(q){q.mseQuotaBlocked=true;if(!q.mseQuotaRetryTimer){q.mseQuotaRetryTimer=setTimeout(()=>{q.mseQuotaRetryTimer=0;if(q.lifecycleClosed)return;trimPreviewBehind(q);if(q.mode==='mp4box')drainMp4SourceBuffers(q);else drainSourceBuffer(sb)},1000)}}return}previewDebugEvent('MSE APPEND ERROR',`${sb.__trackKind||'T'} · ${e?.name||e}`,'bad',sb.__preview?.session);console.warn('SourceBuffer append failed',e);sb.__q.shift();sb.__qBytes=Math.max(0,(sb.__qBytes||0)-(next.byteLength||0))}}
 function mediaMseCandidates(p){const e=extOf(p?.name||''),out=[];const add=x=>{if(x&&!out.includes(x))out.push(x)};add(p?.mime);if(['webm','weba'].includes(e)){add(p.kind==='audio'?'audio/webm':'video/webm');add(p.kind==='audio'?'audio/webm; codecs="opus"':'video/webm; codecs="vp9, opus"');add(p.kind==='video'?'video/webm; codecs="vp8, vorbis"':null)}if(['mp3'].includes(e))add('audio/mpeg');if(['aac'].includes(e))add('audio/aac');if(['ogg','oga','ogv','opus'].includes(e)){add(p.kind==='video'?'video/ogg':'audio/ogg');add('audio/ogg; codecs="opus"')}if(['wav','wave'].includes(e))add('audio/wav');return out.filter(x=>x&&x!=='application/octet-stream')}
-async function initMp4BoxStreaming(el,p){if(!('MediaSource'in window))return false;try{const mod=await import(`https://cdn.jsdelivr.net/npm/mp4box@${MP4BOX_VERSION}/+esm`),MP4Box=mod.createFile?mod:(mod.default?.createFile?mod.default:null);if(!MP4Box?.createFile)return false;const ms=new MediaSource(),url=URL.createObjectURL(ms);p.mediaSource=ms;p.mediaSourceUrl=url;p.mode='mp4box';el.src=url;await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('MediaSource open timeout')),4500);ms.addEventListener('sourceopen',()=>{clearTimeout(t);resolve()},{once:true})});const file=MP4Box.createFile(false);p.mp4box=file;p.mp4boxReady=false;p.mp4boxStarted=false;p.mp4SegmentationPaused=false;p.mp4TrackBuffers=new Map();file.onError=e=>{console.warn('MP4Box',e);p.mp4boxLastError=String(e||'');previewDebugEvent('MP4BOX ERROR',p.mp4boxLastError,'bad',p.session)};file.onReady=info=>{if(!activePreview||activePreview!==p||p.mp4boxReady)return;previewDebugEvent('MP4BOX READY',`${(info?.tracks||[]).length} tracks`,'info',p.session);const movieDuration=Number(info?.duration),movieTimescale=Number(info?.timescale),trackDurations=(info?.tracks||[]).map(t=>{const d=Number(t?.duration),ts=Number(t?.timescale);return d>0&&ts>0?d/ts:0}).filter(d=>Number.isFinite(d)&&d>0),fullDuration=movieDuration>0&&movieTimescale>0?movieDuration/movieTimescale:(trackDurations.length?Math.max(...trackDurations):0);if(fullDuration>0){p.originalDurationSeconds=fullDuration;enforceMediaSourceDuration(p);el.dataset.originalDuration=String(fullDuration);el.addEventListener('durationchange',()=>{if(activePreview===p&&mediaOriginalDuration(p)>0)enforceMediaSourceDuration(p)})}const all=(info.tracks||[]).filter(t=>t.video||t.audio);if(!all.length){p.mode='compat';startCompatMedia(el,p,'No MP4 track exposed for MSE');return}const supported=t=>{const base=t.video?'video/mp4':'audio/mp4',mime=`${base}; codecs="${t.codec}"`;return MediaSource.isTypeSupported(mime)?{t,mime}:null},video=(info.videoTracks||all.filter(t=>t.video)).map(supported).find(Boolean),audio=(info.audioTracks||all.filter(t=>t.audio)).map(supported).find(Boolean),selected=[video,audio].filter(Boolean);if(!selected.length){p.mode='compat';startCompatMedia(el,p,'Browser MSE cannot expose these MP4 codecs');return}const segmentSamples=MP4_SEGMENT_SAMPLES;let configured=0;for(const {t,mime} of selected){try{const sb=ms.addSourceBuffer(mime);sb.mode='segments';sb.__q=[];sb.__preview=p;sb.__trackId=t.id;sb.__trackKind=t.video?'V':'A';sb.addEventListener('updateend',()=>{const appended=Number(sb.__lastAppendBytes)||0;sb.__lastAppendBytes=0;sb.__appendStartedAt=0;if(appended){p.mp4LastMseAt=performance.now();previewDebugNoteMseAppend(p,appended,sb.__trackKind)}enforceMediaSourceDuration(p);drainMp4SourceBuffers(p);updateMp4SegmentationFlow(p);markPreviewPlayable();maintainContinuousPlayback(p,'mse-update',false);const s=p.session;if(s?.state==='downloading'){superviseMp4Supply(p);if(mp4QueuePressure(p).segments<=MP4_QUEUE_LOW_SEGMENTS)scheduleDecoderPromotion(s,0)}});sb.addEventListener('error',()=>{console.warn('MP4 SourceBuffer error',mime)});p.mp4TrackBuffers.set(t.id,sb);file.setSegmentOptions(t.id,sb,{nbSamples:segmentSamples,rapAlignement:true,normalizeAudioSampleEntriesForMSE:true});configured++}catch(e){console.warn('MP4 SourceBuffer create',mime,e)}}if(!configured){p.mode='compat';startCompatMedia(el,p,'Browser MSE cannot expose these MP4 codecs');return}file.onSegment=(id,user,buffer,sampleNumber)=>{p.mp4LastSegmentAt=performance.now();p.mp4SegmentCount=(p.mp4SegmentCount||0)+1;p.mp4SegmentBytes=(p.mp4SegmentBytes||0)+(buffer?.byteLength||0);p.mp4LastSegmentTrack=id;p.mp4LastSegmentSample=sampleNumber;p.mp4TrackLastSegment=p.mp4TrackLastSegment||new Map();p.mp4TrackLastSegment.set(id,performance.now());previewDebugNoteSegment(p,buffer?.byteLength||0,user?.__trackKind||id,sampleNumber);
-    if(activePreview===p&&p.mode==='mp4box')queueSourceBuffer(user,buffer);
+async function initMp4BoxStreaming(el,p){if(!('MediaSource'in window))return false;try{const mod=await import(`https://cdn.jsdelivr.net/npm/mp4box@${MP4BOX_VERSION}/+esm`),MP4Box=mod.createFile?mod:(mod.default?.createFile?mod.default:null);if(!MP4Box?.createFile)return false;const ms=new MediaSource(),url=URL.createObjectURL(ms);p.mediaSource=ms;p.mediaSourceUrl=url;p.mode='mp4box';el.src=url;await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('MediaSource open timeout')),4500);ms.addEventListener('sourceopen',()=>{clearTimeout(t);resolve()},{once:true})});const file=MP4Box.createFile(false);p.mp4box=file;p.mp4boxReady=false;p.mp4boxStarted=false;p.mp4SegmentationPaused=false;p.mp4TrackBuffers=new Map();file.onError=e=>{console.warn('MP4Box',e);p.mp4boxLastError=String(e||'');previewDebugEvent('MP4BOX ERROR',p.mp4boxLastError,'bad',p.session)};file.onReady=info=>{if(!activePreview||activePreview!==p||p.mp4boxReady)return;previewDebugEvent('MP4BOX READY',`${(info?.tracks||[]).length} tracks`,'info',p.session);const movieDuration=Number(info?.duration),movieTimescale=Number(info?.timescale),trackDurations=(info?.tracks||[]).map(t=>{const d=Number(t?.duration),ts=Number(t?.timescale);return d>0&&ts>0?d/ts:0}).filter(d=>Number.isFinite(d)&&d>0),fullDuration=movieDuration>0&&movieTimescale>0?movieDuration/movieTimescale:(trackDurations.length?Math.max(...trackDurations):0);if(fullDuration>0){p.originalDurationSeconds=fullDuration;enforceMediaSourceDuration(p);el.dataset.originalDuration=String(fullDuration);el.addEventListener('durationchange',()=>{if(activePreview===p&&mediaOriginalDuration(p)>0)enforceMediaSourceDuration(p)})}const all=(info.tracks||[]).filter(t=>t.video||t.audio);if(!all.length){p.mode='compat';startCompatMedia(el,p,'No MP4 track exposed for MSE');return}const supported=t=>{const base=t.video?'video/mp4':'audio/mp4',mime=`${base}; codecs="${t.codec}"`;return MediaSource.isTypeSupported(mime)?{t,mime}:null},video=(info.videoTracks||all.filter(t=>t.video)).map(supported).find(Boolean),audio=(info.audioTracks||all.filter(t=>t.audio)).map(supported).find(Boolean),selected=[video,audio].filter(Boolean);if(!selected.length){p.mode='compat';startCompatMedia(el,p,'Browser MSE cannot expose these MP4 codecs');return}const segmentSamples=MP4_SEGMENT_SAMPLES;let configured=0;for(const {t,mime} of selected){try{const sb=ms.addSourceBuffer(mime);sb.mode='segments';sb.__q=[];sb.__preview=p;sb.__trackId=t.id;sb.__trackKind=t.video?'V':'A';sb.addEventListener('updateend',()=>{const appended=Number(sb.__lastAppendBytes)||0;sb.__lastAppendBytes=0;sb.__appendStartedAt=0;if(appended){p.mp4LastMseAt=performance.now();previewDebugNoteMseAppend(p,appended,sb.__trackKind)}enforceMediaSourceDuration(p);drainMp4SourceBuffers(p);updateMp4SegmentationFlow(p);markPreviewPlayable();maintainContinuousPlayback(p,'mse-update',false);const s=p.session;if(s?.state==='downloading'){superviseMp4Supply(p);if(mp4QueuePressure(p).segments<=MP4_QUEUE_LOW_SEGMENTS)scheduleDecoderPromotion(s,0);wakeSafePlant(p,'mse-update')}});sb.addEventListener('error',()=>{console.warn('MP4 SourceBuffer error',mime)});p.mp4TrackBuffers.set(t.id,sb);file.setSegmentOptions(t.id,sb,{nbSamples:segmentSamples,rapAlignement:true,normalizeAudioSampleEntriesForMSE:true});configured++}catch(e){console.warn('MP4 SourceBuffer create',mime,e)}}if(!configured){p.mode='compat';startCompatMedia(el,p,'Browser MSE cannot expose these MP4 codecs');return}file.onSegment=(id,user,buffer,sampleNumber)=>{p.mp4LastSegmentAt=performance.now();p.mp4SegmentCount=(p.mp4SegmentCount||0)+1;p.mp4SegmentBytes=(p.mp4SegmentBytes||0)+(buffer?.byteLength||0);p.mp4LastSegmentTrack=id;p.mp4LastSegmentSample=sampleNumber;p.mp4TrackLastSegment=p.mp4TrackLastSegment||new Map();p.mp4TrackLastSegment.set(id,performance.now());previewDebugNoteSegment(p,buffer?.byteLength||0,user?.__trackKind||id,sampleNumber);
+    if(activePreview===p&&p.mode==='mp4box'){
+      queueSourceBuffer(user,buffer);
+      /* SEG is the first observable successful downstream stage. A successful
+         segment wakes MSE immediately and the SAFE plant on the next turn. */
+      wakeSafePlant(p,'segment');
+    }
     /* MP4Box retains parsed sample payloads until explicitly released. Its own
        segmenter demo releases up to sampleNumber after onSegment. */
     if(Number.isInteger(sampleNumber)&&sampleNumber>=0)try{file.releaseUsedSamples(id,sampleNumber);p.mp4ReleasedSamples=(p.mp4ReleasedSamples||0)+1}catch(_){}
