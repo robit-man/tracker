@@ -183,7 +183,7 @@ const NATS_VERSION='3.4.0',NKN_VERSION='1.3.6',MQTTJS_VERSION='5.15.2',NOSTR_TOO
 const MP4BOX_VERSION='2.4.1';
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?96:160,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?24:40,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?64:128)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?20:36)*1024*1024,MP4_HOT_CHUNKS=IS_MOBILEISH?48:96;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-safe-continuous-v57';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-safe-plant-v58';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -837,11 +837,36 @@ window.addEventListener('pagehide',()=>{try{stopMesh()}catch(_){}},{once:true});
 async function mergeState(entries,contentRows){for(const c of contentRows){if(!c?.id)continue;const old=contents.get(c.id);if(!old)contents.set(c.id,c)}for(const x of entries){if(!x?.id||!x.v)continue;absorbV(x.v);const old=catalog.get(x.id);if(!old||cmpV(x.v,old.v)>0)catalog.set(x.id,x)}await saveState();renderAll()}
 function updateSessionSeeder(remote,ids){const set=new Set(ids);for(const s of sessions.values()){if(set.has(s.cid))s.holders.add(remote);else s.holders.delete(remote);scheduleSession(s,0)}const ps=activePreview?.session;if(ps?.mode==='stream'&&ps.state==='downloading'){if(set.has(ps.cid))ps.holders.add(remote);else ps.holders.delete(remote);scheduleSession(ps,0)}}
 function activeStreamSession(){const s=activePreview?.session;return s?.mode==='stream'&&s.state==='downloading'?s:null}
-function streamDemandWanted(s,max=STREAM_DEMAND_WANT){if(!s)return[];const out=[],seen=new Set(),add=i=>{i=Number(i);if(Number.isInteger(i)&&i>=0&&i<s.total&&!bitHas(s.receivedBits,i)&&!seen.has(i)){seen.add(i);out.push(i)}};for(const i of s.priority||[]){add(i);if(out.length>=max)return out}for(const i of s.retry||[]){add(i);if(out.length>=max)return out}for(const [i,inf] of [...(s.inflight||new Map())].sort((a,b)=>(a[1]?.ts||0)-(b[1]?.ts||0))){add(i);if(out.length>=max)return out}const ceiling=Math.min(s.total,Math.max(1,s.streamRequestLimit||STREAM_INITIAL_CHUNKS));for(let i=Math.max(0,Math.min(s.cursor||0,ceiling));i<ceiling&&out.length<max;i++)add(i);if(!out.length)for(let i=0;i<ceiling&&out.length<max;i++)add(i);return out}
-function streamDemandMessage(s){return msg('stream-demand',{id:s.cid,sid:s.sid,total:s.total,chunkSize:s.chunkSize,want:streamDemandWanted(s),expires:Date.now()+Math.max(6000,STREAM_DEMAND_HEARTBEAT_MS*3),playbackStarted:!!s.playbackStarted})}
+function streamDemandWanted(s,max=STREAM_DEMAND_WANT){
+  if(!s)return[];const out=[],seen=new Set(),add=i=>{i=Number(i);if(Number.isInteger(i)&&i>=0&&i<s.total&&!bitHas(s.receivedBits,i)&&!seen.has(i)){seen.add(i);out.push(i)}};
+  // A stall must demand the earliest undecoded chunk, not a random speculative hole.
+  const head=s.mode==='stream'?mp4ProgressiveCursor(s):Math.max(0,s.cursor||0);
+  for(let i=head;i<Math.min(s.total,head+Math.min(max,24));i++)add(i);
+  for(const i of s.priority||[]){add(i);if(out.length>=max)return out}
+  for(const i of s.retry||[]){add(i);if(out.length>=max)return out}
+  const outstanding=[...(s.inflight||new Map()).keys()].sort((a,b)=>Math.abs(a-head)-Math.abs(b-head));
+  for(const i of outstanding){add(i);if(out.length>=max)return out}
+  const ceiling=Math.min(s.total,Math.max(1,s.streamRequestLimit||STREAM_INITIAL_CHUNKS));
+  for(let i=Math.max(0,head);i<ceiling&&out.length<max;i++)add(i);
+  return out
+}
+function streamDemandMessage(s){
+  // Heartbeats advertise missing ranges; they are NOT permission for every seeder
+  // to flood the receiver with unsolicited multi-megabyte pushes every 1.4 s.
+  const now=performance.now(),stalled=now-(s.lastByteAt||s.started||now)>4000;
+  return msg('stream-demand',{id:s.cid,sid:s.sid,total:s.total,chunkSize:s.chunkSize,want:streamDemandWanted(s),push:stalled,expires:Date.now()+Math.max(6000,STREAM_DEMAND_HEARTBEAT_MS*3),playbackStarted:!!s.playbackStarted})
+}
 async function announceStreamDemand(s,target=''){if(!s||s.state!=='downloading'||s.mode!=='stream')return false;s.lastDemandAt=performance.now();const m=streamDemandMessage(s);if(target)return sendActorIngress(target,m);await broadcast(m);return true}
-function pickDemandPushIndexes(m){const want=[...new Set((m.want||[]).map(Number).filter(Number.isInteger))];if(!want.length)return[];const count=Math.min(STREAM_DEMAND_PUSH,want.length),start=h32(`${actor}|${m.sid||''}|${m.id||''}`)%want.length,out=[];for(let n=0;n<want.length&&out.length<count;n++){const i=want[(start+n)%want.length];if(i>=0&&i<Number(m.total||Infinity))out.push(i)}return out}
-async function answerStreamDemand(m){const cid=String(m.id||''),sid=String(m.sid||'');noteStreamDemandActivity(m);wakeSeederRecoveryTransports();if(!cid||!sid||Number(m.expires||0)<Date.now()||!seedEnabled(cid))return false;const c=contents.get(cid);if(!c)return false;const indexes=pickDemandPushIndexes(m);sendActorIngress(m.actor,msg('stream-offer',{id:cid,sid,ready:true,indexes})).catch(()=>{});if(indexes.length)queueServeChunks({id:cid,indexes,total:contentTotal(c),chunkSize:contentChunkSize(c),sid,mode:'stream',hedge:true},m.actor).catch(()=>{});return true}
+function pickDemandPushIndexes(m){
+  if(!m?.push)return[];
+  const want=[...new Set((m.want||[]).map(Number).filter(i=>Number.isInteger(i)&&i>=0&&i<Number(m.total||Infinity)))];
+  // Emergency bootstrap only: a bounded sample of the first 8 decoder-front holes.
+  // Normal traffic must be requested explicitly through chunks-need.
+  const pool=want.slice(0,Math.min(8,want.length)),start=h32(`${actor}|${m.sid||''}`)%Math.max(1,pool.length),out=[];
+  for(let i=0;i<pool.length&&out.length<2;i++)out.push(pool[(start+i)%pool.length]);
+  return out
+}
+async function answerStreamDemand(m){const cid=String(m.id||''),sid=String(m.sid||'');noteStreamDemandActivity(m);wakeSeederRecoveryTransports();if(!cid||!sid||Number(m.expires||0)<Date.now()||!seedEnabled(cid))return false;const c=contents.get(cid);if(!c)return false;const indexes=pickDemandPushIndexes(m);sendActorIngress(m.actor,msg('stream-offer',{id:cid,sid,ready:true,indexes})).catch(()=>{});if(indexes.length)queueServeChunks({id:cid,indexes,total:contentTotal(c),chunkSize:contentChunkSize(c),sid,mode:'stream',hedge:true,demandPush:true},m.actor).catch(()=>{});return true}
 function offerStreamSource(m){const s=sessionBySid.get(String(m.sid||''));if(!s||s.mode!=='stream'||s.cid!==String(m.id||'')||s.state!=='downloading')return;s.holders.add(m.actor);let set=peerSeeds.get(m.actor);if(!set){set=new Set;peerSeeds.set(m.actor,set)}set.add(s.cid);scheduleSession(s,0);refreshPreviewStats(true)}
 
 function activeTransferHasProgress(){for(const x of sessions.values())if(['downloading','verifying','storing'].includes(x.state)&&x.bytesReceived>0)return true;const s=activePreview?.session;return !!(s&&s.state==='downloading'&&s.bytesReceived>0)}
@@ -881,7 +906,7 @@ async function hardTransferRescue(s,reason='no-byte-hard-rescue'){
   wakeTransferTransports(true);broadcast(msg('seed-query',{ids:[s.cid]})).catch(()=>{});
   await Promise.allSettled(peers.slice(0,Math.min(peers.length,8)).map(async a=>{
     promoteRelayActor(a).catch(()=>{});sendActor(a,msg('route-promote',{requester:actor,nknAddr:privacyPublicNknAddr(),reason,hard:true})).catch(()=>{});
-    if(wanted.length)sendActor(a,msg('chunks-need',{id:s.cid,indexes:wanted,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge:true,aggressive:true,decoderHead:s.mode==='stream',hardRescue:true,pathHints:[]})).catch(()=>{});
+    if(wanted.length)sendActor(a,msg('chunks-need',{id:s.cid,indexes:wanted,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge:true,aggressive:true,decoderHead:s.mode==='stream',decoderCursor:s.mode==='stream'?mp4ProgressiveCursor(s):0,hardRescue:true,pathHints:[]})).catch(()=>{});
   }));
   if(s.mode==='stream'){announceStreamDemand(s).catch(()=>{});for(const a of peers)announceStreamDemand(s,a).catch(()=>{})}
   probeAllPeerRoutes().catch(()=>{});scheduleSession(s,0);return true
@@ -911,15 +936,56 @@ async function readLocalChunk(cid,idx){
 
 async function markUnreadableSeed(cid,remote=''){localHave.delete(cid);cachedComplete.delete(cid);sourceClaims.add(cid);const h=sourceHandles.get(cid);if(h)sourceNeedsAuth.add(cid);else sourceMissing.add(cid);await saveState().catch(()=>{});broadcastAvailability().catch(()=>{});if(remote)sendActorIngress(remote,msg('source-unavailable',{id:cid})).catch(()=>{});renderAll()}
 async function queueServeChunks(m,remote){
-  const cid=String(m.id||''),lane=m?.decoderHead?'decoder':'bulk',key=remote+'|'+cid+'|'+lane,prev=serveQueues.get(key)||Promise.resolve();
-  /* Parser-critical requests must not sit behind the bulk prefetch queue. */
-  const next=prev.catch(()=>{}).then(()=>serveChunksNow(m,remote)).finally(()=>{if(serveQueues.get(key)===next)serveQueues.delete(key)});serveQueues.set(key,next);return next
+  if(m?.mode!=='stream'){
+    const key=remote+'|'+String(m.id||'')+'|download',prev=serveQueues.get(key)||Promise.resolve();
+    const next=prev.catch(()=>{}).then(()=>serveChunksNow(m,remote)).finally(()=>{if(serveQueues.get(key)===next)serveQueues.delete(key)});
+    serveQueues.set(key,next);return next
+  }
+  const cid=String(m.id||''),key=remote+'|'+cid,cur=Number.isInteger(m.decoderCursor)?m.decoderCursor:Math.max(0,Math.min(...(m.indexes||[0]).map(Number)));
+  let q=serveQueues.get(key);
+  if(!q||!q.hot){q={hot:new Map(),bulk:new Map(),active:new Set(),pumping:false};serveQueues.set(key,q)}
+  for(const idx0 of m.indexes||[]){
+    const idx=Number(idx0);if(!Number.isInteger(idx)||idx<0||q.active.has(idx))continue;
+    const hot=!!m.decoderHead&&idx>=cur&&idx<cur+16;
+    const entry={...m,indexes:[idx],decoderHead:hot,decoderCursor:cur};
+    if(hot){q.bulk.delete(idx);q.hot.set(idx,entry)}
+    else if(!q.hot.has(idx))q.bulk.set(idx,entry);
+  }
+  if(q.pumping)return true;
+  q.pumping=true;
+  (async()=>{
+    try{
+      // Bound the active number of half-megabyte frames by the actual data path.
+      // Source-side urgency is evaluated before *each* dispatch, not once per 96
+      // chunks; late decoder-head requests can overtake old speculative prefetch.
+      const hinted=(m.pathHints||[]).find(x=>x?.preferred||x?.strong);
+      const relay=hinted?.path?.startsWith('relay:')||(!hinted&&!bulkRoutesFor(remote).length);
+      const width=relay?2:(IS_MOBILEISH?3:6);
+      const running=new Set();
+      while(q.hot.size||q.bulk.size||running.size){
+        while(running.size<width&&(q.hot.size||q.bulk.size)){
+          const map=q.hot.size?q.hot:q.bulk;
+          const idx=map===q.hot?Math.min(...map.keys()):map.keys().next().value;
+          const item=map.get(idx);map.delete(idx);
+          if(q.active.has(idx))continue;
+          q.active.add(idx);
+          const task=serveChunksNow(item,remote).catch(e=>console.warn('serve chunk',String(e?.message||e))).finally(()=>{q.active.delete(idx);running.delete(task)});
+          running.add(task)
+        }
+        if(running.size)await Promise.race(running)
+      }
+    }finally{
+      q.pumping=false;
+      if(serveQueues.get(key)===q)serveQueues.delete(key)
+    }
+  })().catch(e=>console.warn('priority serve queue',String(e?.message||e)));
+  return true
 }
 async function serveChunksNow(m,remote){
   const cid=String(m.id||''),c=contents.get(cid);if(!c||!seedEnabled(cid))return;const total=contentTotal(c),chunkSize=contentChunkSize(c),indexes=(m.indexes||[]).slice(0,96).map(Number).filter(idx=>Number.isInteger(idx)&&idx>=0&&idx<total),pathHints=Array.isArray(m.pathHints)?m.pathHints:[],aggressive=!!m.aggressive||!!m.hedge;
   let unreadable=false;
   const serveOne=async idx=>{
-    if(unreadable)return false;const dupeKey=remote+'|'+cid+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<650)return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
+    if(unreadable)return false;const dupeKey=remote+'|'+cid+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
     if(c.locked){seedSalt=seedSaltFor(cid);const sk=await seedEnvelopeKey(cid,actor,seedSalt),iv=randomBytes(12),ct=await aesEncryptKey(sk,part,iv,`seedwrap:${cid}:${idx}`);wirePart=concatBytes(iv,ct)}
     const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seedSalt,mode:m.mode||'',decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge};
     const proven=pathHints.some(h=>h&&typeof h==='object'&&h.strong&&h.bps>0),bootstrap=!proven&&(m.hardRescue===true||idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS),sent=await sendBinaryMultipathActor(remote,packet,metadata,idx,pathHints,!proven&&(aggressive||bootstrap));
@@ -982,6 +1048,14 @@ async function schedulerTick(s){
   if(s.schedulerBusy){s.schedulerDirty=true;return}
   s.schedulerBusy=true;try{await schedulerTickBody(s)}finally{s.schedulerBusy=false;if(s.schedulerDirty&&s.state==='downloading'){s.schedulerDirty=false;scheduleSession(s,0)}}
 }
+function chunkReservationTimeout(s,inf){
+  const a=inf.actor,winner=strongestProviderPath(s,a),relay=winner?.path?.startsWith('relay:')||(!winner&&!bulkRoutesFor(a).length),bps=providerRecentBps(s,a),count=Math.max(1,s.inflightByPeer?.get(a)||1),bytes=Math.max(64*1024,Number(s.chunkSize)||CHUNK_SIZE);
+  if(s.mode!=='stream')return !s.dataProven?.has(a)?TRANSFER_PROBE_TIMEOUT_MS:CHUNK_TIMEOUT_MS;
+  // Deadline includes the sender's pipeline/queue. Only actual late delivery or
+  // stalled transport should lower confidence, not arbitrary 4 s reservation age.
+  const implied=(count*bytes)/Math.max(bps,relay?96*1024:256*1024)*1000;
+  return Math.min(65000,Math.max(relay?14000:9000,Math.round(implied*1.3+4500)));
+}
 async function schedulerTickBody(s){
   if(s.state!=='downloading')return;const now=performance.now();
   const advertised=advertisedRemoteSeeders(s.cid);for(const a of advertised)s.holders.add(a);
@@ -991,7 +1065,7 @@ async function schedulerTickBody(s){
   const alternatives=Math.max(0,live.length-1),lastBy=s.providerLastAt||new Map();let timedOutActors=new Set();
   for(const[idx,inf]of [...s.inflight]){
     const age=now-inf.ts,last=lastBy.get(inf.actor)||0,sourceSilent=!last||now-last>STREAM_STALE_SOURCE_MS,proven=!!s.dataProven?.has(inf.actor),providerFresh=providerFlowFresh(s,inf.actor,now);
-    const timeout=s.mode==='stream'?(!proven?Math.max(4500,TRANSFER_PROBE_TIMEOUT_MS):alternatives&&sourceSilent?Math.max(3500,STREAM_STALE_SOURCE_MS):CHUNK_TIMEOUT_MS):(!proven?TRANSFER_PROBE_TIMEOUT_MS:CHUNK_TIMEOUT_MS);
+    const timeout=chunkReservationTimeout(s,inf);
     if(age>timeout){timedOutActors.add(inf.actor);penalizeProvider(s,inf.actor,providerFresh?.18:(proven?.9:1.5));s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.unshift(idx)}
   }
   if(timedOutActors.size){const stale=[];for(const a of timedOutActors)if(!providerFlowFresh(s,a,now)){s.dataProven?.delete(a);s.binaryProven?.delete(a);if(globalFlowFresh)backoffProvider(s,a);stale.push(a)}previewDebugEvent(globalFlowFresh?'LOSER BACKOFF':'RESERVATION TIMEOUT',[...timedOutActors].map(a=>profileFor(a)?.alias||a).join(', '),globalFlowFresh?'info':'warn',s);if(!globalFlowFresh&&stale.length)forceTransferRouteRecovery(s,'reservation-timeout',stale[0]).catch(()=>{})}
@@ -1017,11 +1091,35 @@ async function schedulerTickBody(s){
      winner exists, timed-out alternatives naturally shrink to a one-lane probe. */
   if(live.length>1){let deficit=live.reduce((n,a)=>n+Math.max(0,floorFor(a)-(s.inflightByPeer.get(a)||0)),0),need=Math.max(0,deficit-globalRemaining);if(need>0){const reclaim=[...s.inflight.entries()].filter(([,inf])=>(s.inflightByPeer.get(inf.actor)||0)>floorFor(inf.actor)).sort((a,b)=>a[1].ts-b[1].ts);for(const[idx,inf]of reclaim){if(need<=0)break;s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.unshift(idx);need--;globalRemaining++}}}
   const give=(a,preferPrefetch=false)=>{if(globalRemaining<=0)return false;const cap=caps.get(a)||0;if(cap<=0)return false;const idx=nextChunkFor(s,preferPrefetch);if(idx==null)return false;assignments.get(a).push(idx);caps.set(a,cap-1);s.inflight.set(idx,{actor:a,ts:now});s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++;globalRemaining--;return true};
-  if(globalRemaining>0){let changed=true;while(changed&&globalRemaining>0){changed=false;for(const a of live){const used=s.inflightByPeer.get(a)||0;if(used>=floorFor(a))continue;if(give(a,s.mode==='stream'&&!s.decoderRefillActive&&(assigned&1)===1))changed=true}}}
+  if(globalRemaining>0){
+    // Most productive peer gets the decoder frontier before probe assignments.
+    // In v57 the unordered floor loop could hand chunk N to a dead seeder,
+    // while the winning source received N+1... and SAFE stalled on N.
+    const ranked=[...live].sort((a,b)=>providerTransferScore(s,b)-providerTransferScore(s,a));
+    if(s.mode==='stream'&&ranked.length&&providerFlowFresh(s,ranked[0],now)){
+      for(let i=0;i<Math.min(SAFE_CRITICAL_WINDOW,globalRemaining);i++)if(!give(ranked[0]))break;
+    }
+    let changed=true;
+    while(changed&&globalRemaining>0){changed=false;for(const a of ranked){const used=s.inflightByPeer.get(a)||0;if(used>=floorFor(a))continue;if(give(a,s.mode==='stream'&&!s.decoderRefillActive&&(assigned&1)===1))changed=true}}
+  }
   /* Excess capacity is winner-take-most, not winner-take-all. Proven providers get
      larger windows; alternatives retain periodic probe traffic and can earn back in. */
   while(globalRemaining>0){const candidates=live.filter(a=>(caps.get(a)||0)>0);if(!candidates.length)break;candidates.sort((a,b)=>{const sa=providerTransferScore(s,a)/Math.max(1,1+(assignments.get(a)?.length||0)*.16),sb=providerTransferScore(s,b)/Math.max(1,1+(assignments.get(b)?.length||0)*.16);return sb-sa});let progressed=false;for(const a of candidates){const burst=Math.max(1,Math.min(reinforcedWinner===a?12:4,Math.round(Math.log2(1+providerTransferScore(s,a))/1.7)));for(let k=0;k<burst&&globalRemaining>0;k++)if(give(a,s.mode==='stream'&&!s.decoderRefillActive&&(assigned&1)===1))progressed=true;else break;if(globalRemaining<=0)break}if(!progressed)break}
-  const jobs=[];for(const[a,indexes]of assignments){if(!indexes.length)continue;jobs.push((async()=>{const urgency=s.mode==='stream'?streamUrgency(s):1,pathHints=streamPathHintsFor(s,a),reinforced=!!(pathHints[0]?.strong||pathHints[0]?.preferred&&pathHints[0]?.chunks>=STREAM_PATH_STRONG_CHUNKS&&pathHints[0]?.bps>0),unproven=!s.dataProven?.has(a),recovering=performance.now()-(s.lastRouteRecoveryAt||0)<4000&&!globalFlowFresh,pressureHedge=s.mode==='stream'&&urgency>1.05&&!reinforced,hedge=unproven||recovering||pressureHedge,aggressive=unproven||recovering||pressureHedge;const ok=await sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge,aggressive,pathHints,decoderHead:s.mode==='stream'&&critical}));if(!ok){for(const idx of indexes){const inf=s.inflight.get(idx);if(inf?.actor===a)s.inflight.delete(idx);if(!bitHas(s.receivedBits,idx))s.retry.unshift(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-indexes.length))}return ok})())}if(jobs.length)await Promise.allSettled(jobs);
+  const jobs=[];for(const[a,indexes]of assignments){if(!indexes.length)continue;jobs.push((async()=>{const urgency=s.mode==='stream'?streamUrgency(s):1,pathHints=streamPathHintsFor(s,a),reinforced=!!(pathHints[0]?.strong||pathHints[0]?.preferred&&pathHints[0]?.chunks>=STREAM_PATH_STRONG_CHUNKS&&pathHints[0]?.bps>0),unproven=!s.dataProven?.has(a),recovering=performance.now()-(s.lastRouteRecoveryAt||0)<4000&&!globalFlowFresh,pressureHedge=s.mode==='stream'&&urgency>1.05&&!reinforced,hedge=unproven||recovering||pressureHedge,aggressive=unproven||recovering||pressureHedge;const head=s.mode==='stream'?mp4ProgressiveCursor(s):0,hot=s.mode==='stream'&&critical?indexes.filter(i=>i>=head&&i<head+16):[],cold=hot.length?indexes.filter(i=>!hot.includes(i)):indexes;
+    const requests=[];
+    if(hot.length)requests.push({indexes:hot,promise:sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes:hot,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge:true,aggressive,pathHints,decoderHead:true,decoderCursor:head}))});
+    if(cold.length)requests.push({indexes:cold,promise:sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes:cold,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge,aggressive,pathHints,decoderHead:false,decoderCursor:head}))});
+    const result=await Promise.allSettled(requests.map(x=>x.promise));let ok=true;
+    for(let i=0;i<result.length;i++)if(result[i].status!=='fulfilled'||result[i].value!==true){
+      ok=false;let reclaimed=0;
+      for(const idx of requests[i].indexes){const inf=s.inflight.get(idx);if(inf?.actor===a){s.inflight.delete(idx);reclaimed++}if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.unshift(idx)}
+      s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-reclaimed))
+    }
+    return ok})())}if(jobs.length)await Promise.allSettled(jobs);
+  if(s.mode==='stream'&&noByteFor>5000&&now-(s.lastHeadDiagnosticAt||0)>5000){
+    s.lastHeadDiagnosticAt=now;const head=mp4ProgressiveCursor(s),owner=s.inflight.get(head);
+    previewDebugEvent('DECODER HOLE',`head ${head} · recv ${bitHas(s.receivedBits,head)?'yes':'NO'} · owner ${owner?(profileFor(owner.actor)?.alias||owner.actor):'unreserved'} · inflight ${s.inflight.size} · no byte ${(noByteFor/1000).toFixed(1)}s`,'warn',s)
+  }
   if(s.receivedCount<s.total){const capped=s.mode==='stream'&&s.cursor>=Math.min(s.total,s.streamRequestLimit||STREAM_INITIAL_CHUNKS)&&!s.retry.length&&!s.priority?.length;if(assigned||s.inflight.size)scheduleSession(s,assigned?SCHEDULER_TICK_MS:300);else if(!capped)scheduleSession(s,300)}
 }
 async function canonicalToPlain(c,idx,part){return c.locked?decryptLockedChunk(c,idx,part):part}
@@ -1064,7 +1162,7 @@ function hedgeDecoderHead(s,idx,width=DECODER_HEAD_HEDGE_WIDTH,reason='decoder-h
   for(const a of selected){
     promoteRelayActor(a).catch(()=>{});
     const pathHints=streamPathHintsFor(s,a),strong=pathHints.some(x=>x.strong);
-    sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes:missing,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:'stream',hedge:true,aggressive:!strong,pathHints,decoderHead:true})).catch(()=>{});
+    sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes:missing,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:'stream',hedge:true,aggressive:!strong,pathHints,decoderHead:true,decoderCursor:idx})).catch(()=>{});
   }
   previewDebugEvent('DECODER HEAD HEDGE',`chunks ${missing.join(',')} × ${selected.length} · ${reason}`,'warn',s);
   scheduleSession(s,0)
@@ -1232,7 +1330,19 @@ function streamUrgency(s){if(!s||s.mode!=='stream'||activePreview?.session!==s)r
 function streamSuccessfulPathCount(s){if(!s?.pathStats)return 0;const now=performance.now(),seen=new Set;for(const[k,x]of s.pathStats)if(now-(x.lastAt||0)<STREAM_PATH_ACTIVE_TTL_MS)seen.add(k);return seen.size}
 function streamPendingCap(s){const u=streamUrgency(s),paths=Math.max(1,streamSuccessfulPathCount(s)),tier=streamLargeTier(s),aggr=Math.max(1,Number(s?.safeAggression)||1),max=tier===2?XLARGE_PENDING_MAX:tier===1?LARGE_PENDING_MAX:(IS_MOBILEISH?160:320),pidBoost=tier&&s?.decoderRefillActive?Math.round((IS_MOBILEISH?80:144)*Math.min(3.2,aggr)):0;return s?.mode==='stream'?Math.min(max,Math.max(STREAM_MAX_PENDING_CHUNKS,Math.round(STREAM_MAX_PENDING_CHUNKS*u),u>1?STREAM_BOOST_PENDING:0,paths*(IS_MOBILEISH?16:24),pidBoost)):Infinity}
 function streamPeerSuccessfulPathCount(s,a){if(!s?.pathStats)return 0;const now=performance.now(),prefix=String(a)+'|';let n=0;for(const[k,x]of s.pathStats)if(k.startsWith(prefix)&&now-(x.lastAt||0)<STREAM_PATH_ACTIVE_TTL_MS)n++;return n}
-function streamPeerWindow(s,a){const relay=!bulkRoutesFor(a).length,base=relay?RELAY_PER_SEEDER_WINDOW:PER_SEEDER_WINDOW;if(s?.mode!=='stream')return base;const u=streamUrgency(s),paths=Math.max(1,streamPeerSuccessfulPathCount(s,a)),tier=streamLargeTier(s),aggr=Math.max(1,Number(s?.safeAggression)||1),boost=(relay?STREAM_BOOST_RELAY_PER_SEEDER:STREAM_BOOST_PER_SEEDER)*Math.min(2.6,1+(paths-1)*.4)*(tier&&s.decoderRefillActive?Math.min(2.2,1+.28*aggr):1),winner=strongestProviderPath(s,a),strong=!!winner?.strong,winnerGain=strong?Math.min(3.9,1.8+Math.log2(1+winner.chunks)*.36):1,normal=base*u*Math.min(tier?3.2:2,1+(paths-1)*.25)*(tier&&s.decoderRefillActive?Math.min(3.5,1+.36*aggr):1)*winnerGain,ceiling=tier?(relay?(IS_MOBILEISH?36:64):(IS_MOBILEISH?72:128)):(strong?(relay?(IS_MOBILEISH?24:44):(IS_MOBILEISH?48:96)):boost);return Math.ceil(Math.min(Math.max(base,ceiling),Math.max(base,boost,normal)))}
+function streamPeerWindow(s,a){
+  const directRoutes=bulkRoutesFor(a).length>0;
+  if(s?.mode!=='stream')return directRoutes?PER_SEEDER_WINDOW:RELAY_PER_SEEDER_WINDOW;
+  const winner=strongestProviderPath(s,a),relay=winner?.path?.startsWith('relay:')||(!winner&& !directRoutes),rate=providerRecentBps(s,a),byteChunk=Math.max(64*1024,Number(s.chunkSize)||CHUNK_SIZE);
+  const fresh=providerFlowFresh(s,a),urgency=streamUrgency(s),seconds=relay?10:12;
+  // BDP: unacknowledged chunks sized to actual verified delivery rate.
+  // Sending 40 x 512 KiB to a 200 KiB/s relay builds >100 s of queued work;
+  // those reservations used to expire every ~4.5 s and be redundantly retried.
+  const min=relay?2:(IS_MOBILEISH?4:6),max=relay?(IS_MOBILEISH?5:8):(IS_MOBILEISH?40:96);
+  const rateWindow=rate>0?Math.ceil(rate*seconds/byteChunk):min;
+  const reward=fresh?Math.max(0,Math.round(rateWindow*.18)):0;
+  return Math.min(max,Math.max(min,rateWindow+reward+(relay?1:2)));
+}
 function streamTargetSeconds(p,s,reason='tick'){const m=p?.media,rate=Math.max(.25,Number(m?.playbackRate)||1),ahead=streamBufferedAhead(p),avg=streamAverageMediaBytesPerSecond(p),rx=streamReceiveRate(s),need=avg*rate;let base=(reason==='seek'||reason==='stall'?STREAM_SEEK_HORIZON_SECONDS:STREAM_BASE_HORIZON_SECONDS)*STREAM_HORIZON_MULTIPLIER;if(need>0&&rx>0){const ratio=rx/need;if(ratio<1.15)base*=1.8;else if(ratio<1.5)base*=1.45;else if(ratio<2)base*=1.2}if(ahead<4)base*=1.35;base*=Math.max(1,Math.min(2,rate));return Math.max(STREAM_LOW_WATER_SECONDS*2,Math.min(STREAM_MAX_HORIZON_SECONDS,base))}
 function streamChunkForTime(p,s,time,precise=false){time=Math.max(0,Number(time)||0);if(precise&&p?.mode==='mp4box'&&p.mp4boxReady){try{const q=p.mp4box.seek(time,true),off=Number(q?.offset??q);if(Number.isFinite(off)){const step=p.c.locked?(Number(p.c.plainChunkSize)||CHUNK_SIZE):contentChunkSize(p.c);return Math.max(0,Math.min(s.total-1,Math.floor(off/step)))}}catch(_){}}const d=mediaOriginalDuration(p);if(d>0)return Math.max(0,Math.min(s.total-1,Math.floor((time/d)*s.total)));
   /* Network cursor != playback position. Before metadata/duration exists the swarm
