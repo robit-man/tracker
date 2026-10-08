@@ -149,6 +149,8 @@ const STREAM_MIN_PER_SOURCE=IS_MOBILEISH?4:8,DOWNLOAD_MIN_PER_SOURCE=IS_MOBILEIS
 const TRANSFER_PROBE_TIMEOUT_MS=IS_MOBILEISH?1200:900,CHUNK_TIMEOUT_MS=IS_MOBILEISH?5000:6000;
 /* Declare recovery cadence before any dependent transfer constants: avoid TDZ at bootstrap. */
 const SAFE_HEDGE_INTERVAL_MS=1800,SAFE_RECOVERY_INTERVAL_MS=5000,SAFE_HARD_RESCUE_INTERVAL_MS=8000;
+/* Frontier rescue operates independently of bulk reservations and seeder queues. */
+const SAFE_FRONTIER_RESCUE_MS=IS_MOBILEISH?1700:1250,SAFE_FRONTIER_FANOUT=3,SAFE_FRONTIER_RETRY_MS=IS_MOBILEISH?1150:900;
 const TRANSFER_FAILOVER_NO_BYTE_MS=IS_MOBILEISH?2600:2300,TRANSFER_RECOVERY_COOLDOWN_MS=SAFE_RECOVERY_INTERVAL_MS,TRANSFER_ALT_PLANE_WAKE_MS=IS_MOBILEISH?350:220;
 const TRANSFER_HARD_RESCUE_MS=IS_MOBILEISH?5000:4500,TRANSFER_HARD_RESCUE_COOLDOWN_MS=SAFE_HARD_RESCUE_INTERVAL_MS;
 const SCHEDULER_TICK_MS=IS_MOBILEISH?320:180;
@@ -183,7 +185,7 @@ const NATS_VERSION='3.4.0',NKN_VERSION='1.3.6',MQTTJS_VERSION='5.15.2',NOSTR_TOO
 const MP4BOX_VERSION='2.4.1';
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?96:160,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?24:40,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?64:128)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?20:36)*1024*1024,MP4_HOT_CHUNKS=IS_MOBILEISH?48:96;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-safe-plant-v58';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-safe-plant-v59';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -216,7 +218,7 @@ const PRIVACY_MODE_KEY='private-tracker-deep-privacy-v1';
 let privacyMode=localStorage.getItem(PRIVACY_MODE_KEY)==='1';
 let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
-const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),serveRecentlySent=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
+const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
 const peerIngress=new Map(),controlChunkRx=new Map(),remoteStreamDemands=new Map(),fileTraffic=new Map();
 const liveMedia=new Map();let localLive=null,activeLiveViewer=null;const LIVE_HEARTBEAT_MS=4000,LIVE_EXPIRE_MS=14000,LIVE_RTC_FALLBACK_MS=2400;
@@ -942,6 +944,33 @@ async function queueServeChunks(m,remote){
     serveQueues.set(key,next);return next
   }
   const cid=String(m.id||''),key=remote+'|'+cid,cur=Number.isInteger(m.decoderCursor)?m.decoderCursor:Math.max(0,Math.min(...(m.indexes||[0]).map(Number)));
+  /* CRITICAL: bulk q.active only means a chunk was dispatched to a transport.
+     It does NOT mean the decoder received it. The v58 q.active short-circuit
+     silently swallowed retries for the exact missing MP4Box frontier chunk.
+     Fire a separate bounded rescue lane, even if the same chunk is in bulk. */
+  if(m.frontierRescue===true&&m.decoderHead===true){
+    const now=performance.now(),wanted=[...new Set((m.indexes||[]).map(Number))]
+      .filter(i=>Number.isInteger(i)&&i>=cur&&i<cur+3&&i>=0&&i<contentTotal(contents.get(cid)))
+      .slice(0,2);
+    let sentAny=false;
+    for(const idx of wanted){
+      const dedup=`${remote}|${cid}|${idx}`,last=seederFrontierAttempts.get(dedup)||0;
+      if(last&&now-last<SAFE_FRONTIER_RETRY_MS)continue;
+      seederFrontierAttempts.set(dedup,now);sentAny=true;
+      /* Intentionally bypass q.active and q.bulk; no bulk queue position is
+         allowed to prevent independent delivery of a missing decoder head. */
+      serveChunksNow({...m,indexes:[idx],decoderHead:true,frontierRescue:true,
+        hedge:false,aggressive:false},remote)
+        .catch(e=>console.warn('frontier rescue',String(e?.message||e)));
+    }
+    if(seederFrontierAttempts.size>1024){
+      for(const [k,t] of seederFrontierAttempts)if(now-t>10000)seederFrontierAttempts.delete(k);
+    }
+    if(sentAny)return true;
+    /* Retry was just dispatched. Do not push another 0.5 MiB copy into the
+       bulk queue while the critical lane is still transmitting. */
+    return true;
+  }
   let q=serveQueues.get(key);
   if(!q||!q.hot){q={hot:new Map(),bulk:new Map(),active:new Set(),pumping:false};serveQueues.set(key,q)}
   for(const idx0 of m.indexes||[]){
@@ -988,7 +1017,7 @@ async function serveChunksNow(m,remote){
     if(unreadable)return false;const dupeKey=remote+'|'+cid+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
     if(c.locked){seedSalt=seedSaltFor(cid);const sk=await seedEnvelopeKey(cid,actor,seedSalt),iv=randomBytes(12),ct=await aesEncryptKey(sk,part,iv,`seedwrap:${cid}:${idx}`);wirePart=concatBytes(iv,ct)}
     const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seedSalt,mode:m.mode||'',decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge};
-    const proven=pathHints.some(h=>h&&typeof h==='object'&&h.strong&&h.bps>0),bootstrap=!proven&&(m.hardRescue===true||idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS),sent=await sendBinaryMultipathActor(remote,packet,metadata,idx,pathHints,!proven&&(aggressive||bootstrap));
+    const proven=pathHints.some(h=>h&&typeof h==='object'&&h.strong&&h.bps>0),frontierRescue=m.frontierRescue===true,bootstrap=!proven&&!frontierRescue&&(m.hardRescue===true||idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS),sent=await sendBinaryMultipathActor(remote,packet,{...metadata,frontierRescue},idx,pathHints,!frontierRescue&&!proven&&(aggressive||bootstrap));
     if(sent){serveRecentlySent.set(dupeKey,performance.now());if(serveRecentlySent.size>4096){const cut=performance.now()-2500;for(const[k,t]of serveRecentlySent)if(t<cut)serveRecentlySent.delete(k)}served+=part.length;noteFileTraffic(cid,part.length)}return sent
   };
   const serveWidth=Math.min(m.decoderHead||m.aggressive?(IS_MOBILEISH?16:28):(IS_MOBILEISH?8:16),STREAM_SERVE_CONCURRENCY*Math.max(1,Math.min(m.decoderHead||m.aggressive?3:2,pathHints.length||1)));for(let base=0;base<indexes.length&&!unreadable;base+=serveWidth){const batch=indexes.slice(base,base+serveWidth);await Promise.allSettled(batch.map(serveOne));if(IS_MOBILEISH&&base+serveWidth<indexes.length)await sleep(0)}
@@ -1118,7 +1147,7 @@ async function schedulerTickBody(s){
     return ok})())}if(jobs.length)await Promise.allSettled(jobs);
   if(s.mode==='stream'&&noByteFor>5000&&now-(s.lastHeadDiagnosticAt||0)>5000){
     s.lastHeadDiagnosticAt=now;const head=mp4ProgressiveCursor(s),owner=s.inflight.get(head);
-    previewDebugEvent('DECODER HOLE',`head ${head} · recv ${bitHas(s.receivedBits,head)?'yes':'NO'} · owner ${owner?(profileFor(owner.actor)?.alias||owner.actor):'unreserved'} · inflight ${s.inflight.size} · no byte ${(noByteFor/1000).toFixed(1)}s`,'warn',s)
+    previewDebugEvent('DECODER HOLE',`head ${head} · recv ${bitHas(s.receivedBits,head)?'yes':'NO'} · cached ${s.streamCached?.has(head)?'yes':'NO'} · owner ${owner?(profileFor(owner.actor)?.alias||owner.actor):'unreserved'} · inflight ${s.inflight.size} · no byte ${(noByteFor/1000).toFixed(1)}s`,'warn',s)
   }
   if(s.receivedCount<s.total){const capped=s.mode==='stream'&&s.cursor>=Math.min(s.total,s.streamRequestLimit||STREAM_INITIAL_CHUNKS)&&!s.retry.length&&!s.priority?.length;if(assigned||s.inflight.size)scheduleSession(s,assigned?SCHEDULER_TICK_MS:300);else if(!capped)scheduleSession(s,300)}
 }
@@ -1148,23 +1177,44 @@ function markDecoderChunkMissing(s,idx,reason='cache-miss'){if(!s||!Number.isInt
 async function recoverDecoderChunkFromCache(s,idx){if(!s||!Number.isInteger(idx)||bitHas(s.decoderFedBits,idx))return false;if(s.decoderHot?.has(idx))return true;try{const part=await loadStreamCachedChunk(s,idx);if(part?.length){s.decoderHot=s.decoderHot||new Map();s.decoderHot.set(idx,part);s.streamCached=s.streamCached||new Set();s.streamCached.add(idx);return true}}catch(e){previewDebugEvent('DECODER CACHE READ',`chunk ${idx} · ${String(e?.message||e)}`,'warn',s)}if(bitHas(s.receivedBits,idx))markDecoderChunkMissing(s,idx,'bytes unavailable');return false}
 function hedgeDecoderHead(s,idx,width=DECODER_HEAD_HEDGE_WIDTH,reason='decoder-head'){
   if(!s||s.state!=='downloading'||!Number.isInteger(idx))return;
-  const now=performance.now(),since=now-(s.lastHeadHedgeAt||0);
-  if(since<SAFE_HEDGE_INTERVAL_MS)return;
-  const missing=[];for(let i=idx;i<Math.min(s.total,idx+Math.max(2,Math.min(4,width)));i++){
+  /* Received-but-not-fed is a local parser/cache bottleneck, not a network hole.
+     Do not send duplicate network traffic if the earliest chunk is already here. */
+  if(bitHas(s.receivedBits,idx)){scheduleDecoderPromotion(s,0);return}
+  const now=performance.now(),p=activePreview,ahead=p?.session===s?streamBufferedAhead(p):0;
+  const critical=ahead<STREAM_CRITICAL_DECODE_SECONDS||!s.playbackStarted;
+  const interval=critical?SAFE_FRONTIER_RESCUE_MS:Math.max(SAFE_HEDGE_INTERVAL_MS,2400);
+  if(now-(s.lastHeadHedgeAt||0)<interval&&s.lastHedgeHead===idx)return;
+  const missing=[];
+  for(let i=idx;i<Math.min(s.total,idx+Math.max(2,Math.min(4,width)));i++){
     if(!bitHas(s.receivedBits,i)&&!s.receiving?.has(i))missing.push(i);
   }
   if(!missing.length)return;
-  const live=[...new Set([...s.holders,...advertisedRemoteSeeders(s.cid)])].filter(a=>peerSeeds.get(a)?.has(s.cid));
+  const live=[...new Set([...s.holders,...advertisedRemoteSeeders(s.cid)])]
+    .filter(a=>peerSeeds.get(a)?.has(s.cid));
   if(!live.length)return;
-  live.sort((a,b)=>providerTransferScore(s,b)-providerTransferScore(s,a));
-  const selected=live.slice(0,Math.min(2,live.length));
-  s.lastHeadHedgeAt=now;
+  /* ACK-confirmed byte delivery outranks mere advertised availability.
+     Never let the current inflight reservation or seeder-side bulk q.active
+     prevent an independent duplicate delivery on the head. */
+  live.sort((a,b)=>{
+    const fa=providerFlowFresh(s,a,now)?1:0,fb=providerFlowFresh(s,b,now)?1:0;
+    return fb-fa||providerTransferScore(s,b)-providerTransferScore(s,a);
+  });
+  const selected=live.slice(0,Math.min(SAFE_FRONTIER_FANOUT,live.length));
+  s.lastHeadHedgeAt=now;s.lastHedgeHead=idx;
+  const request=missing.slice(0,critical?2:1);
   for(const a of selected){
     promoteRelayActor(a).catch(()=>{});
-    const pathHints=streamPathHintsFor(s,a),strong=pathHints.some(x=>x.strong);
-    sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes:missing,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:'stream',hedge:true,aggressive:!strong,pathHints,decoderHead:true,decoderCursor:idx})).catch(()=>{});
+    const pathHints=streamPathHintsFor(s,a);
+    sendActorIngress(a,msg('chunks-need',{
+      id:s.cid,indexes:request,total:s.total,chunkSize:s.chunkSize,
+      sid:s.sid,mode:'stream',hedge:true,aggressive:false,pathHints,
+      decoderHead:true,decoderCursor:idx,frontierRescue:true
+    })).catch(()=>{});
   }
-  previewDebugEvent('DECODER HEAD HEDGE',`chunks ${missing.join(',')} × ${selected.length} · ${reason}`,'warn',s);
+  if(now-(s.lastFrontierRescueLogAt||0)>3000||s.lastFrontierLoggedHead!==idx){
+    s.lastFrontierRescueLogAt=now;s.lastFrontierLoggedHead=idx;
+    previewDebugEvent('FRONTIER RESCUE',`chunk ${idx} · ${selected.length} independent seeder lanes · SAFE ${ahead.toFixed(1)}s · ${reason}`,'warn',s);
+  }
   scheduleSession(s,0)
 }
 function requestDecoderUrgent(s,idx,radius=2){if(!s||!Number.isInteger(idx))return;s.decoderUrgent=s.decoderUrgent||new Set();s.priority=s.priority||[];if(!Number.isInteger(s.decoderFeedCursor))s.decoderFeedCursor=Math.max(0,idx);const lo=Math.max(0,idx),fullHi=Math.min(s.total-1,idx+Math.max(0,radius)),queueCap=streamRefillWindowCaps(s).queue,hi=Math.min(fullHi,lo+queueCap-1);ensureDecoderFrontier(s,lo,radius,'urgent');let cachedHit=false,missing=0;const urgentMissing=[];for(let i=lo;i<=hi;i++){if(bitHas(s.decoderFedBits,i))continue;s.decoderUrgent.add(i);if(bitHas(s.receivedBits,i)){if(s.streamCached?.has(i)||s.decoderHot?.has(i))cachedHit=true;else if(i===lo)recoverDecoderChunkFromCache(s,i).then(ok=>{if(ok)scheduleDecoderPromotion(s);else{hedgeDecoderHead(s,i,DECODER_HEAD_HEDGE_WIDTH,'received-without-bytes');scheduleSession(s,0)}}).catch(()=>{});continue}missing++;if(!s.inflight.has(i)&&!s.priority.includes(i))urgentMissing.push(i)}/* Keep only a bounded nearest-first urgent queue. A huge far-ahead urgent list is counterproductive for a sequential parser. */for(let j=urgentMissing.length-1;j>=0;j--)s.priority.unshift(urgentMissing[j]);if(cachedHit)scheduleDecoderPromotion(s);if(!bitHas(s.receivedBits,lo)&&!s.decoderHot?.has(lo)&&!s.streamCached?.has(lo))hedgeDecoderHead(s,lo,Math.max(DECODER_HEAD_HEDGE_WIDTH,IS_MOBILEISH?6:8),'urgent-miss');scheduleSession(s,0)}
@@ -1352,7 +1402,7 @@ function streamChunksForSeconds(p,s,seconds){const avg=streamAverageMediaBytesPe
 function ensureStreamHorizon(reason='tick',force=false){const p=activePreview,s=p?.session,m=p?.media;if(!p||!s||!m||s.mode!=='stream'||s.state!=='downloading')return;const now=performance.now();if(!force&&now-(s.lastHorizonAt||0)<250)return;s.lastHorizonAt=now;const prevRequestLimit=Number(s.streamRequestLimit)||0,targetSec=streamTargetSeconds(p,s,reason),anchor=streamChunkForTime(p,s,m.currentTime,reason==='seek'),chunksAhead=streamChunksForSeconds(p,s,targetSec),decoderDesired=Math.min(s.total,anchor+chunksAhead+1),prefetchDesired=streamPrefetchLimit(p,s,anchor),desired=Math.max(decoderDesired,prefetchDesired),step=p.c.locked?(Number(p.c.plainChunkSize)||CHUNK_SIZE):contentChunkSize(p.c);s.targetHorizonSeconds=targetSec;s.horizonAnchor=anchor;refreshStreamStorageBudget(s).catch(()=>{});s.decoderAnchor=anchor;s.decoderLimit=Math.max(Number(s.decoderLimit)||0,decoderDesired);s.prefetchTargetBytes=Math.min(STREAM_MAX_FUTURE_BYTES,Math.max(0,(desired-anchor)*step));s.prefetchLimit=Math.max(Number(s.prefetchLimit)||0,desired);if(reason==='seek'){s.cursor=anchor;s.streamRequestLimit=Math.max(s.streamRequestLimit||0,desired);s.priority=(s.priority||[]).filter(i=>i>=anchor&&i<desired);streamPriorityAround(s,anchor,Math.min(chunksAhead,IS_MOBILEISH?40:64),{forwardOnly:true})}else{if(s.cursor<anchor)s.cursor=anchor;s.streamRequestLimit=Math.max(s.streamRequestLimit||0,desired)};if((s.streamRequestLimit||0)-prevRequestLimit>=32)previewDebugEvent('HORIZON ADVANCE',`${prevRequestLimit} → ${s.streamRequestLimit} · ${reason} · anchor ${anchor}`,'info',s);promoteStreamCacheToDecoder(s).catch(()=>{});if(s.local)s.localPump?.();else{scheduleSession(s,0);if(streamNeedsCapacity())wakeTransferTransports()}}
 function markPreviewPlayable(){const p=activePreview,s=p?.session,m=p?.media;if(!p||!s||!m)return;let state=streamBufferedState(p);if(!s.playbackStarted&&!streamCanStartPlayback(p,s,state)&&snapPlaybackToFirstBufferedRange(p,state))state=streamBufferedState(p);if(!streamCanStartPlayback(p,s,state)){if(p.mode==='mp4box'&&!s.playbackStarted)forceMp4DecoderBootstrap(p,s,'start-gate');return}if(!s.playbackStarted){s.firstPlayableAt=s.firstPlayableAt||performance.now();refreshPreviewStats()}if(s.safeHeld){s.safeHeld=false;p.controllerPause=false}p.waitingSince=0;p.watchdogLastProgressAt=performance.now();if(m.paused&&p.wantPlayback!==false){const q=m.play();q?.catch?.(()=>{p.autoplayBlocked=true;refreshPreviewStats()})}ensureStreamHorizon('play',true)}
 function growStreamWindow(force=false,reason='tick'){const p=activePreview,s=p?.session;if(!p||!s||s.mode!=='stream'||s.state!=='downloading')return;const ahead=streamBufferedAhead(p),target=streamTargetSeconds(p,s,reason);if(force||ahead<target*.72)ensureStreamHorizon(reason,force);if(p.sourceBuffer&&!p.sourceBuffer.updating&&p.media&&p.sourceBuffer.buffered?.length){const cut=Math.max(0,(p.media.currentTime||0)-STREAM_KEEP_BEHIND_SECONDS);try{if(cut>0&&p.sourceBuffer.buffered.start(0)<cut-2)p.sourceBuffer.remove(p.sourceBuffer.buffered.start(0),cut)}catch(_){}}}
-function attachStreamDemandHandlers(el){const evt=(name,level='info')=>{const p=activePreview,s=p?.session;if(p&&s){const st=streamBufferedState(p);previewDebugEvent(name,`t ${(Number(el.currentTime)||0).toFixed(2)} · safe ${st.ahead.toFixed(2)}s · rs${el.readyState}`,level,s)}};const onTime=()=>{const p=activePreview;if(!p)return;latchPlaybackStarted(p);maintainContinuousPlayback(p,'tick',false)},onSeek=()=>{const p=activePreview,s=p?.session;if(!p||!s)return;evt('SEEKING');p.waitingSince=0;p.watchdogLastProgressAt=performance.now();ensureStreamHorizon('seek',true);announceStreamDemand(s).catch(()=>{})},onWait=()=>{const p=activePreview,s=p?.session;if(!p||!s)return;evt(el.readyState<3?'WAITING':'STALLED','warn');latchPlaybackStarted(p);p.waitingSince=p.waitingSince||performance.now();drainPreviewSourceBuffers(p);maintainContinuousPlayback(p,'stall',true);const state=streamBufferedState(p);if(bridgeTinyBufferedGap(p,state)){previewDebugEvent('GAP HEAL',`${state.gap.toFixed(3)}s`,'warn',s);return}if(streamCanStartPlayback(p,s,state)){p.waitingSince=0;p.watchdogLastProgressAt=performance.now();const q=p.media?.play?.();q?.catch?.(()=>{});return}if(p.mode==='mp4box'){const next=mp4ProgressiveCursor(s);requestDecoderUrgent(s,next,IS_MOBILEISH?64:96);scheduleDecoderPromotion(s)}growStreamWindow(true,'stall');announceStreamDemand(s).catch(()=>{});wakeTransferTransports(true);forceTransferRouteRecovery(s,'playback-stall').catch(()=>{})};el.addEventListener('timeupdate',onTime);el.addEventListener('ratechange',()=>{evt('RATE CHANGE');maintainContinuousPlayback(activePreview,'rate',true)});el.addEventListener('waiting',onWait);el.addEventListener('stalled',onWait);el.addEventListener('seeking',onSeek);el.addEventListener('seeked',()=>{const p=activePreview;if(p){evt('SEEKED');p.watchdogLastProgressAt=performance.now();maintainContinuousPlayback(p,'seek',true)}});el.addEventListener('play',()=>{const p=activePreview;if(p){evt('PLAY');p.wantPlayback=true;if(p.session&&!p.session.playbackStarted&&!streamCanStartPlayback(p,p.session)){p.controllerPause=true;try{p.media.pause()}catch(_){}previewDebugEvent('SAFE START GATE',`${streamBufferedAhead(p).toFixed(1)}s · must reach ${safePlaybackGate(p,p.session,!!p.session.playbackStarted).toFixed(0)}s`, 'warn',p.session);scheduleSession(p.session,0);return}latchPlaybackStarted(p);p.waitingSince=0;p.watchdogLastProgressAt=performance.now();maintainContinuousPlayback(p,'play',true)}});el.addEventListener('playing',()=>{const p=activePreview;if(p){evt('PLAYING');p.wantPlayback=true;if(p.session&&!p.session.playbackStarted&&!streamCanStartPlayback(p,p.session)){p.controllerPause=true;try{p.media.pause()}catch(_){}scheduleSession(p.session,0);return}p.controllerPause=false;latchPlaybackStarted(p);p.waitingSince=0;p.watchdogLastProgressAt=performance.now();const s=p.session;if(p.mode==='mp4box'&&s)scheduleDecoderPromotion(s);maintainContinuousPlayback(p,'play',true)}});el.addEventListener('pause',()=>{const p=activePreview;if(p&&!p.hiddenAt&&!p.media?.ended&&!p.media?.seeking){evt('PAUSE');if(!p.controllerPause)p.wantPlayback=false}});for(const ev of ['loadedmetadata','loadeddata','canplay','progress'])el.addEventListener(ev,()=>{if(ev!=='progress')evt(ev.toUpperCase());markPreviewPlayable();maintainContinuousPlayback(activePreview,'tick',false)});startPlaybackWatchdog(activePreview)}
+function attachStreamDemandHandlers(el){const evt=(name,level='info')=>{const p=activePreview,s=p?.session;if(p&&s){const st=streamBufferedState(p);previewDebugEvent(name,`t ${(Number(el.currentTime)||0).toFixed(2)} · safe ${st.ahead.toFixed(2)}s · rs${el.readyState}`,level,s)}};const onTime=()=>{const p=activePreview;if(!p)return;latchPlaybackStarted(p);maintainContinuousPlayback(p,'tick',false)},onSeek=()=>{const p=activePreview,s=p?.session;if(!p||!s)return;evt('SEEKING');p.waitingSince=0;p.watchdogLastProgressAt=performance.now();ensureStreamHorizon('seek',true);announceStreamDemand(s).catch(()=>{})},onWait=()=>{const p=activePreview,s=p?.session;if(!p||!s)return;evt(el.readyState<3?'WAITING':'STALLED','warn');latchPlaybackStarted(p);p.waitingSince=p.waitingSince||performance.now();drainPreviewSourceBuffers(p);maintainContinuousPlayback(p,'stall',true);const state=streamBufferedState(p);if(bridgeTinyBufferedGap(p,state)){previewDebugEvent('GAP HEAL',`${state.gap.toFixed(3)}s`,'warn',s);return}if(streamCanStartPlayback(p,s,state)){p.waitingSince=0;p.watchdogLastProgressAt=performance.now();const q=p.media?.play?.();q?.catch?.(()=>{});return}if(p.mode==='mp4box'){const next=mp4ProgressiveCursor(s);requestDecoderUrgent(s,next,IS_MOBILEISH?64:96);scheduleDecoderPromotion(s)}growStreamWindow(true,'stall');announceStreamDemand(s).catch(()=>{});wakeTransferTransports();if(performance.now()-(s.lastByteAt||s.started||performance.now())>TRANSFER_FAILOVER_NO_BYTE_MS)forceTransferRouteRecovery(s,'playback-stall').catch(()=>{})};el.addEventListener('timeupdate',onTime);el.addEventListener('ratechange',()=>{evt('RATE CHANGE');maintainContinuousPlayback(activePreview,'rate',true)});el.addEventListener('waiting',onWait);el.addEventListener('stalled',onWait);el.addEventListener('seeking',onSeek);el.addEventListener('seeked',()=>{const p=activePreview;if(p){evt('SEEKED');p.watchdogLastProgressAt=performance.now();maintainContinuousPlayback(p,'seek',true)}});el.addEventListener('play',()=>{const p=activePreview;if(p){evt('PLAY');p.wantPlayback=true;if(p.session&&!p.session.playbackStarted&&!streamCanStartPlayback(p,p.session)){p.controllerPause=true;try{p.media.pause()}catch(_){}previewDebugEvent('SAFE START GATE',`${streamBufferedAhead(p).toFixed(1)}s · must reach ${safePlaybackGate(p,p.session,!!p.session.playbackStarted).toFixed(0)}s`, 'warn',p.session);scheduleSession(p.session,0);return}latchPlaybackStarted(p);p.waitingSince=0;p.watchdogLastProgressAt=performance.now();maintainContinuousPlayback(p,'play',true)}});el.addEventListener('playing',()=>{const p=activePreview;if(p){evt('PLAYING');p.wantPlayback=true;if(p.session&&!p.session.playbackStarted&&!streamCanStartPlayback(p,p.session)){p.controllerPause=true;try{p.media.pause()}catch(_){}scheduleSession(p.session,0);return}p.controllerPause=false;latchPlaybackStarted(p);p.waitingSince=0;p.watchdogLastProgressAt=performance.now();const s=p.session;if(p.mode==='mp4box'&&s)scheduleDecoderPromotion(s);maintainContinuousPlayback(p,'play',true)}});el.addEventListener('pause',()=>{const p=activePreview;if(p&&!p.hiddenAt&&!p.media?.ended&&!p.media?.seeking){evt('PAUSE');if(!p.controllerPause)p.wantPlayback=false}});for(const ev of ['loadedmetadata','loadeddata','canplay','progress'])el.addEventListener(ev,()=>{if(ev!=='progress')evt(ev.toUpperCase());markPreviewPlayable();maintainContinuousPlayback(activePreview,'tick',false)});startPlaybackWatchdog(activePreview)}
 function mp4QueuePressure(p){let segments=0,bytes=0;if(p?.mp4TrackBuffers?.size)for(const sb of p.mp4TrackBuffers.values()){segments+=(sb.__q?.length||0)+(sb.updating?1:0);bytes+=Number(sb.__qBytes)||0}return{segments,bytes}}
 function updateMp4SegmentationFlow(p=activePreview){if(!p?.mp4box||!p.mp4boxReady||!p.mp4boxStarted)return false;/* Never call mp4box.stop() for transient MSE backpressure: stop() suppresses onSegment on subsequent appends and can leave a live stream permanently starved. Backpressure is enforced by pausing decoder chunk promotion instead. */const q=mp4QueuePressure(p),high=q.segments>=MP4_QUEUE_HIGH_SEGMENTS||q.bytes>=MP4_QUEUE_HIGH_BYTES;p.mp4FeedBackpressured=high;return high}
 function queueSourceBuffer(sb,buffer){if(!sb||!buffer)return;sb.__q=sb.__q||[];sb.__qBytes=(sb.__qBytes||0)+(buffer.byteLength||0);sb.__q.push(buffer);const p=sb.__preview;if(p?.mode==='mp4box'){updateMp4SegmentationFlow(p);drainMp4SourceBuffers(p)}else drainSourceBuffer(sb)}
