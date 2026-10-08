@@ -188,7 +188,7 @@ const NATS_VERSION='3.4.0',NKN_VERSION='1.3.6',MQTTJS_VERSION='5.15.2',NOSTR_TOO
 const MP4BOX_VERSION='2.4.1';
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?96:160,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?24:40,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?64:128)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?20:36)*1024*1024,MP4_HOT_CHUNKS=IS_MOBILEISH?48:96;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-safe-frontier-pressure-v64';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-frontier-bounded-paths-v65';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -669,18 +669,48 @@ function streamDataCandidates(remote,pathHints=[],includeAllRelays=false){
   return out.sort((a,b)=>b.score-a.score||b.bps-a.bps)
 }
 function chooseReinforcedPath(paths,hint=0){if(!paths.length)return null;if(paths.length===1)return paths[0];const top=paths[0],second=paths[1],idx=Math.abs(Number(hint)||0),strong=top.bps>0&&top.score>=STREAM_PATH_STRONG_SCORE&&(top.score>=second.score*1.12||top.bps>=Math.max(1,second.bps)*1.2),every=strong?STREAM_PATH_EXPLORE_EVERY:8;/* Once a byte path proves itself, exploit it heavily while retaining a small exploration lane. */if(idx%every!==0)return top;return second||top}
+/* A WebRTC/relay send promise can remain unresolved after the path stops moving
+   bytes. Such a promise must NEVER monopolize a seeder queue or prevent the next
+   decoder-frontier retransmission. Limits are per receiver + transport path. */
+const streamPathDispatches=new Map();
+async function boundedStreamPathSend(remote,path,packet,metadata,critical=false){
+  const key=`${remote}|${path.path}`,now=performance.now(),prev=streamPathDispatches.get(key)||{active:0,blockedUntil:0,failures:0};
+  if(!critical&&prev.blockedUntil>now)return false;
+  const cap=path.path.startsWith('relay:')?(critical?2:1):(critical?8:6);
+  if(prev.active>=cap)return false;
+  prev.active++;streamPathDispatches.set(key,prev);
+  const deadline=path.path.startsWith('relay:')?(critical?4200:6000):(critical?2200:2200);
+  let tid=0;
+  try{
+    const work=Promise.resolve().then(()=>path.send(packet,{...metadata,txPath:path.path})).then(Boolean,()=>false);
+    const result=await Promise.race([work,new Promise(resolve=>{tid=setTimeout(()=>resolve(false),deadline)})]);
+    if(result){prev.failures=Math.max(0,prev.failures-1);prev.blockedUntil=0;return true}
+    prev.failures=Math.min(8,prev.failures+1);
+    // Ordinary bulk immediately explores a different path. Decoder-head traffic
+    // can still probe a backed-off route if it is the only available option.
+    if(prev.failures>=2)prev.blockedUntil=performance.now()+Math.min(6000,900*prev.failures);
+    return false;
+  }finally{
+    clearTimeout(tid);prev.active=Math.max(0,prev.active-1);
+    if(streamPathDispatches.size>512){for(const[k,v]of streamPathDispatches){if(v.active===0&&v.blockedUntil<performance.now()-60000)streamPathDispatches.delete(k)}}
+  }
+}
 async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHints=[],aggressive=false){
-  // healthy/v43 transport policy: stripe routine chunks across independent paths;
-  // race every viable path on a hedge, an unproven transfer or a rescue.
   const paths=streamDataCandidates(remote,pathHints,aggressive);
   if(!paths.length)return sendBinaryActor(remote,packet,metadata,hint);
-  const idx=Math.max(0,Number(metadata?.idx)||Number(hint)||0),start=idx%paths.length,ordered=[...paths.slice(start),...paths.slice(0,start)];
-  const fanout=aggressive||metadata?.hedge||metadata?.hardRescue||metadata?.frontierRescue?ordered.length:1;
-  const selected=ordered.slice(0,fanout);
-  const results=await Promise.allSettled(selected.map(x=>Promise.resolve(x.send(packet,{...metadata,txPath:x.path}))));
+  const critical=!!(metadata?.decoderHead||metadata?.frontierRescue||metadata?.hardRescue);
+  const idx=Math.max(0,Number(metadata?.idx)||Number(hint)||0);
+  const start=idx%paths.length,ordered=[...paths.slice(start),...paths.slice(0,start)];
+  const fanout=aggressive||metadata?.hedge||critical?ordered.length:1;
+  // A successful send is only dispatch success, not verified delivery. The
+  // requester still awards credit exclusively after authenticated reception.
+  // Promise.allSettled on raw sends previously held q.active FOREVER when any
+  // one of multiple transports hung. Every contender now has a real deadline.
+  const send=x=>boundedStreamPathSend(remote,x,packet,metadata,critical);
+  const results=await Promise.allSettled(ordered.slice(0,fanout).map(send));
   if(results.some(x=>x.status==='fulfilled'&&x.value===true))return true;
-  for(const x of ordered.slice(fanout)){try{if(await x.send(packet,{...metadata,txPath:x.path}))return true}catch(_){}}
-  return false
+  for(const x of ordered.slice(fanout))if(await send(x))return true;
+  return false;
 }
 async function consumeRelayFrame(raw,plane){let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;noteRelayActor(e.from,e.nknAddr,plane);/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
   if(e.kind==='binfrag'&&e.to&&e.to!==actor){const hop=Math.max(0,Number(e.hop)||0),bridgeKey=`${e.from}|${e.to}|${e.rid}|${i}|${hop}`;if(hop<RELAY_DATA_MAX_HOPS&&!relayBridgeSeen.has(bridgeKey)){relayBridgeSeen.set(bridgeKey,Date.now());const targetPlanes=remoteRelayPlanes(e.to).filter(p=>RELAY_PLANES.includes(p)&&p!==relayPlaneName(plane));if(targetPlanes.length){const bridged=await seal({...e,via:actor,hop:hop+1,ts:Date.now()});for(const p of targetPlanes)publishRelayRawOnPlane(p,bridged).catch(()=>{})}}return}
@@ -1333,7 +1363,12 @@ function previewDebugNoteSegment(p,bytes,track,sample){if(!p)return;const d=prev
 function previewDebugNoteMseAppend(p,bytes,kind){if(!p)return;const d=previewDebugState(p);d.mseBytes+=Math.max(0,Number(bytes)||0);d.lastMseAppendAt=performance.now();d.lastMseTrack=kind||''}
 function previewProtocolPlaneStates(s){const direct=[];for(const a of s?.holders||[])for(const r of healthyRoutesFor(a)){const k=debugProtocolName(streamPathIdFromRoute(r));if(!direct.includes(k))direct.push(k)}return{NATS:natsState.nc?'up':'off',WEBRTC:direct.includes('WEBRTC')?'up':'idle',NKN:nknState.connected?'up':'off',MQTT:mqttRelayState.ready.size?'up':'off',NOSTR:nostrRelayState.pool?'up':'off',BC:bc?'up':'off'}}
 function previewDebugSample(p=activePreview,force=false){const s=p?.session,d=previewDebugState(p);if(!p||!s||!d)return null;const now=performance.now();if(!force&&d.lastSampleAt&&now-d.lastSampleAt<420)return d.samples.at(-1)||null;const dt=Math.max(.08,(now-(d.lastSampleAt||now-500))/1000),net=Number(s.bytesReceived)||0,dec=d.decoderBytes||0,seg=d.segmentBytes||0,mse=d.mseBytes||0,play=Number(p.media?.currentTime)||0,proto={};for(const[k,v]of d.protocolBytes){const old=d.lastProtoTotals.get(k)||0;proto[k]=Math.max(0,(v-old)/dt);d.lastProtoTotals.set(k,v)}const state=streamBufferedState(p),track={};if(p.mp4TrackBuffers?.size)for(const sb of p.mp4TrackBuffers.values())track[sb.__trackKind||String(sb.__trackId||'T')]=sourceBufferAhead(sb,state.time);const q=mp4QueuePressure(p),sample={t:now,net:Math.max(0,(net-d.lastNetBytes)/dt),dec:Math.max(0,(dec-d.lastDecoderBytes)/dt),seg:Math.max(0,(seg-d.lastSegmentBytes)/dt),mse:Math.max(0,(mse-d.lastMseBytes)/dt),playDelta:Math.max(0,(play-d.lastPlayTime)/dt),safe:state.ahead,time:state.time,track,qSeg:q.segments,qBytes:q.bytes,ready:Number(p.media?.readyState)||0,paused:!!p.media?.paused,waiting:!!p.waitingSince,inflight:s.inflight?.size||0,received:s.receivedCount||0,proto};d.lastSampleAt=now;d.lastNetBytes=net;d.lastDecoderBytes=dec;d.lastSegmentBytes=seg;d.lastMseBytes=mse;d.lastPlayTime=play;d.samples.push(sample);if(d.samples.length>240)d.samples.splice(0,d.samples.length-240);return sample}
-function previewStallDiagnosis(p=activePreview,s=p?.session,sample=previewDebugState(p)?.samples?.at(-1)){if(!p||!s||!sample)return{label:'WAITING FOR SAMPLE',level:''};const now=performance.now(),netAge=(now-(s.lastByteAt||0))/1000,decAge=(now-(p.debug?.lastDecoderAt||0))/1000,segAge=(now-(p.debug?.lastSegmentAt||0))/1000,mseAge=(now-(p.debug?.lastMseAppendAt||0))/1000,stuck=sample.waiting||(!sample.paused&&sample.playDelta<.04);if(!stuck)return{label:'PIPELINE MOVING',level:''};if(sample.safe>=STREAM_REBUFFER_RESUME_SECONDS)return{label:`PLAYER STUCK · ${sample.safe.toFixed(1)}s A/V READY`,level:'bad'};if(netAge>2)return{label:`NETWORK STARVED · LAST BYTE ${netAge.toFixed(1)}s`,level:'bad'};if(decAge>1.5&&sample.net>0)return{label:`DECODER FEED STARVED · NET ${fmtRate(sample.net)}`,level:'bad'};if(segAge>1.5&&decAge<1.5)return{label:`MP4BOX NOT EMITTING · ${segAge.toFixed(1)}s`,level:'bad'};if(mseAge>1.5&&segAge<1.5)return{label:`MSE APPEND STALLED · ${mseAge.toFixed(1)}s`,level:'bad'};const tv=Number(sample.track?.V)||0,ta=Number(sample.track?.A)||0;if(Math.abs(tv-ta)>2)return{label:`A/V IMBALANCE · V ${tv.toFixed(1)}s A ${ta.toFixed(1)}s`,level:'warn'};return{label:'DECODER RUNWAY EMPTY',level:'warn'}}
+function previewStallDiagnosis(p=activePreview,s=p?.session,sample=previewDebugState(p)?.samples?.at(-1)){if(!p||!s||!sample)return{label:'WAITING FOR SAMPLE',level:''};const now=performance.now(),netAge=(now-(s.lastByteAt||0))/1000,decAge=(now-(p.debug?.lastDecoderAt||0))/1000,segAge=(now-(p.debug?.lastSegmentAt||0))/1000,mseAge=(now-(p.debug?.lastMseAppendAt||0))/1000,stuck=sample.waiting||(!sample.paused&&sample.playDelta<.04);if(!stuck)return{label:'PIPELINE MOVING',level:''};if(sample.safe>=STREAM_REBUFFER_RESUME_SECONDS)return{label:`PLAYER STUCK · ${sample.safe.toFixed(1)}s A/V READY`,level:'bad'};if(netAge>2)return{label:`NETWORK STARVED · LAST BYTE ${netAge.toFixed(1)}s`,level:'bad'};if(decAge>1.5&&sample.net>0)return{label:`DECODER FEED STARVED · NET ${fmtRate(sample.net)}`,level:'bad'};if(p.mode==='mp4box'&&s.mode==='stream'){
+    const head=mp4ProgressiveCursor(s);
+    if(!bitHas(s.receivedBits,head)&&segAge>1.5)return{label:`FRONTIER CHUNK ${head} MISSING · SAFE ${sample.safe.toFixed(1)}s`,level:'bad'};
+    if(bitHas(s.receivedBits,head)&&!bitHas(s.decoderFedBits,head)&&decAge>1.5)return{label:`DECODER CACHE/FEED BLOCKED · CH ${head}`,level:'bad'};
+  }
+  if(segAge>1.5&&decAge<1.5)return{label:`MP4BOX NOT EMITTING · ${segAge.toFixed(1)}s`,level:'bad'};if(mseAge>1.5&&segAge<1.5)return{label:`MSE APPEND STALLED · ${mseAge.toFixed(1)}s`,level:'bad'};const tv=Number(sample.track?.V)||0,ta=Number(sample.track?.A)||0;if(Math.abs(tv-ta)>2)return{label:`A/V IMBALANCE · V ${tv.toFixed(1)}s A ${ta.toFixed(1)}s`,level:'warn'};return{label:'DECODER RUNWAY EMPTY',level:'warn'}}
 function renderPreviewDebugGraph(p=activePreview){if(!previewDebugOpen)return;const c=$('#previewDebugGraph'),d=previewDebugState(p);if(!c||!d?.samples?.length)return;const rect=c.getBoundingClientRect(),w=Math.max(240,Math.floor(rect.width)),h=Math.max(120,Math.floor(rect.height)),dpr=Math.min(2,devicePixelRatio||1);if(c.width!==w*dpr||c.height!==h*dpr){c.width=w*dpr;c.height=h*dpr}const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);x.strokeStyle='#182027';x.lineWidth=1;for(let i=1;i<4;i++){const y=h*i/4;x.beginPath();x.moveTo(0,y);x.lineTo(w,y);x.stroke()}const a=d.samples.slice(-120),maxRate=Math.max(1024,...a.flatMap(v=>[v.net,v.dec,v.seg,v.mse])),maxSafe=Math.max(30,...a.map(v=>v.safe));const line=(key,color,max)=>{x.strokeStyle=color;x.lineWidth=1.4;x.beginPath();a.forEach((v,i)=>{const px=a.length<2?0:i/(a.length-1)*(w-2)+1,py=h-2-Math.min(1,(Number(v[key])||0)/max)*(h-10);if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke()};line('net','#72c7ff',maxRate);line('dec','#f1bb37',maxRate);line('seg','#c48cff',maxRate);line('mse','#67d391',maxRate);line('safe','#f27b7b',maxSafe);x.fillStyle='#59646d';x.font='7px ui-monospace,monospace';x.fillText(`${fmtRate(maxRate)} max`,5,h-4);x.fillText(`${Math.round(maxSafe)}s safe`,Math.max(5,w-60),h-4)}
 function renderPreviewDebugPanel(p=activePreview){if(!previewDebugOpen||!p?.session)return;const s=p.session,d=previewDebugState(p),sample=previewDebugSample(p,false)||{},state=previewProtocolPlaneStates(s),metric=$('#previewDebugMetrics');if(metric){metric.innerHTML=[['NET',fmtRate(sample.net||0)],['DECODER',fmtRate(sample.dec||0)],['MP4 SEG',fmtRate(sample.seg||0)],['MSE APPEND',fmtRate(sample.mse||0)],['SAFE A/V',`${(sample.safe||0).toFixed(1)}s${s.decoderRefillActive?' · REFILL':''}`],['SAFE BAND',`${Math.round(s.decoderRefillRestart||STREAM_SAFE_LOW_SECONDS)}→${Math.round(s.decoderRefillTarget||STREAM_SAFE_HIGH_SECONDS)}s${s.decoderRefillActive?' · REFILL':' · HOLD'} · ${Number(s.safeSlopeEma||0).toFixed(2)}s/s · ${Number(s.safeAggression||1).toFixed(1)}×${Number.isFinite(Number(s.safeTimeToLow))?' · TTL '+Math.round(Number(s.safeTimeToLow))+'s':''}`],['PLAY Δ',`${(sample.playDelta||0).toFixed(2)}×`],['REQ FRONT',`${s.cursor||0}/${s.streamRequestLimit||s.total}`],['RX CHUNKS',`${s.receivedCount||0}/${s.total}`],['RX PREFIX',`${s.rxPrefix||0}/${s.total}`],['DEC FRONT',`${mp4ProgressiveCursor(s)}/${s.decoderLimit||0}`],['DEC RESERVE',`${Math.max(0,(s.rxPrefix||0)-mp4ProgressiveCursor(s))} ch · end ${s.decoderRefillEnd||0}`],['INFLIGHT',`${s.inflight?.size||0} · ${s.receiving?.size||0} rx`],['CACHE INDEX',`${s.streamCached?.size||0}/${s.total}`]].map(([a,b])=>`<div class="previewDebugMetric"><span>${a}</span><b>${b}</b></div>`).join('')}const routes=$('#previewDebugRoutes');if(routes){const now=performance.now(),rows=[];for(const[k,x]of s.pathStats||[]){const samples=x.samples||[];while(samples.length&&now-samples[0][0]>6000)samples.shift();const bytes=samples.reduce((n,v)=>n+v[1],0),span=samples.length?Math.max(.35,(now-samples[0][0])/1000):1,bps=bytes/span,[remote,...rest]=k.split('|'),path=rest.join('|'),age=(now-(x.lastAt||0))/1000;rows.push({remote,path,bps,age,chunks:x.chunks||0,score:pathReinforcementScore(x,now)})}rows.sort((a,b)=>b.bps-a.bps||a.age-b.age);const plane=`<div class="previewDebugRoute"><b>PLANE STATE</b><span>${Object.entries(state).map(([k,v])=>`${k}:${v}`).join(' ')}</span><span></span><span></span></div>`;routes.innerHTML=plane+(rows.slice(0,18).map(r=>`<div class="previewDebugRoute"><b>${esc(profileFor(r.remote)?.alias||r.remote)} · ${esc(r.path)}</b><span class="${r.age<2.5?'live':''}">${fmtRate(r.bps)}</span><span>${r.chunks} ch · S${Math.round(r.score||0)}</span><span>${r.age.toFixed(1)}s</span></div>`).join('')||'<div class="previewDebugRoute"><b>NO PROVEN BYTE PATH YET</b><span>—</span><span>—</span><span>—</span></div>')}const ev=$('#previewDebugEvents');if(ev){ev.innerHTML='<div class="previewDebugTitle">EVENT CHAIN · NEWEST FIRST</div>'+d.events.slice(-100).reverse().map(e=>`<div class="previewDebugEvent"><span>${esc(e.clock)}</span><b class="${e.level==='bad'?'bad':e.level==='warn'?'warn':''}">${esc(e.type)}</b><span>${esc(e.detail)}</span></div>`).join('')}renderPreviewDebugGraph(p)}
 function updatePreviewDiagnosticFooter(p=activePreview){const s=p?.session;if(!p||!s)return;const sample=previewDebugSample(p,false),diag=previewStallDiagnosis(p,s,sample),layer=$('#previewDiagLayer'),routes=$('#previewDiagRoutes');if(layer&&sample){const tr=sample.track||{},av=Object.keys(tr).length?`V ${(tr.V||0).toFixed(0)} A ${(tr.A||0).toFixed(0)}`:`SAFE ${(sample.safe||0).toFixed(0)}s`;layer.textContent=`${diag.label} · NET ${fmtRate(sample.net||0)} → DEC ${fmtRate(sample.dec||0)} → SEG ${fmtRate(sample.seg||0)} → MSE ${fmtRate(sample.mse||0)} · ${av} · q${sample.qSeg||0} · N ${s.cursor||0}/${s.streamRequestLimit||s.total} · D ${p.mode==='mp4box'?mp4ProgressiveCursor(s):s.decoderFedCount||0}/${s.decoderLimit||0} · PFX +${Math.max(0,(s.rxPrefix||0)-(p.mode==='mp4box'?mp4ProgressiveCursor(s):0))} · IF ${s.inflight?.size||0} · PLAY ${(sample.playDelta||0).toFixed(2)}×`;layer.className='previewDiagLayer '+(diag.level||'')}if(routes&&sample){const state=previewProtocolPlaneStates(s),parts=[];for(const name of ['NATS','WEBRTC','NKN','MQTT','NOSTR']){const rate=sample.proto?.[name]||0,st=state[name]||'off';parts.push(`${name} ${rate>0?fmtRate(rate):st}`)}routes.textContent=parts.join(' · ')}if(previewDebugOpen)renderPreviewDebugPanel(p)}
@@ -1367,6 +1402,24 @@ function firstDecoderBufferedRange(p){const r=decoderBufferedRanges(p);return r.
 function snapPlaybackToFirstBufferedRange(p,state=streamBufferedState(p)){const m=p?.media;if(!m||m.seeking||m.currentTime>.25||state.inRange)return false;const first=firstDecoderBufferedRange(p);if(!first)return false;const [a,b]=first,gap=Math.max(0,a-(Number(m.currentTime)||0));if(gap>3||b-a<Math.max(.35,STREAM_START_PLAY_SECONDS))return false;try{m.currentTime=Math.min(b-.02,a+.015);p.startupRangeSnaps=(p.startupRangeSnaps||0)+1;return true}catch(_){return false}}
 function mp4ProgressiveCursor(s){if(!s)return 0;/* Decoder invariant: always keep feeding the earliest original-file chunk not yet supplied to MP4Box. The return value from appendBuffer() is a parser hint, not the playback cursor; following it after playback starts can strand the contiguous media prefix and starve MSE. Explicit user seeks add urgent ranges separately without replacing this sequential feeder. */let n=Math.max(0,Number(s.mp4SequentialCursor)||0);while(n<s.total&&bitHas(s.decoderFedBits,n))n++;if(n>=s.total)return Math.max(0,s.total-1);s.mp4SequentialCursor=n;return n}
 function forceMp4DecoderBootstrap(p=activePreview,s=p?.session,reason='tick'){if(!p||!s||p.mode!=='mp4box'||s.state!=='downloading')return;const radius=IS_MOBILEISH?32:48;let idx=mp4ProgressiveCursor(s);if(!p.mp4boxReady&&reason==='metadata-timeout'){const tail=Math.max(0,s.total-(IS_MOBILEISH?48:64));for(let i=tail;i<s.total;i++)pushStreamPriority(s,i)}requestDecoderUrgent(s,idx,radius);scheduleDecoderPromotion(s)}
+function watchdogMp4Segmentation(p=activePreview){
+  const s=p?.session;if(!p||!s||!p.mp4boxReady||!p.mp4boxStarted||p.mode!=='mp4box'||s.state!=='downloading')return;
+  const now=performance.now(),safe=streamBufferedAhead(p),head=mp4ProgressiveCursor(s);
+  if(safe>STREAM_CRITICAL_DECODE_SECONDS)return;
+  // Do not blame MP4Box for a missing input chunk; solve that through seeder rescue.
+  if(!bitHas(s.receivedBits,head)){
+    if(!s.lastDecoderHoleProbe||now-s.lastDecoderHoleProbe>1800){s.lastDecoderHoleProbe=now;hedgeDecoderHead(s,head,2,'mp4-input-gap')}
+    return;
+  }
+  if(now-(p.mp4LastSegmentAt||s.started||now)>4000&&
+     now-(s.mp4LastAppendAt||s.started||now)<3000&&
+     (!p.lastSegmentationKick||now-p.lastSegmentationKick>3500)){
+    p.lastSegmentationKick=now;
+    try{p.mp4box.start();p.mp4boxStarted=true}catch(e){previewDebugEvent('MP4 REARM',String(e?.message||e),'warn',s)}
+    scheduleDecoderPromotion(s,0);
+    previewDebugEvent('MP4 REARM',`fed ${head} · no segment · SAFE ${safe.toFixed(1)}s`,'warn',s);
+  }
+}
 
 function drainMp4SourceBuffers(p=activePreview){if(!p?.mp4TrackBuffers?.size)return;for(const sb of p.mp4TrackBuffers.values())try{drainSourceBuffer(sb)}catch(_){}}
 function drainPreviewSourceBuffers(p=activePreview){if(!p)return;try{if(p.sourceBuffer)drainSourceBuffer(p.sourceBuffer)}catch(_){}if(p.mp4TrackBuffers?.size)drainMp4SourceBuffers(p)}
@@ -1454,7 +1507,7 @@ function maintainContinuousPlayback(p=activePreview,reason='tick',force=false){c
   if(queueSafe&&(refilling||ahead<STREAM_PROACTIVE_DECODE_SECONDS||s.decoderHot?.has(next)||s.streamCached?.has(next)))scheduleDecoderPromotion(s,0);
   if(refilling){s.lastSafeRefillAt=now;const demandMs=tier?Math.max(160,420/aggr):700;if(!s.lastProactiveDemandAt||now-s.lastProactiveDemandAt>demandMs){s.lastProactiveDemandAt=now;announceStreamDemand(s).catch(()=>{});wakeTransferTransports()}}else if(ahead<STREAM_CRITICAL_DECODE_SECONDS){if(!s.lastProactiveDemandAt||now-s.lastProactiveDemandAt>700){s.lastProactiveDemandAt=now;announceStreamDemand(s).catch(()=>{});wakeTransferTransports();scheduleSession(s,0)}}if(s.playbackStarted&&!m.seeking&&p.wantPlayback!==false&&m.paused&&streamCanStartPlayback(p,s,state)){s.safeHeld=false;p.controllerPause=false;const qplay=m.play();qplay?.catch?.(()=>{})}}
 
-function playbackWatchdogTick(){const p=activePreview,s=p?.session,m=p?.media;if(!p||!s||!m||s.mode!=='stream'||!['downloading','complete'].includes(s.state)||document.hidden)return;latchPlaybackStarted(p);drainPreviewSourceBuffers(p);if(s.state==='downloading')maintainContinuousPlayback(p,'tick',false);const now=performance.now(),state=streamBufferedState(p),t=Number(m.currentTime)||0;
+function playbackWatchdogTick(){const p=activePreview,s=p?.session,m=p?.media;if(!p||!s||!m||s.mode!=='stream'||!['downloading','complete'].includes(s.state)||document.hidden)return;latchPlaybackStarted(p);drainPreviewSourceBuffers(p);if(s.state==='downloading'){maintainContinuousPlayback(p,'tick',false);watchdogMp4Segmentation(p)}const now=performance.now(),state=streamBufferedState(p),t=Number(m.currentTime)||0;
   /* Acquisition continues regardless of playback state. Never forcibly pause
      the media element to enforce a target buffer depth. */
   enforceSafePlaybackGuard(p,state);if(!m.paused&&!m.seeking){if(Math.abs(t-(p.watchdogLastTime??-1))>.015){p.watchdogLastTime=t;p.watchdogLastProgressAt=now;p.waitingSince=0}else if(!p.watchdogLastProgressAt)p.watchdogLastProgressAt=now}
