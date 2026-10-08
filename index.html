@@ -150,7 +150,9 @@ const TRANSFER_PROBE_TIMEOUT_MS=IS_MOBILEISH?1200:900,CHUNK_TIMEOUT_MS=IS_MOBILE
 /* Declare recovery cadence before any dependent transfer constants: avoid TDZ at bootstrap. */
 const SAFE_HEDGE_INTERVAL_MS=800,SAFE_RECOVERY_INTERVAL_MS=5000,SAFE_HARD_RESCUE_INTERVAL_MS=8000;
 /* Frontier rescue operates independently of bulk reservations and seeder queues. */
-const SAFE_FRONTIER_RESCUE_MS=IS_MOBILEISH?1700:1250,SAFE_FRONTIER_FANOUT=3,SAFE_FRONTIER_RETRY_MS=IS_MOBILEISH?1150:900;
+const SAFE_FRONTIER_RESCUE_MS=IS_MOBILEISH?1050:700,SAFE_FRONTIER_FANOUT=4,SAFE_FRONTIER_RETRY_MS=IS_MOBILEISH?800:550;
+const SAFE_FRONTIER_LEASE_MS=IS_MOBILEISH?2100:1400,SAFE_FRONTIER_BACKUP_LEASE_MS=IS_MOBILEISH?3500:2400;
+const SAFE_HOT_BATCH_CHUNKS=IS_MOBILEISH?12:24,SAFE_FRONTRUN_CHUNKS=IS_MOBILEISH?24:40;
 const TRANSFER_FAILOVER_NO_BYTE_MS=IS_MOBILEISH?1200:900,TRANSFER_RECOVERY_COOLDOWN_MS=IS_MOBILEISH?600:420,TRANSFER_ALT_PLANE_WAKE_MS=IS_MOBILEISH?350:220;
 const TRANSFER_HARD_RESCUE_MS=IS_MOBILEISH?5000:4500,TRANSFER_HARD_RESCUE_COOLDOWN_MS=SAFE_HARD_RESCUE_INTERVAL_MS;
 const SCHEDULER_TICK_MS=IS_MOBILEISH?320:180;
@@ -186,7 +188,7 @@ const NATS_VERSION='3.4.0',NKN_VERSION='1.3.6',MQTTJS_VERSION='5.15.2',NOSTR_TOO
 const MP4BOX_VERSION='2.4.1';
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?96:160,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?24:40,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?64:128)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?20:36)*1024*1024,MP4_HOT_CHUNKS=IS_MOBILEISH?48:96;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-healthy-controller-v63';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-safe-frontier-pressure-v64';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -976,7 +978,7 @@ async function queueServeChunks(m,remote){
   if(!q||!q.hot){q={hot:new Map(),bulk:new Map(),active:new Set(),pumping:false};serveQueues.set(key,q)}
   for(const idx0 of m.indexes||[]){
     const idx=Number(idx0);if(!Number.isInteger(idx)||idx<0||q.active.has(idx))continue;
-    const hot=!!m.decoderHead&&idx>=cur&&idx<cur+16;
+    const hot=!!m.decoderHead&&idx>=cur&&idx<cur+SAFE_HOT_BATCH_CHUNKS;
     const entry={...m,indexes:[idx],decoderHead:hot,decoderCursor:cur};
     if(hot){q.bulk.delete(idx);q.hot.set(idx,entry)}
     else if(!q.hot.has(idx))q.bulk.set(idx,entry);
@@ -1080,6 +1082,15 @@ function chunkReservationTimeout(s,inf){
   const proven=!!s.dataProven?.has(inf.actor),last=s.providerLastAt?.get(inf.actor)||0,
         alternatives=[...s.holders].some(a=>a!==inf.actor&&peerSeeds.get(a)?.has(s.cid)),
         stale=!last||performance.now()-last>STREAM_STALE_SOURCE_MS;
+  const frontier=mp4ProgressiveCursor(s),idx=Number(inf.idx);
+  const head=Number.isInteger(idx)&&idx>=frontier&&idx<frontier+SAFE_HOT_BATCH_CHUNKS;
+  const p=activePreview,safe=p?.session===s?streamBufferedAhead(p):Infinity;
+  if(head&&alternatives&&safe<STREAM_SAFE_HIGH_SECONDS){
+    const first=idx<frontier+4;
+    // Even a generally productive seeder can strand ONE indispensable MP4 chunk.
+    // Never let ongoing far-ahead bytes extend that head chunk's lease to 6s.
+    return first?SAFE_FRONTIER_LEASE_MS:SAFE_FRONTIER_BACKUP_LEASE_MS;
+  }
   return !proven?TRANSFER_PROBE_TIMEOUT_MS:(alternatives&&stale?STREAM_STALE_SOURCE_MS:CHUNK_TIMEOUT_MS)
 }
 async function schedulerTickBody(s){
@@ -1087,10 +1098,12 @@ async function schedulerTickBody(s){
   const now=performance.now(),advertised=advertisedRemoteSeeders(s.cid);
   for(const a of advertised)s.holders.add(a);
   const live=[...new Set([...s.holders,...advertised])].filter(a=>peerSeeds.get(a)?.has(s.cid));
-  const timedOutActors=new Set();
+  const timedOutActors=new Set(),timedOutHead=[];
+  const decoderHead=s.mode==='stream'?mp4ProgressiveCursor(s):-1;
   for(const [idx,inf] of [...s.inflight]){
-    if(now-inf.ts<=chunkReservationTimeout(s,inf))continue;
-    timedOutActors.add(inf.actor);
+    if(s.receiving?.has(idx)||bitHas(s.receivedBits,idx)||now-inf.ts<=chunkReservationTimeout(s,{...inf,idx}))continue;
+    if(s.mode==='stream'&&idx>=decoderHead&&idx<decoderHead+SAFE_HOT_BATCH_CHUNKS){timedOutHead.push(idx);s.frontierFailedSource=s.frontierFailedSource||new Map();s.frontierFailedSource.set(idx,inf.actor)}
+    else timedOutActors.add(inf.actor);
     s.inflight.delete(idx);
     s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));
     if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.unshift(idx);
@@ -1098,9 +1111,30 @@ async function schedulerTickBody(s){
   if(timedOutActors.size){
     previewDebugEvent('RESERVATION TIMEOUT',[...timedOutActors].map(a=>profileFor(a)?.alias||a).join(', '),'warn',s);
     for(const a of timedOutActors){s.dataProven?.delete(a);s.binaryProven?.delete(a)}
-    forceTransferRouteRecovery(s,'reservation-timeout',[...timedOutActors][0]).catch(()=>{});
+    // Preserve the old global recovery for truly silent sources, not missing
+    // head chunks whose surrounding bytes are already arriving.
+    if(now-(s.lastByteAt||s.started||now)>TRANSFER_FAILOVER_NO_BYTE_MS)
+      forceTransferRouteRecovery(s,'reservation-timeout',[...timedOutActors][0]).catch(()=>{});
+  }
+  if(timedOutHead.length){
+    s.priority=s.priority||[];
+    for(const i of timedOutHead.sort((a,b)=>b-a))if(!s.priority.includes(i))s.priority.unshift(i);
+    if(now-(s.lastFrontierLeaseLogAt||0)>1500){
+      s.lastFrontierLeaseLogAt=now;
+      previewDebugEvent('FRONTIER LEASE',`${timedOutHead.slice(0,6).join(',')} · reordered at decoder head`,'warn',s);
+    }
+    hedgeDecoderHead(s,decoderHead,Math.max(DECODER_HEAD_HEDGE_WIDTH,4),'frontier-lease');
   }
   const noByteFor=now-(s.lastByteAt||s.started||now);
+  if(s.mode==='stream'&&live.length){
+    const front=mp4ProgressiveCursor(s),p=activePreview;
+    const starving=p?.session===s&&streamBufferedAhead(p)<STREAM_SAFE_HIGH_SECONDS;
+    if(starving&&front<s.total&&!bitHas(s.receivedBits,front)){
+      const since=now-(s.frontierLastAdvanceAt||s.started||now);
+      if(since>SAFE_FRONTIER_RESCUE_MS)
+        hedgeDecoderHead(s,front,DECODER_HEAD_HEDGE_WIDTH,'independent-safe-frontier');
+    }
+  }
   if(live.length&&s.inflight.size&&noByteFor>TRANSFER_FAILOVER_NO_BYTE_MS)forceTransferRouteRecovery(s,'no-byte-progress').catch(()=>{});
   if(s.mode==='stream'&&(!s.lastDemandAt||now-s.lastDemandAt>=STREAM_DEMAND_HEARTBEAT_MS))announceStreamDemand(s).catch(()=>{});
   if(!live.length&&s.inflight.size===0){
@@ -1131,22 +1165,50 @@ async function schedulerTickBody(s){
   const give=(a,preferPrefetch=false)=>{
     if(globalRemaining<=0||(caps.get(a)||0)<=0)return false;
     const idx=nextChunkFor(s,preferPrefetch);if(idx==null)return false;
-    assignments.get(a).push(idx);caps.set(a,caps.get(a)-1);s.inflight.set(idx,{actor:a,ts:now});
-    s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++;globalRemaining--;return true;
+    // A decoder-frontier timeout must NOT reassign the same missing chunk to
+    // the same silent source on every round. Give another seeder a real turn.
+    let target=a;
+    if(s.mode==='stream'&&s.frontierFailedSource?.get(idx)===a&&live.length>1){
+      const alternative=live.find(x=>x!==a&&(caps.get(x)||0)>0);
+      if(alternative)target=alternative;
+    }
+    assignments.get(target).push(idx);caps.set(target,(caps.get(target)||0)-1);
+    s.inflight.set(idx,{actor:target,ts:now});
+    s.inflightByPeer.set(target,(s.inflightByPeer.get(target)||0)+1);
+    assigned++;globalRemaining--;return true;
   };
   // healthy/v43: minimum independent seeder allocations before round-robin striping.
   if(globalRemaining>0){let changed=true;while(changed&&globalRemaining>0){changed=false;for(const a of live){if((s.inflightByPeer.get(a)||0)>=minPerSource)continue;if(give(a,s.mode==='stream'&&!s.decoderRefillActive&&(assigned&1)===1))changed=true}}}
   let open=true;while(open&&globalRemaining>0){open=false;for(const a of live){if(globalRemaining<=0)break;if(give(a,s.mode==='stream'&&!s.decoderRefillActive&&(assigned&1)===1))open=true}}
   const jobs=[];
+  const frontier=s.mode==='stream'?mp4ProgressiveCursor(s):-1;
   for(const [a,indexes] of assignments){
     if(!indexes.length)continue;
-    // Route requests on all known ingress planes, as healthy/v43 does.
-    const urgency=s.mode==='stream'?streamUrgency(s):1,pathHints=streamPathHintsFor(s,a),unproven=!s.dataProven?.has(a),recovering=performance.now()-(s.lastRouteRecoveryAt||0)<4000;
-    const work=(async()=>{
-      const ok=await sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge:unproven||recovering,aggressive:unproven||recovering||(s.mode==='stream'&&urgency>1.05),pathHints}));
-      if(!ok){let reclaimed=0;for(const idx of indexes){const inf=s.inflight.get(idx);if(inf?.actor!==a)continue;s.inflight.delete(idx);reclaimed++;if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.unshift(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-reclaimed));scheduleSession(s,0)}
-      return ok;
-    })();jobs.push(work);
+    const pathHints=streamPathHintsFor(s,a),recovering=performance.now()-(s.lastRouteRecoveryAt||0)<4000;
+    // An ordinary mixed batch used to enqueue its *first decoder chunks* behind
+    // all prior speculative work on the seeder. Split it into hot and bulk jobs.
+    const hot=s.mode==='stream'?indexes.filter(i=>i>=frontier&&i<frontier+SAFE_HOT_BATCH_CHUNKS):[];
+    const bulk=hot.length?indexes.filter(i=>!hot.includes(i)):indexes;
+    const sendBatch=(batch,decoderHead)=>{
+      if(!batch.length)return;
+      const work=(async()=>{
+        const ok=await sendActorIngress(a,msg('chunks-need',{
+          id:s.cid,indexes:batch,total:s.total,chunkSize:s.chunkSize,sid:s.sid,
+          mode:s.mode,decoderHead,decoderCursor:Math.max(0,frontier),
+          // Never flood all planes with normal bulk just because SAFE is low.
+          // Independent head hedges handle truly missing critical chunks.
+          hedge:false,aggressive:false,pathHints
+        }));
+        if(!ok){let reclaimed=0;for(const idx of batch){
+          const inf=s.inflight.get(idx);if(inf?.actor!==a)continue;
+          s.inflight.delete(idx);reclaimed++;
+          if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.unshift(idx)
+        }s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-reclaimed));scheduleSession(s,0)}
+        return ok;
+      })();jobs.push(work)
+    };
+    sendBatch(hot,true);
+    sendBatch(bulk,false);
   }
   // Never hold the scheduler while an overloaded relay waits to publish its batch.
   if(jobs.length)Promise.allSettled(jobs).catch(e=>previewDebugEvent('INGRESS',String(e?.message||e),'warn',s));
@@ -1204,7 +1266,9 @@ function hedgeDecoderHead(s,idx,width=DECODER_HEAD_HEDGE_WIDTH,reason='decoder-h
     const fa=providerFlowFresh(s,a,now)?1:0,fb=providerFlowFresh(s,b,now)?1:0;
     return fb-fa||providerTransferScore(s,b)-providerTransferScore(s,a);
   });
-  const selected=live.slice(0,Math.min(SAFE_FRONTIER_FANOUT,live.length));
+  // With exhausted SAFE, leave no announced source unprobed; only 1-2 chunks
+  // are duplicated, not the whole bulk queue. Normal path striping continues.
+  const selected=live.slice(0,Math.min(critical?SAFE_FRONTIER_FANOUT:2,live.length));
   s.lastHeadHedgeAt=now;s.lastHedgeHead=idx;
   const request=missing.slice(0,critical?2:1);
   for(const a of selected){
@@ -1243,7 +1307,7 @@ async function handleBinary(packet,{peerId,metadata},w){
     /* Reinforcement is granted only after the chunk survives transport decrypt,
        optional seed-envelope decrypt, length validation, and local storage. */
     if(w&&!metadata?.relayPlane)s.binaryProven?.add(remote);s.dataProven?.add(remote);{const ps=rewardProviderPath(s,remote,path,part.length);if(w&&!metadata?.relayPlane){const rid=routeKey(w,peerId||''),rr=peerRoutes.get(remote)?.get(rid);if(rr){const rbps=recentPathBps(ps);rr.bps=rr.bps?rr.bps*.72+rbps*.28:rbps;rr.lastSeen=Date.now();rr.failures=Math.max(0,(rr.failures||0)-.2);recomputePrimaryRoute(remote)}}previewDebugNoteProtocol(s,path,part.length,remote)}
-    bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;if(idx===(s.rxPrefix||0)){let rp=s.rxPrefix||0;while(rp<s.total&&bitHas(s.receivedBits,rp))rp++;s.rxPrefix=rp;}const inf=s.inflight.get(idx);if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);s.providerLastAt=s.providerLastAt||new Map();s.providerLastAt.set(remote,performance.now());s.lastByteAt=performance.now();s.rateSamples=s.rateSamples||[];s.rateSamples.push([performance.now(),part.length]);while(s.rateSamples.length&&performance.now()-s.rateSamples[0][0]>6500)s.rateSamples.shift();noteFileTraffic(cid,part.length);queueVerification(s,idx,part).catch(e=>failSession(s,e));if(s.mode==='stream')refreshPreviewStats();else{scheduleDownloadJobPersist(s);refreshTransfer();scheduleDownloadRowRender()}scheduleSession(s,0)
+    bitSet(s.receivedBits,idx);s.receivedCount++;s.bytesReceived+=part.length;if(idx===(s.rxPrefix||0)){let rp=s.rxPrefix||0;while(rp<s.total&&bitHas(s.receivedBits,rp))rp++;s.rxPrefix=rp;s.frontierLastAdvanceAt=performance.now();}s.frontierFailedSource?.delete(idx);const inf=s.inflight.get(idx);if(inf){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1))}if(!s.providerStarted.has(remote))s.providerStarted.set(remote,performance.now());s.providerBytes.set(remote,(s.providerBytes.get(remote)||0)+part.length);s.providerLastAt=s.providerLastAt||new Map();s.providerLastAt.set(remote,performance.now());s.lastByteAt=performance.now();s.rateSamples=s.rateSamples||[];s.rateSamples.push([performance.now(),part.length]);while(s.rateSamples.length&&performance.now()-s.rateSamples[0][0]>6500)s.rateSamples.shift();noteFileTraffic(cid,part.length);queueVerification(s,idx,part).catch(e=>failSession(s,e));if(s.mode==='stream')refreshPreviewStats();else{scheduleDownloadJobPersist(s);refreshTransfer();scheduleDownloadRowRender()}scheduleSession(s,0)
   }catch(e){failSession(s,e)}finally{s.receiving?.delete(idx)}
 }
 async function finishDownload(s){
@@ -1481,7 +1545,7 @@ function msePreviewFailed(message){const p=activePreview;if(!p)return;console.wa
 function pumpMsePreview(){const p=activePreview;if(!p||p.mode!=='mse'||!p.sourceBuffer||p.sourceBuffer.updating||p.appending)return;const part=p.pending.get(p.appendIndex);if(part){p.pending.delete(p.appendIndex);p.appending=true;try{p.sourceBuffer.appendBuffer(part)}catch(e){p.appending=false;msePreviewFailed('This media container is not appendable as an incremental MediaSource stream on this browser.')}}else if(p.allReceived&&p.appendIndex>=contentTotal(p.c)&&p.mediaSource?.readyState==='open'){try{p.mediaSource.endOfStream()}catch(_){}}}
 async function consumePreviewChunk(s,idx,canonical){
   const p=activePreview;if(!p||p.session!==s)return false;s.decoderUrgent?.delete(idx);const plain=await canonicalToPlain(p.c,idx,canonical);if(p.mode==='compat'||(p.mode==='mp4box'&&!s.playbackStarted&&idx<4))p.parts[idx]=plain;
-  if(p.mode==='mp4box'&&p.mp4box){const ab=plain.buffer.slice(plain.byteOffset,plain.byteOffset+plain.byteLength),step=p.c.locked?(Number(p.c.plainChunkSize)||CHUNK_SIZE):contentChunkSize(p.c);ab.fileStart=idx*step;previewDebugNoteDecoder(s,plain.byteLength,idx);try{const next=p.mp4box.appendBuffer(ab);s.mp4LastAppendAt=performance.now();s.mp4LastAppendChunk=idx;if(Number.isFinite(next)){const ni=Math.max(0,Math.min(s.total-1,Math.floor(next/step)));s.mp4NextChunk=ni;/* Parser hints are telemetry only. Feeding remains strictly sequential; network prefetch continues independently. */}refreshPreviewStats();growStreamWindow(false,'decoder');return true}catch(e){s.mp4AppendErrors=(s.mp4AppendErrors||0)+1;console.warn('MP4Box append',e);return false}}
+  if(p.mode==='mp4box'&&p.mp4box){const ab=plain.buffer.slice(plain.byteOffset,plain.byteOffset+plain.byteLength),step=p.c.locked?(Number(p.c.plainChunkSize)||CHUNK_SIZE):contentChunkSize(p.c);ab.fileStart=idx*step;previewDebugNoteDecoder(s,plain.byteLength,idx);try{const next=p.mp4box.appendBuffer(ab);s.mp4LastAppendAt=performance.now();s.mp4LastAppendChunk=idx;s.decoderLastAdvanceAt=s.mp4LastAppendAt;if(Number.isFinite(next)){const ni=Math.max(0,Math.min(s.total-1,Math.floor(next/step)));s.mp4NextChunk=ni;/* Parser hints are telemetry only. Feeding remains strictly sequential; network prefetch continues independently. */}refreshPreviewStats();growStreamWindow(false,'decoder');return true}catch(e){s.mp4AppendErrors=(s.mp4AppendErrors||0)+1;console.warn('MP4Box append',e);return false}}
   if(p.mode==='mse'){p.pending.set(idx,plain);pumpMsePreview();return true}
   if(p.mode==='compat'){pumpCompatMedia(false).catch(()=>{});return true}
   p.parts[idx]=plain;refreshPreviewStats();growStreamWindow(false);return true
