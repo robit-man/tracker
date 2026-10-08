@@ -125,6 +125,7 @@ const CHUNK_SIZE=512*1024;
 const IS_MOBILEISH=IS_IOS||window.matchMedia?.('(pointer:coarse)')?.matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 /* Keep the idle room cold. Transfer concurrency grows only while bytes are moving. */
 const PER_SEEDER_WINDOW=IS_MOBILEISH?4:8;
+const STREAM_MIN_PER_SOURCE=IS_MOBILEISH?4:8,STREAM_STALE_SOURCE_MS=IS_MOBILEISH?2200:2600;
 const CHUNK_TIMEOUT_MS=IS_MOBILEISH?6500:8000;
 const SCHEDULER_TICK_MS=IS_MOBILEISH?320:180;
 const STREAM_INITIAL_CHUNKS=IS_MOBILEISH?6:10,STREAM_GROW_CHUNKS=IS_MOBILEISH?16:24,STREAM_MAX_PENDING_CHUNKS=IS_MOBILEISH?32:64,STREAM_LOW_WATER_SECONDS=18,STREAM_KEEP_BEHIND_SECONDS=15;
@@ -142,7 +143,7 @@ const NATS_VERSION='3.4.0',NKN_VERSION='1.3.6',MQTTJS_VERSION='5.15.2',NOSTR_TOO
 const MP4BOX_VERSION='2.4.1';
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?20:32,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?6:10,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?48:96)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?12:24)*1024*1024,MP4_HOT_CHUNKS=IS_MOBILEISH?48:96;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-07-bounded-decoder-v30';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-07-multisource-restore-v31';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -757,18 +758,43 @@ function nextChunkFor(s,preferPrefetch=false){
 function scheduleSession(s,delay=SCHEDULER_TICK_MS){clearTimeout(s.timer);if(s.state!=='downloading')return;s.timer=setTimeout(()=>schedulerTick(s).catch(e=>failSession(s,e)),delay)}
 async function schedulerTick(s){
   if(s.state!=='downloading')return;const now=performance.now();
-  for(const[idx,inf]of [...s.inflight])if(now-inf.ts>CHUNK_TIMEOUT_MS){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.push(idx)}
-  const advertised=advertisedRemoteSeeders(s.cid);for(const a of advertised)s.holders.add(a);const live=[...s.holders].filter(a=>peerSeeds.get(a)?.has(s.cid));
+  const advertised=advertisedRemoteSeeders(s.cid);for(const a of advertised)s.holders.add(a);
+  /* A provider that advertises this content remains scheduler-eligible even while
+     its direct route is being promoted. sendActorIngress races relay/direct planes
+     and immediately gives the work back if no ingress succeeds. */
+  const live=[...new Set([...s.holders,...advertised])].filter(a=>peerSeeds.get(a)?.has(s.cid));
+  const alternatives=Math.max(0,live.length-1),lastBy=s.providerLastAt||new Map();
+  for(const[idx,inf]of [...s.inflight]){
+    const age=now-inf.ts,last=lastBy.get(inf.actor)||0,sourceSilent=!last||now-last>STREAM_STALE_SOURCE_MS;
+    const timeout=s.mode==='stream'&&alternatives&&sourceSilent?STREAM_STALE_SOURCE_MS:CHUNK_TIMEOUT_MS;
+    if(age>timeout){s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.unshift(idx)}
+  }
   if(s.mode==='stream'&&(!s.lastDemandAt||now-s.lastDemandAt>=STREAM_DEMAND_HEARTBEAT_MS))announceStreamDemand(s).catch(()=>{});
   if(!live.length&&s.inflight.size===0){s.waitingForRoute=true;if(s.mode==='stream')announceStreamDemand(s).catch(()=>{});else await broadcast(msg('seed-query',{ids:[s.cid]}));if(s.mode==='stream')refreshPreviewStats();scheduleSession(s,250);return}
   s.waitingForRoute=false;for(const a of live)promoteRelayActor(a).catch(()=>{});
-  /* Fair swarm scheduling: one chunk per source per round, then another round.
-     This prevents source #1 from consuming the entire startup window and makes
-     every newly visible seeder useful on the very next tick. */
-  const caps=new Map(),assignments=new Map();for(const a of live){const used=s.inflightByPeer.get(a)||0,normalWindow=streamPeerWindow(s,a),maxWindow=(s.mode==='stream'&&!s.playbackStarted)?Math.max(STREAM_STARTUP_LANES,normalWindow):normalWindow,cap=Math.max(0,maxWindow-used);caps.set(a,cap);if(cap)assignments.set(a,[])}
-  let assigned=0,open=true,globalRemaining=s.mode==='stream'?Math.max(0,streamPendingCap(s)-s.inflight.size):Infinity;while(open&&globalRemaining>0){open=false;for(const a of live){if(globalRemaining<=0)break;let cap=caps.get(a)||0;if(cap<=0)continue;/* Decoder-critical chunks get half the lanes; the other half always keeps the 1 GB forward-prefetch lane moving. */const preferPrefetch=s.mode==='stream'&&(assigned%2===1);const idx=nextChunkFor(s,preferPrefetch);if(idx==null){open=false;break}open=true;assignments.get(a).push(idx);caps.set(a,cap-1);s.inflight.set(idx,{actor:a,ts:now});s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++;globalRemaining--}}
-  const jobs=[];for(const[a,indexes]of assignments){if(!indexes.length)continue;jobs.push((async()=>{const urgency=s.mode==='stream'?streamUrgency(s):1,pathHints=s.mode==='stream'?streamPathHintsFor(s,a):[];const ok=await sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge:s.mode==='stream'&&!s.dataProven?.has(a),aggressive:s.mode==='stream'&&(urgency>1.05||!s.dataProven?.has(a)),pathHints}));if(!ok){for(const idx of indexes){s.inflight.delete(idx);if(!bitHas(s.receivedBits,idx))s.retry.push(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-indexes.length))}return ok})())}if(jobs.length)await Promise.allSettled(jobs);
-  if(s.receivedCount<s.total){const capped=s.mode==='stream'&&s.cursor>=Math.min(s.total,s.streamRequestLimit||STREAM_INITIAL_CHUNKS)&&!s.retry.length&&!s.priority?.length;if(assigned||s.inflight.size)scheduleSession(s,assigned?SCHEDULER_TICK_MS:500);else if(!capped)scheduleSession(s,500)}
+  const caps=new Map(),assignments=new Map();
+  for(const a of live){const used=s.inflightByPeer.get(a)||0,normalWindow=streamPeerWindow(s,a),maxWindow=(s.mode==='stream'&&!s.playbackStarted)?Math.max(STREAM_STARTUP_LANES,normalWindow):normalWindow,cap=Math.max(0,maxWindow-used);caps.set(a,cap);assignments.set(a,[])}
+  let assigned=0;
+  const hardCap=s.mode==='stream'?Math.min(IS_MOBILEISH?160:320,Math.max(streamPendingCap(s),live.length*STREAM_MIN_PER_SOURCE)):Infinity;
+  let globalRemaining=s.mode==='stream'?Math.max(0,hardCap-s.inflight.size):Infinity;
+  /* If an older provider already owns the whole global window, reserve capacity
+     for every newly visible source by reclaiming the oldest reservations from
+     providers above the floor. A late duplicate response is simply discarded. */
+  if(s.mode==='stream'&&live.length>1){
+    let deficit=live.reduce((n,a)=>n+Math.max(0,STREAM_MIN_PER_SOURCE-(s.inflightByPeer.get(a)||0)),0);
+    let need=Math.max(0,deficit-globalRemaining);
+    if(need>0){const reclaim=[...s.inflight.entries()].filter(([,inf])=>(s.inflightByPeer.get(inf.actor)||0)>STREAM_MIN_PER_SOURCE).sort((a,b)=>a[1].ts-b[1].ts);for(const[idx,inf]of reclaim){if(need<=0)break;s.inflight.delete(idx);s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));if(!bitHas(s.receivedBits,idx))s.retry.unshift(idx);need--;globalRemaining++}}
+  }
+  const give=(a,preferPrefetch=false)=>{if(globalRemaining<=0)return false;const cap=caps.get(a)||0;if(cap<=0)return false;const idx=nextChunkFor(s,preferPrefetch);if(idx==null)return false;assignments.get(a).push(idx);caps.set(a,cap-1);s.inflight.set(idx,{actor:a,ts:now});s.inflightByPeer.set(a,(s.inflightByPeer.get(a)||0)+1);assigned++;globalRemaining--;return true};
+  /* First guarantee every seeder a minimum number of unique outstanding chunks.
+     This is deliberately independent of historical throughput: a newly arrived
+     third source contributes immediately instead of waiting for old reservations. */
+  if(s.mode==='stream'&&globalRemaining>0){let changed=true;while(changed&&globalRemaining>0){changed=false;for(const a of live){const used=s.inflightByPeer.get(a)||0;if(used>=STREAM_MIN_PER_SOURCE)continue;if(give(a,(assigned&1)===1))changed=true}}}
+  /* Then stripe the rest one chunk/source/round. Faster peers naturally recycle
+     their lanes sooner, so they receive more work without starving slower peers. */
+  let open=true;while(open&&globalRemaining>0){open=false;for(const a of live){if(globalRemaining<=0)break;if(give(a,s.mode==='stream'&&(assigned&1)===1))open=true}}
+  const jobs=[];for(const[a,indexes]of assignments){if(!indexes.length)continue;jobs.push((async()=>{const urgency=s.mode==='stream'?streamUrgency(s):1,pathHints=s.mode==='stream'?streamPathHintsFor(s,a):[];const ok=await sendActorIngress(a,msg('chunks-need',{id:s.cid,indexes,total:s.total,chunkSize:s.chunkSize,sid:s.sid,mode:s.mode,hedge:s.mode==='stream'&&!s.dataProven?.has(a),aggressive:s.mode==='stream'&&(urgency>1.05||!s.dataProven?.has(a)),pathHints}));if(!ok){for(const idx of indexes){const inf=s.inflight.get(idx);if(inf?.actor===a)s.inflight.delete(idx);if(!bitHas(s.receivedBits,idx))s.retry.unshift(idx)}s.inflightByPeer.set(a,Math.max(0,(s.inflightByPeer.get(a)||0)-indexes.length))}return ok})())}if(jobs.length)await Promise.allSettled(jobs);
+  if(s.receivedCount<s.total){const capped=s.mode==='stream'&&s.cursor>=Math.min(s.total,s.streamRequestLimit||STREAM_INITIAL_CHUNKS)&&!s.retry.length&&!s.priority?.length;if(assigned||s.inflight.size)scheduleSession(s,assigned?SCHEDULER_TICK_MS:300);else if(!capped)scheduleSession(s,300)}
 }
 async function canonicalToPlain(c,idx,part){return c.locked?decryptLockedChunk(c,idx,part):part}
 function streamCacheKey(sid,idx){return `${sid}:${String(idx).padStart(10,'0')}`}
