@@ -32,6 +32,92 @@ function context(names) {
   return c;
 }
 const controlFunctions = ['contentChunkSize', 'mp4SafeRamHorizon', 'streamSafeBand', 'safeBufferCritical', 'updateSafeRateController', 'noteStreamDelivery', 'streamRefillWindowCaps', 'streamPendingCap', 'streamTargetSeconds'];
+test('MP4 source detection supports managed-only browsers and retains classic MSE when available', () => {
+  const c=context(['previewMediaSourceType']);
+  const classic=function(){},managed=function(){};
+  c.window={ManagedMediaSource:managed};assert.equal(c.previewMediaSourceType(),managed);
+  c.window.MediaSource=classic;assert.equal(c.previewMediaSourceType(),classic);
+  c.window={};assert.equal(c.previewMediaSourceType(),null);
+});
+test('MP4 decoder uses a valid alternate when the first CDN fails or hangs', async () => {
+  const c = context(['loadMp4BoxModule']);
+  c.MP4BOX_VERSION = '2.4.1'; c.mp4BoxModulePromise = null;
+  const module = { createFile() {} }, calls = [];
+  c.importMp4BoxModule = async url => {
+    calls.push(url);
+    if(url.includes('jsdelivr')) return new Promise(() => {});
+    return { default: module };
+  };
+  const loaded = await c.loadMp4BoxModule();
+  assert.equal(loaded.module, module);
+  assert.match(loaded.url, /unpkg/);
+  assert.equal(calls.length, 2);
+  assert.equal((await c.loadMp4BoxModule()).module, module);
+  assert.equal(calls.length, 2, 'successful decoder is reused');
+  c.mp4BoxModulePromise = null;
+  c.importMp4BoxModule = async url => {
+    if(url.includes('jsdelivr')) throw Error('blocked');
+    return module;
+  };
+  assert.equal((await c.loadMp4BoxModule()).module, module);
+});
+test('unavailable or invalid MP4 modules fail explicitly and allow a later retry', async () => {
+  const c = context(['loadMp4BoxModule']);
+  c.MP4BOX_VERSION='2.4.1'; c.mp4BoxModulePromise=null;
+  c.importMp4BoxModule=async()=>({});
+  await assert.rejects(c.loadMp4BoxModule(), /MP4 decoder could not load/);
+  assert.equal(c.mp4BoxModulePromise, null);
+  c.importMp4BoxModule=async()=>({createFile(){}});
+  assert.equal(typeof (await c.loadMp4BoxModule()).module.createFile, 'function');
+});
+test('compatibility SAFE rejects a truncated Blob that advertises the whole movie', () => {
+  const c = context(['timeRangesList', 'decoderBufferedRanges', 'streamBufferedAhead', 'streamBufferedState']);
+  const p = { mode:'compat', media:{currentTime:89.7,buffered:{length:1,start:()=>0,end:()=>6472.54}} };
+  assert.equal(c.streamBufferedAhead(p), 0);
+  assert.equal(c.streamBufferedState(p).inRange, false);
+  p.compatPlaybackReady=true; // only set when a complete verified source is loaded
+  assert.ok(Math.abs(c.streamBufferedAhead(p)-6382.84)<.001);
+});
+test('native compatibility never replaces playback with partial file prefixes', async () => {
+  const c = context(['pumpCompatMedia']);
+  const s={total:1401,receivedCount:71,networkComplete:false};
+  const p={mode:'compat',session:s,media:{},mime:'video/mp4'};
+  c.activePreview=p;c.$=()=>({});let assemblies=0,loads=0;
+  c.materializeCompatInput=async()=>{assemblies++;return{}};
+  c.setCompatPlaybackBlob=async()=>{loads++;p.compatPlaybackReady=true};
+  c.previewDebugEvent=()=>{};
+  await c.pumpCompatMedia(true);
+  assert.equal(assemblies,0);assert.equal(loads,0);
+  s.receivedCount=s.total; // hash verification has not completed yet
+  await c.pumpCompatMedia(true);assert.equal(loads,0);
+  s.networkComplete=true;
+  await Promise.all([c.pumpCompatMedia(true),c.pumpCompatMedia(true)]);
+  await c.pumpCompatMedia(true);
+  assert.equal(assemblies,1);assert.equal(loads,1);
+});
+test('compatibility acquisition continues to EOF without accumulating decoded parts', async () => {
+  const c = context(['ensureStreamHorizon', 'consumePreviewChunk', 'streamDecoderShouldConsume', 'safeFocusActive']);
+  const s={mode:'stream',state:'downloading',total:1401,decoderLimit:62,streamRequestLimit:787,decoderUrgent:new Set()};
+  const p={kind:'video',mode:'compat',session:s,media:{currentTime:89},parts:[]};
+  c.activePreview=p;let scheduled=0;
+  c.scheduleSession=()=>scheduled++;c.pumpCompatMedia=async()=>{};
+  c.ensureStreamHorizon('tick',true);
+  assert.equal(s.streamRequestLimit,1401);assert.equal(s.decoderLimit,1401);
+  assert.equal(c.safeFocusActive(s),false);
+  assert.equal(c.streamDecoderShouldConsume(p,s,1000),true);
+  assert.equal(await c.consumePreviewChunk(s,1000,new Uint8Array(1)),true);
+  assert.equal(p.parts.length,0);assert.equal(scheduled,1);
+});
+test('native MSE removal does not skip a chunk and stale callbacks cannot restart a failed buffer', () => {
+  const c=context(['nativeMseUpdateEnd']);
+  let pumped=0;c.pumpMsePreview=()=>pumped++;c.markPreviewPlayable=()=>{};c.growStreamWindow=()=>{};
+  const sb={},p={mode:'mse',sourceBuffer:sb,appendIndex:10,appending:false};
+  c.nativeMseUpdateEnd(p,sb);assert.equal(p.appendIndex,10);
+  p.appending=true;c.nativeMseUpdateEnd(p,sb);assert.equal(p.appendIndex,11);
+  assert.equal(p.appending,false);
+  p.mode='compat';p.sourceBuffer=null;
+  c.nativeMseUpdateEnd(p,sb);assert.equal(pumped,2);assert.equal(p.appendIndex,11);
+});
 function plant() {
   const p = { c: { size: 300000000 }, originalDurationSeconds: 1000, media: { currentTime: 0, playbackRate: 1, seeking: false }, ahead: 4 };
   const s = { mode: 'stream', total: 600, chunkSize: 512 * 1024, inflight: new Map(), holders: new Set(['seed']), deliveryLatency: .2, deliveryJitter: .01 };

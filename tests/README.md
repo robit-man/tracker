@@ -88,3 +88,19 @@ TRACKER_TEST_DEPS=/tmp/tracker-test-deps TICKS=210 MIN_PLAY_TIME=326 \
 ```
 
 Test deadlines and sample counts are harness limits, not controller set points.
+
+Reproduce decoder-CDN failure and false whole-movie SAFE accounting with a real MP4:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps \
+  node tests/streaming-decoder.mjs /path/to/movie.mp4
+```
+
+This blocks the primary MP4 decoder CDN and serves the exact alternate npm
+distribution locally, including relative module imports. It requires continuous
+playback beyond 1:29 with only the ManagedMediaSource API exposed (an alias
+of Chromium MSE, not an iPhone hardware test). It then blocks both decoder sources, interrupts delivery
+after a partial prefix, and requires zero SAFE and no native Blob playback until
+the whole file is received and verified. Complete native playback must load once
+and continue without replacing its source URL. Use a movie longer than two
+minutes; the reported 1,401-chunk Eternal Sunshine MP4 is the regression fixture.
