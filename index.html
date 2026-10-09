@@ -153,6 +153,11 @@ const SAFE_HEDGE_INTERVAL_MS=800,SAFE_RECOVERY_INTERVAL_MS=5000,SAFE_HARD_RESCUE
 const SAFE_FRONTIER_RESCUE_MS=IS_MOBILEISH?1050:700,SAFE_FRONTIER_FANOUT=4,SAFE_FRONTIER_RETRY_MS=IS_MOBILEISH?800:550;
 const SAFE_FRONTIER_LEASE_MS=IS_MOBILEISH?2100:1400,SAFE_FRONTIER_BACKUP_LEASE_MS=IS_MOBILEISH?3500:2400;
 const SAFE_HOT_BATCH_CHUNKS=IS_MOBILEISH?12:24,SAFE_FRONTRUN_CHUNKS=IS_MOBILEISH?24:40;
+/* Critical SAFE mode is capacity isolation, not merely extra priority flags.
+   A 0-second buffer with hundreds of distant bulk reservations cannot feed SEG.
+   Keep the active request working set moving with the actual MP4Box cursor. */
+const SAFE_FOCUS_CHUNKS=IS_MOBILEISH?24:48;
+const SAFE_FOCUS_PENDING=IS_MOBILEISH?32:64;
 const TRANSFER_FAILOVER_NO_BYTE_MS=IS_MOBILEISH?1200:900,TRANSFER_RECOVERY_COOLDOWN_MS=IS_MOBILEISH?600:420,TRANSFER_ALT_PLANE_WAKE_MS=IS_MOBILEISH?350:220;
 const TRANSFER_HARD_RESCUE_MS=IS_MOBILEISH?5000:4500,TRANSFER_HARD_RESCUE_COOLDOWN_MS=SAFE_HARD_RESCUE_INTERVAL_MS;
 const SCHEDULER_TICK_MS=IS_MOBILEISH?320:180;
@@ -197,7 +202,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-08-safe-frontier-v77';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-08-safe-seg-continuity-v78';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -1041,6 +1046,12 @@ async function queueServeChunks(m,remote){
   }
   let q=serveQueues.get(key);
   if(!q||!q.hot){q={hot:new Map(),bulk:new Map(),active:new Set(),pumping:false};serveQueues.set(key,q)}
+  if(m.decoderHead&&m.safeCritical){
+    /* Stop a seeder's queued speculative tail from overtaking future segment
+       input. Existing in-flight frames are not presumed cancelable. */
+    q.focusCursor=cur;q.focusCritical=true;
+    for(const idx of [...q.bulk.keys()])if(idx<cur||idx>=cur+SAFE_FOCUS_CHUNKS)q.bulk.delete(idx);
+  }else if(m.decoderHead&&!m.safeCritical){q.focusCritical=false}
   for(const idx0 of m.indexes||[]){
     const idx=Number(idx0);if(!Number.isInteger(idx)||idx<0||q.active.has(idx))continue;
     const hot=!!m.decoderHead&&idx>=cur&&idx<cur+SAFE_HOT_BATCH_CHUNKS;
@@ -1086,7 +1097,11 @@ async function serveChunksNow(m,remote){
   const cid=String(m.id||''),c=contents.get(cid);if(!c||!seedEnabled(cid))return;const total=contentTotal(c),chunkSize=contentChunkSize(c),indexes=(m.indexes||[]).slice(0,96).map(Number).filter(idx=>Number.isInteger(idx)&&idx>=0&&idx<total),pathHints=Array.isArray(m.pathHints)?m.pathHints:[],aggressive=!!m.aggressive||!!m.hedge;
   let unreadable=false;
   const serveOne=async idx=>{
-    if(unreadable)return false;const dupeKey=remote+'|'+cid+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
+    if(unreadable)return false;
+    const focus=serveQueues.get(remote+'|'+cid);
+    if(m.mode==='stream'&&!m.decoderHead&&!m.frontierRescue&&focus?.focusCritical&&
+       (idx<focus.focusCursor||idx>=focus.focusCursor+SAFE_FOCUS_CHUNKS))return false;
+    const dupeKey=remote+'|'+cid+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
     if(c.locked){seedSalt=seedSaltFor(cid);const sk=await seedEnvelopeKey(cid,actor,seedSalt),iv=randomBytes(12),ct=await aesEncryptKey(sk,part,iv,`seedwrap:${cid}:${idx}`);wirePart=concatBytes(iv,ct)}
     const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seedSalt,mode:m.mode||'',decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge};
     const proven=pathHints.some(h=>h&&typeof h==='object'&&h.strong&&h.bps>0),frontierRescue=m.frontierRescue===true,bootstrap=!proven&&!frontierRescue&&(m.hardRescue===true||idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS),sent=await sendBinaryMultipathActor(remote,packet,{...metadata,frontierRescue},idx,pathHints,!frontierRescue&&!proven&&(aggressive||bootstrap));
@@ -1129,15 +1144,28 @@ function nextPrefetchChunkFor(s){
   while(s.cursor<ceiling){const i=s.cursor++;if(!bitHas(s.receivedBits,i)&&!s.inflight.has(i))return i}
   return null
 }
+function safeFocusActive(s){
+  return !!(s?.mode==='stream'&&activePreview?.session===s&&
+    streamBufferedAhead(activePreview)<STREAM_SAFE_LOW_SECONDS&&
+    mp4ProgressiveCursor(s)<s.total);
+}
 function nextDecoderRefillChunkFor(s){
   if(!s||s.mode!=='stream'||!s.decoderRefillActive)return null;
-  const start=Math.max(0,mp4ProgressiveCursor(s)),end=Math.min(s.total,Math.max(start+STREAM_REFILL_MIN_WINDOW,Number(s.decoderRefillEnd)||Number(s.decoderLimit)||start+STREAM_REFILL_MIN_WINDOW));
-  // The contiguous decoder frontier always wins over distant speculative work.
+  const start=Math.max(0,mp4ProgressiveCursor(s));
+  let end=Math.min(s.total,Math.max(start+STREAM_REFILL_MIN_WINDOW,
+    Number(s.decoderRefillEnd)||Number(s.decoderLimit)||start+STREAM_REFILL_MIN_WINDOW));
+  if(safeFocusActive(s))end=Math.min(end,start+SAFE_FOCUS_CHUNKS);
   for(let i=start;i<end;i++)if(!bitHas(s.receivedBits,i)&&!s.inflight.has(i))return i;
-  return null
+  return null;
 }
 function nextChunkFor(s,preferPrefetch=false){
   const refill=nextDecoderRefillChunkFor(s);if(refill!=null)return refill;
+  if(safeFocusActive(s)){
+    /* All near-frontier work is already received or reserved. Do NOT refill the
+       remaining window with bulk. An independent head hedge handles stalled
+       reservations; new capacity goes back to contiguous supply on completion. */
+    return null;
+  }
   if(preferPrefetch){const seq=nextPrefetchChunkFor(s);if(seq!=null)return seq;return nextUrgentChunkFor(s)}
   const urgent=nextUrgentChunkFor(s);if(urgent!=null)return urgent;return nextPrefetchChunkFor(s)
 }
@@ -1256,6 +1284,28 @@ async function schedulerTickBody(s){
   }
   s.waitingForRoute=false;
   for(const a of live)promoteRelayActor(a).catch(()=>{});
+  /* An older bulk reservation still occupies real seeder bandwidth even after
+     SAFE becomes critical. Reclaim local ownership, de-prioritize bulk at the
+     source, and retain those indices for eventual high-SAFE prefetch. */
+  if(safeFocusActive(s)){
+    const head=mp4ProgressiveCursor(s),want=SAFE_FOCUS_PENDING;
+    const distant=[...s.inflight.entries()]
+      .filter(([i])=>i<head||i>=head+SAFE_FOCUS_CHUNKS)
+      .sort((a,b)=>b[0]-a[0]);
+    let reclaimed=0;
+    for(const [idx,inf] of distant){
+      if(s.inflight.size<=want)break;
+      s.inflight.delete(idx);
+      s.inflightByPeer.set(inf.actor,Math.max(0,(s.inflightByPeer.get(inf.actor)||1)-1));
+      if(!bitHas(s.receivedBits,idx)&&!s.retry.includes(idx))s.retry.push(idx);
+      reclaimed++;
+    }
+    if(reclaimed){
+      s.lastFocusReclaimed=(s.lastFocusReclaimed||0)+reclaimed;
+      if(now-(s.lastFocusLogAt||0)>2500){s.lastFocusLogAt=now;
+        previewDebugEvent('SAFE FRONTIER FOCUS',`D${head} · ${reclaimed} distant reservations yielded · SAFE ${streamBufferedAhead(activePreview).toFixed(1)}s`,'warn',s)}
+    }
+  }
   const caps=new Map(),assignments=new Map();
   for(const a of live){
     const used=s.inflightByPeer.get(a)||0,normalWindow=streamPeerWindow(s,a);
@@ -1308,7 +1358,8 @@ async function schedulerTickBody(s){
           mode:s.mode,decoderHead,decoderCursor:Math.max(0,frontier),
           // Never flood all planes with normal bulk just because SAFE is low.
           // Independent head hedges handle truly missing critical chunks.
-          hedge:false,aggressive:false,pathHints
+          hedge:false,aggressive:false,pathHints,
+          safeCritical:s.mode==='stream'&&safeFocusActive(s)
         }));
         if(!ok){let reclaimed=0;for(const idx of batch){
           const inf=s.inflight.get(idx);if(inf?.actor!==a)continue;
@@ -1634,7 +1685,7 @@ function hedgeDecoderHead(s,idx,width=DECODER_HEAD_HEDGE_WIDTH,reason='decoder-h
   });
   // With exhausted SAFE, leave no announced source unprobed; only 1-2 chunks
   // are duplicated, not the whole bulk queue. Normal path striping continues.
-  const selected=live.slice(0,Math.min(critical?SAFE_FRONTIER_FANOUT:2,live.length));
+  const selected=live.slice(0,Math.min(critical?(ahead<1?3:2):1,live.length));
   s.lastHeadHedgeAt=now;s.lastHedgeHead=idx;
   const request=missing.slice(0,critical?2:1);
   for(const a of selected){
@@ -1999,6 +2050,7 @@ async function refreshStreamStorageBudget(s){if(!s||s.state!=='downloading'||s.m
 function streamUrgency(s){if(!s||s.mode!=='stream'||activePreview?.session!==s)return 1;const ahead=streamBufferedAhead(activePreview),target=Math.max(24,Number(s.targetHorizonSeconds)||48);if(!s.playbackStarted||ahead<STREAM_URGENT_AHEAD_SECONDS)return 2.5;if(ahead<target*.5)return 2;if(ahead<target)return 1.5;return 1}
 function streamSuccessfulPathCount(s){if(!s?.pathStats)return 0;const now=performance.now(),seen=new Set;for(const[k,x]of s.pathStats)if(now-(x.lastAt||0)<STREAM_PATH_ACTIVE_TTL_MS)seen.add(k);return seen.size}
 function streamPendingCap(s){
+  if(safeFocusActive(s))return SAFE_FOCUS_PENDING;
   const u=streamUrgency(s),paths=Math.max(1,streamSuccessfulPathCount(s));
   return s?.mode==='stream'?Math.min(IS_MOBILEISH?160:320,Math.max(STREAM_MAX_PENDING_CHUNKS,Math.round(STREAM_MAX_PENDING_CHUNKS*u),u>1?STREAM_BOOST_PENDING:0,paths*(IS_MOBILEISH?16:24))):Infinity
 }
