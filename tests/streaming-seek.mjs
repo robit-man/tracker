@@ -29,34 +29,29 @@ await Promise.all([a,b].map(p=>p.waitForFunction(()=>window.__rtcReady)));
 console.log('RTC connected; indexing file');await a.locator('#harnessFile').setInputFiles(fixture);
 const cid=await a.evaluate(()=>window.__tracker.seed());console.log('Seed indexed',cid);await b.waitForFunction(cid=>window.__tracker.catalog.has(cid),cid);
 await b.evaluate(cid=>window.__tracker.openPreview(window.__tracker.catalog.get(cid)),cid);
-const samples=[];const ticks=Number(process.env.TICKS||120);
-for(let i=0;i<ticks;i++){
- await new Promise(r=>setTimeout(r,1000));
- if(i===20){await a.evaluate(()=>{__link.bps=768*1024});console.log('LINK slower: 768 KiB/s')}
- if(i===35){await b.evaluate(()=>{__tracker.p.media.playbackRate=4});console.log('PLAYBACK consumption: 4x')}
- if(i===50){await a.evaluate(()=>{__link.pause=true});console.log('LINK outage')}
- if(i===65){await a.evaluate(()=>{__link.pause=false;__link.bps=8*1024*1024});console.log('LINK restored: 8 MiB/s')}
- if(i===85){await b.evaluate(()=>{const p=__tracker.p;p.media.currentTime=Math.max(0,p.media.currentTime-3)});console.log('BUFFERED SEEK back 3s')}
- const stats=await b.evaluate(()=>__tracker.stats());samples.push({tick:i,...stats});console.log(JSON.stringify({tick:i,...stats}));if(stats.state==='error')break;
+const samples=[],seeks=[];
+async function sample(label){const stats=await b.evaluate(()=>__tracker.stats());samples.push({at:new Date().toISOString(),label,...stats});fs.writeFileSync(resultPath,JSON.stringify({fixture,errors,seeks,samples},null,2));console.log(JSON.stringify({label,...stats}));assert.ok(!stats.mediaError&&stats.state!=='error','no media/parser errors');return stats}
+async function waitPlaying(target,label){for(let i=0;i<120;i++){await new Promise(r=>setTimeout(r,1000));const x=await sample(label);if(x.time>target+3&&x.safe>0&&!x.paused)return x}assert.fail('seek failed to resume: '+label)}
+await waitPlaying(0,'startup');
+for(const target of [6000,1200,9000,0]){
+ if(target===0)await b.evaluate(async()=>{for(let i=0;i<300;i++){__tracker.trimBehind();if([...__tracker.p.mp4TrackBuffers.values()].every(sb=>!sb.updating&&(!sb.buffered.length||sb.buffered.start(0)>60)))return;await new Promise(r=>setTimeout(r,20))}throw Error('initial MSE range was not evicted')});
+ const before=await b.evaluate(()=>__tracker.stats());
+ assert.ok(!before.ranges.some(([a,z])=>target>=a&&target<z),'target is outside decoded ranges');
+ await b.evaluate(t=>{__tracker.p.media.currentTime=t},target);
+ const after=await waitPlaying(target,'seek '+target);
+ assert.ok(after.seekEpoch>before.seekEpoch,'new seek epoch');
+ if(target>1000){assert.ok(after.head>500,'decoder jumped beyond the missing file prefix');assert.ok(after.fed<128,'does not feed the intervening file');assert.ok(after.prefix<after.head,'plays with the original file prefix still missing')}
+ assert.ok(after.netBytes-before.netBytes<128*512*1024,'seek fetches a bounded target range');
+ seeks.push({target,before,after});
 }
-fs.writeFileSync(resultPath,JSON.stringify({fixture,errors,samples},null,2));
+// A later scrub supersedes both earlier requests and a cache read in progress.
+await b.evaluate(async()=>{const m=__tracker.p.media;m.currentTime=7000;await new Promise(r=>setTimeout(r,80));m.currentTime=1800;await new Promise(r=>setTimeout(r,80));m.currentTime=4200});
+await waitPlaying(4200,'rapid seek final 4200');
+const before=await sample('sustain start');
+for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,1000));await sample('sustain')}
+const after=samples.at(-1);
+assert.ok(after.time>before.time+20,'playback continues after seeks');
+assert.ok(after.segBytes>before.segBytes,'fragment production continues after seeks');
 assert.equal(errors.length,0,'no browser runtime errors');
-if(process.env.MIN_PLAY_TIME){
- assert.ok(samples.at(-1).time>Number(process.env.MIN_PLAY_TIME),'playback passes the reported later-stream failure');
- const steady=samples.slice(-20);
- assert.ok(steady.every(s=>s.safe>=s.target),'playable reserve remains above its measured recovery band');
- assert.ok(steady.every((s,i)=>!i||s.time>steady[i-1].time+2),'final observations advance continuously at 4x');
-}
-assert.ok(samples.every(s=>s.state!=='error'&&!s.mediaError),'no transport/parser/media errors');
-assert.ok(samples.some(s=>s.head>10&&s.time>0),'dropped chunk recovered and playback started');
-assert.ok(samples[45].time>samples[30].time,'playback advances during the bandwidth/consumption change');
-const restored=samples.filter(s=>s.tick>=70&&s.tick<85);
-assert.ok(restored.at(-1).time>restored[0].time,'playback resumes after the outage');
-assert.ok(restored.at(-1).segBytes>restored[0].segBytes,'fragment generation resumes after the outage');
-const sought=samples.filter(s=>s.tick>=86);
-assert.ok(sought.at(-1).time>sought[0].time,'buffered seek preserves playback');
-assert.ok(sought.at(-1).segBytes>sought[0].segBytes,'buffered seek preserves subsequent fragments');
-assert.ok(new Set(samples.filter(s=>s.ready).map(s=>Math.round(s.target*10))).size>10,'reserve adapts dynamically');
-assert.ok(new Set(samples.filter(s=>s.ready).map(s=>s.requestChunks)).size>3,'request window adapts dynamically');
-console.log('PASS: bandwidth change, dropped head, outage recovery, buffered seek and adaptive controller. Trace: '+resultPath);
+console.log('PASS: forward/backward uncached seeks, released cached samples, rapid scrubs and continued ETV playback. Trace: '+resultPath);
 }finally{await browser.close();server.close();}

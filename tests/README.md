@@ -54,3 +54,37 @@ scripts and brokers still use the network. The trace records whether this
 override was used; omit it to validate the actual deployment. `RESULT` selects
 the trace path; default `/tmp/tracker-public-results.json`. The default 150
 samples include the recovery assertions; startup and file indexing are additional.
+
+Verify uncached MP4 seeking with the real file and two WebRTC instances:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps \
+  node tests/streaming-seek.mjs /path/to/ETV.mp4
+```
+
+This ETV-specific scenario jumps to 100 minutes, backward to 20 minutes, and
+forward to 150 minutes. It requires playback at each target while the intervening
+file prefix remains missing, bounds new bytes to a decoder RAM window, evicts the
+initial MSE range and rebuilds it from verified cache, then exercises rapid seeks
+and continuing fragment production. The supplied file must exceed 150 minutes.
+
+Run those forward/backward seeks through public brokers with direct ICE disabled:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps RELAY_ONLY=1 MOBILE_VIEWER=1 \
+  node tests/streaming-public-seek.mjs /path/to/ETV.mp4
+```
+
+It requires playback at each target, another minute of playback after seeking,
+positive SAFE, bounded sender WebSocket queues, and no runtime or media errors.
+`TRACKER_HTML` and `RESULT` work as described above. Omit `TRACKER_HTML` to test the
+deployed page.
+
+For a longer continuous-playback regression past the reported 326-second stall:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TICKS=210 MIN_PLAY_TIME=326 \
+  node tests/streaming-browser.mjs /path/to/ETV.mp4
+```
+
+Test deadlines and sample counts are harness limits, not controller set points.

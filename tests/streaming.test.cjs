@@ -310,8 +310,8 @@ test('received relay bytes outrank a connected overlay with no payload evidence'
 });
 
 test('decoder progress retires queued copies delivered by rescue and rejects late stale requests', async () => {
-  const c=context(['queueServeChunks']),sent=[],pending=[];
-  Object.assign(c,{serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
+  const c=context(['streamRequestCurrent','queueServeChunks']),sent=[],pending=[];
+  Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
   const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:0,indexes:[0,1,2,3,4,5,6,7,8,9]};
   await c.queueServeChunks(m,'viewer');
   assert.deepEqual(sent,[0,1]);
@@ -336,4 +336,91 @@ test('normal decoder lookahead can use reserved relay capacity before it becomes
   await c.publishRelayBinaryPacket(new Uint8Array(),{decoderHead:true},'viewer');
   await c.publishRelayBinaryPacket(new Uint8Array(),{},'viewer');
   assert.deepEqual(admissions,[true,false]);
+});
+
+
+test('backward seek replaces the seeder frontier and rejects obsolete epochs after its queue drains', async () => {
+  const c=context(['streamRequestCurrent','queueServeChunks']),sent=[];
+  Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>sent.push(m.indexes[0])});
+  const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:900,indexes:[900],seekEpoch:1};
+  await c.queueServeChunks(m,'viewer');await new Promise(r=>setImmediate(r));
+  await c.queueServeChunks({...m,decoderCursor:100,indexes:[100],seekEpoch:2},'viewer');await new Promise(r=>setImmediate(r));
+  await c.queueServeChunks({...m,indexes:[901]},'viewer');
+  assert.deepEqual(sent,[900,100]);
+  assert.equal(c.streamRequestCurrent(m,'viewer'),false);
+});
+
+test('an unbuffered seek jumps the parser and cancels old reservations without discarding verified cache', () => {
+  const c=context(['seekMp4Stream']),{p,s}=plant(),calls=[];
+  s.state='downloading';s.decoderFedBits=new Uint8Array([255]);s.decoderFedCount=8;s.decoderUrgent=new Set([0]);
+  s.inflight.set(0,{actor:'seed'});s.inflightByPeer=new Map([['seed',1]]);s.requestedAt=new Map([[0,0]]);s.priority=[0];s.retry=[0];s.streamCached=new Set([0,200]);
+  p.mode='mp4box';p.mp4boxReady=true;p.mp4box={stop:()=>calls.push('stop'),start:()=>calls.push('start'),seek:(t,rap)=>calls.push([t,rap]),releaseUsedSamples:()=>{},getTrackSamplesInfo:()=>[]};
+  p.mp4TrackBuffers=new Map([[1,{__q:[new Uint8Array(10)],__qBytes:10}]]);
+  Object.assign(c,{streamBufferedState:()=>({inRange:false,ahead:0}),mp4ChunkForTime:()=>200,streamRefillWindowCaps:()=>({min:8}),previewDebugEvent:()=>{},ensureStreamHorizon:()=>{},scheduleDecoderPromotion:()=>{}});
+  assert.equal(c.seekMp4Stream(p,400),true);
+  assert.equal(s.mp4SequentialCursor,200);assert.equal(s.cursor,200);assert.equal(s.seekEpoch,1);
+  assert.equal(s.inflight.size,0);assert.equal(s.requestedAt.size,0);assert.equal(s.decoderFedBits[0],0);
+  assert.deepEqual([...s.streamCached],[0,200]);assert.deepEqual(calls,['stop',[400,true],'start']);
+  c.streamBufferedState=()=>({inRange:true,ahead:4});
+  assert.equal(c.seekMp4Stream(p,402),false);assert.equal(s.seekEpoch,1);
+});
+
+
+test('an asynchronous decrypt from the old seek cannot append to the new parser range', async () => {
+  const c=context(['consumePreviewChunk']);let resolve,appends=0;
+  const s={seekEpoch:0,decoderUrgent:new Set()},p={session:s,c:{},mode:'mp4box',mp4box:{appendBuffer:()=>appends++}};
+  Object.assign(c,{activePreview:p,canonicalToPlain:()=>new Promise(r=>resolve=r)});
+  const task=c.consumePreviewChunk(s,0,new Uint8Array(1));
+  s.seekEpoch=1;resolve(new Uint8Array(1));
+  assert.equal(await task,false);assert.equal(appends,0);
+});
+
+test('send timeouts retain physical transport capacity and keep two slots for the missing frontier', async () => {
+  const c=context(['boundedStreamPathSend']),timers=[],pending=[];
+  Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
+  const path={path:'direct:slow',send:()=>new Promise(r=>pending.push(r))};
+  const normal=Array.from({length:4},()=>c.boundedStreamPathSend('viewer',path,new Uint8Array(),{decoderHead:true},true));
+  await new Promise(r=>setImmediate(r));
+  for(const fire of timers.splice(0))fire();await Promise.all(normal);
+  assert.equal(c.streamPathDispatches.get('viewer|direct:slow').active,4);
+  assert.equal(await c.boundedStreamPathSend('viewer',path,new Uint8Array(),{decoderHead:true},true),false);
+  const rescues=Array.from({length:2},()=>c.boundedStreamPathSend('viewer',path,new Uint8Array(),{frontierRescue:true},true));
+  await new Promise(r=>setImmediate(r));
+  for(const fire of timers.splice(0))fire();await Promise.all(rescues);
+  assert.equal(pending.length,6);assert.equal(c.streamPathDispatches.get('viewer|direct:slow').active,6);
+  assert.equal(await c.boundedStreamPathSend('viewer',path,new Uint8Array(),{frontierRescue:true},true),false);
+  for(const resolve of pending)resolve(true);await new Promise(r=>setImmediate(r));
+  assert.equal(c.streamPathDispatches.get('viewer|direct:slow').active,0);
+});
+
+test('frontier recovery follows playable runway and byte service instead of inflated retry latency', () => {
+  const c=context([...controlFunctions,'decoderFrontierTiming']),{p,s}=plant();
+  c.streamReceiveRate=()=>1024*1024;s.deliveryLatency=52;s.deliveryJitter=12;s.safePlantPressure=2;
+  const low=c.decoderFrontierTiming(p,s,8,true),empty=c.decoderFrontierTiming(p,s,0,true),full=c.decoderFrontierTiming(p,s,150,true);
+  assert.ok(low.response<3000);assert.ok(empty.response<=low.response);assert.ok(full.response>low.response);
+  assert.equal(empty.interval,500);
+  c.streamReceiveRate=()=>256*1024;
+  assert.equal(c.decoderFrontierTiming(p,s,0,true).interval,2000,'probes slow down with physical byte supply');
+});
+
+test('busy transports retain useful upload work without waiting for a receiver timeout', async () => {
+  const c=context(['streamRequestCurrent','queueServeChunks']),sent=[];
+  Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],seedEnabled:()=>true,sleep:async()=>{},serveChunksNow:async m=>{sent.push(m.indexes[0]);return sent.length>1}});
+  await c.queueServeChunks({mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:20,indexes:[20]},'viewer');
+  await new Promise(r=>setImmediate(r));
+  assert.deepEqual(sent,[20,20]);assert.equal(c.serveQueues.size,0);
+});
+
+test('a late successful transport completion reopens its capacity after fallback', async () => {
+  const c=context(['boundedStreamPathSend']),timers=[],pending=[];
+  Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
+  const path={path:'direct:slow',send:()=>new Promise(r=>pending.push(r))};
+  for(let i=0;i<2;i++){
+    const task=c.boundedStreamPathSend('viewer',path,new Uint8Array(),{},false);
+    await new Promise(r=>setImmediate(r));timers.shift()();await task;
+  }
+  const state=c.streamPathDispatches.get('viewer|direct:slow');assert.ok(state.blockedUntil>1000);
+  pending.shift()(true);await new Promise(r=>setImmediate(r));
+  assert.equal(state.blockedUntil,0);assert.equal(state.active,1);
+  pending.shift()(true);await new Promise(r=>setImmediate(r));assert.equal(state.active,0);
 });
