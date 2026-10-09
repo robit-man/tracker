@@ -146,3 +146,116 @@ test('plant callbacks preserve the moving request window and reclaim only on cha
   c.driveSafePlant(p);
   assert.ok(!s.inflight.has(201), 'advancing the head can reclaim capacity again');
 });
+
+test('remote viewers and queued uploads keep seeder transports active until demand expires', () => {
+  const c=context(['pruneStreamDemands','meshHasActiveTransfer']);
+  Object.assign(c,{remoteStreamDemands:new Map(),serveQueues:new Map(),sessions:new Map(),activePreview:null,localLive:null,activeLiveViewer:null});
+  assert.equal(c.meshHasActiveTransfer(),false);
+  c.remoteStreamDemands.set('movie',new Map([['viewer',{expires:Date.now()+10000}]]));
+  assert.equal(c.meshHasActiveTransfer(),true);
+  c.remoteStreamDemands.get('movie').get('viewer').expires=0;
+  assert.equal(c.meshHasActiveTransfer(),false);
+  c.serveQueues.set('upload',Promise.resolve());
+  assert.equal(c.meshHasActiveTransfer(),true);
+});
+
+test('an obsolete NATS close callback cannot close the replacement session', () => {
+  const c=context(['closeNatsPeer']);let closed=0;
+  const old={closed:false},live={closed:false,pc:{close(){closed++}},dc:{close(){closed++}}};
+  Object.assign(c,{natsState:{sessions:new Map([['viewer',live]])},wrappers:new Map(),updateMeshState(){},untrack(){}});
+  c.closeNatsPeer('viewer',old);
+  assert.equal(c.natsState.sessions.get('viewer'),live);assert.equal(closed,0);
+  // close() may synchronously dispatch another callback; deletion must precede it.
+  live.pc.close=()=>{closed++;c.closeNatsPeer('viewer',live)};
+  c.closeNatsPeer('viewer',live);
+  assert.equal(closed,2);assert.equal(c.natsState.sessions.size,0);
+});
+
+test('a late NATS data channel cannot overwrite the current peer record', () => {
+  const c=context(['attachNatsChannel']);let rejected=0;
+  const live={session:'new',pc:{},closed:false};c.natsState={sessions:new Map([['viewer',live]])};
+  c.attachNatsChannel('viewer','old',{}, {close(){rejected++}});
+  assert.equal(rejected,1);assert.equal(c.natsState.sessions.get('viewer'),live);assert.equal(live.dc,undefined);
+});
+
+test('an offer superseded while awaiting SDP cannot publish or close the replacement', async () => {
+  const c=context(['closeNatsPeer','makeNatsOffer']);let resolveOffer,localDescriptions=0,signals=0;
+  const pc={createDataChannel:()=>({}),createOffer:()=>new Promise(r=>{resolveOffer=r}),setLocalDescription(){localDescriptions++},close(){}};
+  Object.assign(c,{actor:'seed',privacyRtcAvailable:()=>true,crypto:{randomUUID:()=> 'old'},RTCPeerConnection:function(){return pc},rtcConfig:()=>({}),attachNatsChannel(){},natsState:{sessions:new Map()},wrappers:new Map(),updateMeshState(){},untrack(){},waitIce:async()=>{},natsSignal:async()=>{signals++}});
+  const pending=c.makeNatsOffer('viewer'),old=c.natsState.sessions.get('viewer');
+  c.closeNatsPeer('viewer',old);const live={session:'new',closed:false};c.natsState.sessions.set('viewer',live);
+  resolveOffer({type:'offer',sdp:'obsolete'});await pending;
+  assert.equal(localDescriptions,0);assert.equal(signals,0);assert.equal(c.natsState.sessions.get('viewer'),live);
+});
+
+test('a direct sender returning false permits fallback to the next route', async () => {
+  const c=context(['sendDirectBinaryActor']);let failures=0,fallback=0;
+  const routes=[{strategy:'nats',routeId:'closed',wrapper:{bin:{send:async()=>false}}},{strategy:'torrent',routeId:'live',wrapper:{bin:{send:async()=>{fallback++;return true}}}}];
+  Object.assign(c,{bulkRoutesFor:()=>routes,markRouteFailure:()=>{failures++}});
+  assert.equal(await c.sendDirectBinaryActor('viewer',new Uint8Array()),true);
+  assert.equal(failures,1);assert.equal(fallback,1);
+});
+
+test('a control sender returning false is reported as failure', async () => {
+  const c=context(['sendPacketVia']);let failures=0;
+  Object.assign(c,{routeActors:new Map([['route','viewer']]),peerRoutes:new Map([['viewer',new Map([['route',{}]])]]),routeKey:()=> 'route',markRouteFailure:()=>{failures++}});
+  assert.equal(await c.sendPacketVia({ctl:{send:async()=>false}},'packet','peer'),false);
+  assert.equal(failures,1);
+});
+
+test('one hung carrier cannot delay a successful independent send', async () => {
+  const c=context(['firstSuccessfulSend']);
+  assert.equal(await c.firstSuccessfulSend([new Promise(()=>{}),Promise.resolve(true)]),true);
+  assert.equal(await c.firstSuccessfulSend([Promise.reject(Error('closed')),Promise.resolve(false)]),false);
+  assert.equal(await c.firstSuccessfulSend([]),false);
+});
+
+function relayContext(){
+  const c=context(['firstSuccessfulSend','relayWriteBacklog','reserveRelayWrite','publishRelayBinaryFrames']);
+  Object.assign(c,{relayWriteReservations:new WeakMap(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder()});
+  return c;
+}
+test('relay admission retains actual pending writes and reserves room for the frontier', () => {
+  const c=relayContext(),client={protocol:{transport:{socket:{bufferedAmount:0}}}},chunk=900000;
+  const release=c.reserveRelayWrite(client,chunk);
+  assert.equal(typeof release,'function');
+  assert.equal(c.reserveRelayWrite(client,chunk),null,'ordinary bulk cannot grow the wire queue');
+  const emergency=c.reserveRelayWrite(client,chunk,true);
+  assert.equal(typeof emergency,'function','frontier has independent reserved capacity');
+  release();release();emergency();assert.equal(c.relayWriteReservations.get(client).bytes,0);
+  client.protocol.transport.socket.bufferedAmount=10*1024*1024;
+  assert.equal(c.reserveRelayWrite(client,chunk,true),null,'underlying socket backlog also counts');
+});
+test('NATS admits whole chunks and holds capacity until broker flush completes', async () => {
+  const c=relayContext();let published=0,flush;
+  const nc={publish(){published++},flush:()=>new Promise(r=>{flush=r})};c.natsState.nc=nc;
+  const frames=['x'.repeat(450000),'y'.repeat(450000)];
+  const first=c.publishRelayBinaryFrames('nats',frames);
+  assert.equal(published,2);
+  assert.equal(await c.publishRelayBinaryFrames('nats',frames),false);
+  assert.equal(published,2,'no fragments of an unadmitted chunk are published');
+  flush();assert.equal(await first,true);assert.equal(c.relayWriteReservations.get(nc).bytes,0);
+});
+test('MQTT requires acknowledgement of every fragment and ignores a hung alternate broker', async () => {
+  const c=relayContext();
+  const hung={connected:true,publish(){}},live={connected:true,publish(t,raw,opts,cb){cb()}};
+  c.mqttRelayState.clients=new Map([['hung',hung],['live',live]]);c.mqttRelayState.ready=new Set(['hung','live']);
+  assert.equal(await c.publishRelayBinaryFrames('mqtt',['one','two']),true);
+  live.publish=(t,raw,opts,cb)=>cb(raw==='two'?Error('rejected'):null);
+  c.mqttRelayState.ready=new Set(['live']);
+  assert.equal(await c.publishRelayBinaryFrames('mqtt',['one','two']),false);
+});
+
+test('stream dispatch exploits the proven path instead of striping onto an unproven carrier', async () => {
+  const c=context(['firstSuccessfulSend','chooseReinforcedPath','sendBinaryMultipathActor']);
+  const paths=[{path:'relay:nats',bps:2000000,score:500},{path:'relay:mqtt',bps:0,score:18}],sent=[];
+  Object.assign(c,{STREAM_PATH_STRONG_SCORE:100,STREAM_PATH_EXPLORE_EVERY:16,streamDataCandidates:()=>paths,boundedStreamPathSend:async(remote,p)=>{sent.push(p.path);return true}});
+  for(let idx=1;idx<16;idx++)await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx});
+  assert.deepEqual(sent,Array(15).fill('relay:nats'));
+  sent.length=0;await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:16});
+  assert.deepEqual(sent,['relay:mqtt'],'bounded exploration remains available');
+  sent.length=0;await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:17,decoderHead:true});
+  assert.deepEqual(sent,['relay:nats'],'ordinary decoder lookahead does not duplicate every chunk');
+  sent.length=0;await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:17,decoderHead:true,frontierRescue:true});
+  assert.deepEqual(sent,['relay:nats','relay:mqtt'],'the irreplaceable missing head still races independent carriers');
+});

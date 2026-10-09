@@ -28,3 +28,24 @@ to include the recovery and seek assertions. This is a partial-playback stress
 test, with local peer setup; it does not test public relay discovery or every
 minute of the supplied movie. Neither the movie nor test hooks are embedded in
 the application.
+
+Exercise public discovery and relay recovery with the same real file:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps RELAY_ONLY=1 \
+  node tests/streaming-public.mjs /path/to/movie.mp4
+```
+
+This opens two separate contexts on the deployed GitHub Pages site and creates a
+new private room. It uses the normal file input, catalog discovery, encryption,
+public brokers and media pipeline. `RELAY_ONLY=1` forces both contexts' ICE policy
+to relay with no TURN servers, so direct connections cannot mask broker failures.
+The receiver plays at 4×, goes offline for 15 seconds, then returns to 1× and
+must recover playback and SAFE after reconnecting. Without `RELAY_ONLY`, direct routes are allowed.
+
+For validation before deployment, `TRACKER_HTML=/absolute/path/index.html` serves
+that HTML snapshot at the Pages origin in these two test contexts. External
+scripts and brokers still use the network. The trace records whether this
+override was used; omit it to validate the actual deployment. `RESULT` selects
+the trace path; default `/tmp/tracker-public-results.json`. The default 150
+samples include the recovery assertions; startup and file indexing are additional.
