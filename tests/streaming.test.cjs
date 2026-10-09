@@ -259,3 +259,81 @@ test('stream dispatch exploits the proven path instead of striping onto an unpro
   sent.length=0;await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:17,decoderHead:true,frontierRescue:true});
   assert.deepEqual(sent,['relay:nats','relay:mqtt'],'the irreplaceable missing head still races independent carriers');
 });
+
+test('mobile kickoff opens relay paths while asynchronous media setup has no session yet', () => {
+  const c=context(['wakeTransferTransports']),calls=[],timers=[];
+  Object.assign(c,{IS_MOBILEISH:true,meshStopped:false,document:{hidden:false},activePreview:{hiddenAt:0,session:null},natsState:{nc:{}},mqttRelayState:{ready:new Set()},nostrRelayState:{pool:null},wrappers:new Map(),nknState:{client:null,starting:null},meshHasActiveTransfer:()=>false,privacyEnabled:()=>false,meshEpochNow:()=>0,startMqttRelay:async()=>calls.push('mqtt'),startNostrRelay:async()=>calls.push('nostr'),startNkn:async()=>calls.push('nkn'),joinStrategy:async()=>calls.push('rtc'),setTimeout:(fn,ms)=>timers.push([fn,ms]),TRANSFER_ALT_PLANE_WAKE_MS:350});
+  c.wakeTransferTransports();
+  assert.deepEqual(calls,['mqtt','nostr','rtc','nkn']);assert.equal(timers.length,0);
+  calls.length=0;c.IS_MOBILEISH=false;c.wakeTransferTransports();
+  assert.equal(calls.length,0);assert.equal(timers.length,2);
+  c.activePreview=null;for(const [fn]of timers)fn();
+  assert.equal(calls.length,0,'closing an idle preview cancels its deferred wake');
+});
+
+test('unproven mobile startup races brokers instead of a merely advertised overlay route', async () => {
+  const c=context(['firstSuccessfulSend','chooseReinforcedPath','sendBinaryMultipathActor']);
+  const paths=[{path:'direct:nkn:advertised',bps:0,score:575},{path:'relay:nats',bps:0,score:18},{path:'relay:mqtt',bps:0,score:18}],sent=[];
+  Object.assign(c,{STREAM_PATH_STRONG_SCORE:100,STREAM_PATH_EXPLORE_EVERY:32,streamDataCandidates:()=>paths,boundedStreamPathSend:async(remote,p)=>{sent.push(p.path);return true}});
+  await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:0,mobileStartup:true,decoderHead:true,frontierRescue:true});
+  assert.deepEqual(sent,['relay:nats','relay:mqtt']);
+  // Delivery evidence ends the special bootstrap race, even before playback.
+  sent.length=0;paths.splice(0,paths.length,{path:'relay:nats',bps:2000000,score:500},{path:'relay:mqtt',bps:0,score:18});
+  await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:3,mobileStartup:true,decoderHead:true},0,[{path:'relay:nats',strong:true,bps:2000000}]);
+  assert.deepEqual(sent,['relay:nats']);
+});
+
+test('mobile relay reservations follow PID demand and the byte budget through recovery', () => {
+  const c=context(['streamPendingCap','streamPeerWindow']);
+  Object.assign(c,{IS_MOBILEISH:true,STREAM_MIN_PER_SOURCE:4,STREAM_STARTUP_LANES:8,MP4_RAM_QUEUE_BUDGET_BYTES:24*1024*1024,RELAY_PER_SEEDER_WINDOW:2,PER_SEEDER_WINDOW:6,bulkRoutesFor:()=>[]});
+  const s={mode:'stream',total:500,chunkSize:512*1024,holders:new Set(['seed']),safeRequestChunks:8};
+  assert.equal(c.streamPeerWindow(s,'seed'),8);
+  s.safeRequestChunks=40;assert.equal(c.streamPeerWindow(s,'seed'),40,'latency and SAFE pressure can use the requested pipeline');
+  s.safeRequestChunks=200;assert.equal(c.streamPeerWindow(s,'seed'),48,'RAM remains a physical byte bound');
+  assert.equal(c.streamPeerWindow(s,'seed',['seed','other']),24,'independent sources retain a fair share');
+  s.safeRequestChunks=6;assert.equal(c.streamPeerWindow(s,'seed'),6,'the window shrinks with recovered demand');
+  Object.assign(c,{streamUrgency:()=>20,streamPeerSuccessfulPathCount:()=>1,STREAM_BOOST_RELAY_PER_SEEDER:12,STREAM_BOOST_PER_SEEDER:24});
+  c.IS_MOBILEISH=false;s.safeRequestChunks=200;
+  assert.equal(c.streamPeerWindow(s,'seed'),12,'desktop keeps its existing relay pipeline');
+  c.IS_MOBILEISH=true;c.bulkRoutesFor=()=>[{}];
+  assert.equal(c.streamPeerWindow(s,'seed'),24,'direct delivery keeps its existing pipeline');
+  c.bulkRoutesFor=()=>[];
+  s.mode='download';assert.equal(c.streamPeerWindow(s,'seed'),2);
+});
+
+test('received relay bytes outrank a connected overlay with no payload evidence', () => {
+  const c=context(['streamDataCandidates']);
+  Object.assign(c,{healthyRoutesFor:()=>[{wrapper:{key:'nkn'}}],streamPathIdFromRoute:r=>'direct:'+r.wrapper.key,localRelayPlanes:()=>['nats','mqtt'],remoteRelayPlanes:()=>['nats','mqtt'],relayPlaneName:x=>x,peerIngress:new Map(),relayActors:new Map(),RELAY_PLANES:['nats','mqtt'],routeScore:()=>2000,bc:null});
+  const candidates=c.streamDataCandidates('seed',[{path:'relay:nats',bps:500000,chunks:1,score:300}]);
+  assert.equal(candidates[0].path,'relay:nats','actual delivery wins before the strong-path threshold');
+  assert.equal(candidates[1].path,'direct:nkn','unproven paths remain available as fallbacks');
+});
+
+test('decoder progress retires queued copies delivered by rescue and rejects late stale requests', async () => {
+  const c=context(['queueServeChunks']),sent=[],pending=[];
+  Object.assign(c,{serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
+  const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:0,indexes:[0,1,2,3,4,5,6,7,8,9]};
+  await c.queueServeChunks(m,'viewer');
+  assert.deepEqual(sent,[0,1]);
+  await c.queueServeChunks({...m,decoderCursor:8,indexes:[8,9]},'viewer');
+  await c.queueServeChunks({mode:'stream',id:'movie',sid:'session',indexes:[40],demandPush:true},'viewer');
+  assert.equal(c.serveQueues.get('viewer|movie').decoderCursor,8,'a speculative demand push cannot acknowledge decoder input');
+  await c.queueServeChunks({...m,decoderCursor:8,indexes:[8,9],safeCritical:true,focusChunks:2},'viewer');
+  await c.queueServeChunks({...m,indexes:[2,3,4]},'viewer');
+  const q=c.serveQueues.get('viewer|movie');
+  assert.deepEqual([...q.hot.keys()],[8,9]);
+  for(const done of pending.splice(0))done();
+  await new Promise(r=>setImmediate(r));
+  assert.deepEqual(sent,[0,1,8,9],'already-consumed input does not compete with the new frontier');
+  for(const done of pending.splice(0))done();
+  await new Promise(r=>setImmediate(r));
+  assert.equal(c.serveQueues.size,0);
+});
+
+test('normal decoder lookahead can use reserved relay capacity before it becomes a rescue', async () => {
+  const c=context(['publishRelayBinaryPacket']),admissions=[];
+  Object.assign(c,{actor:'source',localRelayPlanes:()=>['nats'],relayBinaryFrameChars:()=>48000,relayBinaryFrames:async()=>['frame'],publishRelayBinaryFrames:async(plane,frames,critical)=>{admissions.push(critical);return true},firstSuccessfulSend:async jobs=>(await Promise.all(jobs)).some(Boolean)});
+  await c.publishRelayBinaryPacket(new Uint8Array(),{decoderHead:true},'viewer');
+  await c.publishRelayBinaryPacket(new Uint8Array(),{},'viewer');
+  assert.deepEqual(admissions,[true,false]);
+});

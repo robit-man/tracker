@@ -43,6 +43,11 @@ to relay with no TURN servers, so direct connections cannot mask broker failures
 The receiver plays at 4×, goes offline for 15 seconds, then returns to 1× and
 must recover playback and SAFE after reconnecting. Without `RELAY_ONLY`, direct routes are allowed.
 
+Add `MOBILE_VIEWER=1` to exercise the mobile receiver code with a touch viewport
+and Android user agent. Combined with `RELAY_ONLY=1`, this checks mobile startup
+and recovery when direct ICE is unavailable. It emulates browser behavior, not
+mobile hardware or a carrier network.
+
 For validation before deployment, `TRACKER_HTML=/absolute/path/index.html` serves
 that HTML snapshot at the Pages origin in these two test contexts. External
 scripts and brokers still use the network. The trace records whether this

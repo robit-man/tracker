@@ -19,7 +19,8 @@ async function snapshot(page){return page.evaluate(()=>{
  return {at:new Date().toISOString(),time,safe:range?Math.max(0,range[1]-time):0,paused:v?.paused,ready:v?.readyState,error:v?.error?.message,state:get('previewState'),metrics:get('previewDebugMetrics'),events:get('previewDebugEvents'),paths:get('previewDiagRoutes'),routes:PrivateTrackerMesh.routes(),nats:PrivateTrackerMesh.nats(),mqtt:PrivateTrackerMesh.mqtt(),mesh:PrivateTrackerMesh.status(),served:get('servedBytes'),writeBacklog:PrivateTrackerMesh.writeBacklog?.()};
 })}
 try {
- const contexts=await Promise.all([browser.newContext(),browser.newContext()]);
+ const mobile=process.env.MOBILE_VIEWER==='1';
+ const contexts=await Promise.all([browser.newContext(),browser.newContext(mobile?{viewport:{width:393,height:851},isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'}:{})]);
  for(const c of contexts){
   if(html)await c.route('https://robit-man.github.io/tracker/',r=>r.fulfill({contentType:'text/html',body:html}));
   if(process.env.RELAY_ONLY==='1')await c.addInitScript(()=>{
@@ -55,7 +56,7 @@ try {
   if(i===65){await viewer.evaluate(()=>document.querySelector('#previewStage video').playbackRate=1);await contexts[1].setOffline(false);console.log('RECEIVER ONLINE, PLAYBACK 1x')}
   await new Promise(r=>setTimeout(r,1000));
   const [a,b]=await Promise.all([snapshot(source),snapshot(viewer)]);samples.push({tick:i,source:a,viewer:b});
-  fs.writeFileSync(resultPath,JSON.stringify({fixture,url,htmlOverride:!!html,relayOnly:process.env.RELAY_ONLY==='1',errors,samples},null,2));
+  fs.writeFileSync(resultPath,JSON.stringify({fixture,url,htmlOverride:!!html,relayOnly:process.env.RELAY_ONLY==='1',mobileViewer:process.env.MOBILE_VIEWER==='1',errors,samples},null,2));
   if(i%5===0)console.log(JSON.stringify({tick:i,time:b.time,safe:b.safe,state:b.state,paths:b.paths,sourceMesh:a.mesh}));
  }
  assert.equal(errors.length,0,'no browser runtime errors');
@@ -66,6 +67,6 @@ try {
  assert.ok(samples.at(-1).viewer.safe>0,'decoder has playable media after recovery');
  console.log('PASS public discovery, streaming, consumption change and disconnected receiver recovery:',resultPath);
 }finally{
- fs.writeFileSync(resultPath,JSON.stringify({fixture,url,htmlOverride:!!html,relayOnly:process.env.RELAY_ONLY==='1',errors,samples},null,2));
+ fs.writeFileSync(resultPath,JSON.stringify({fixture,url,htmlOverride:!!html,relayOnly:process.env.RELAY_ONLY==='1',mobileViewer:process.env.MOBILE_VIEWER==='1',errors,samples},null,2));
  await browser.close();
 }
