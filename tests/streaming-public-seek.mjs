@@ -21,7 +21,9 @@ async function snapshot(page){return page.evaluate(()=>{
 try {
  const mobile=process.env.MOBILE_VIEWER==='1';
  const contexts=await Promise.all([browser.newContext(),browser.newContext(mobile?{viewport:{width:393,height:851},isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'}:{})]);
- for(const c of contexts){
+ for(const [i,c] of contexts.entries()){
+  if(process.env.DECODER_PRIMARY_BLOCKED==='1')await c.route('https://cdn.jsdelivr.net/npm/mp4box@*/+esm',r=>r.abort('failed'));
+  if(i===1&&process.env.MANAGED_API_ONLY==='1')await c.addInitScript(()=>{window.ManagedMediaSource=window.MediaSource;delete window.MediaSource});
   if(html)await c.route('https://robit-man.github.io/tracker/',r=>r.fulfill({contentType:'text/html',body:html}));
   if(process.env.RELAY_ONLY==='1')await c.addInitScript(()=>{
    // Force failed direct ICE without replacing any transport or application code.
@@ -50,7 +52,7 @@ try {
  assert.ok(started,'public relay playback starts');
  console.log('PLAYING',url);
  async function collect(label){const [a,b]=await Promise.all([snapshot(source),snapshot(viewer)]);const x={label,source:a,viewer:b};samples.push(x);fs.writeFileSync(resultPath,JSON.stringify({fixture,url,htmlOverride:!!html,relayOnly:process.env.RELAY_ONLY==='1',mobileViewer:mobile,errors,samples},null,2));console.log(JSON.stringify({label,time:b.time,safe:b.safe,paths:b.paths,metrics:b.metrics}));assert.ok(!b.error,'no media error');return x}
- for(const target of [6000,1200,9000]){
+ for(const target of (process.env.SEEK_TARGETS?process.env.SEEK_TARGETS.split(',').map(Number):[6000,1200,9000])){
   await viewer.evaluate(t=>document.querySelector('#previewStage video').currentTime=t,target);
   let recovered=false;
   for(let i=0;i<120;i++){await new Promise(r=>setTimeout(r,1000));const x=await collect('seek '+target);if(x.viewer.time>target+3&&x.viewer.safe>0&&!x.viewer.paused){recovered=true;break}}

@@ -32,6 +32,31 @@ function context(names) {
   return c;
 }
 const controlFunctions = ['contentChunkSize', 'mp4SafeRamHorizon', 'streamSafeBand', 'safeBufferCritical', 'updateSafeRateController', 'noteStreamDelivery', 'streamRefillWindowCaps', 'streamPendingCap', 'streamTargetSeconds'];
+test('relay lookahead follows receiver pressure inside the complete-frame byte budget', () => {
+  const c=context(['streamRelayDispatchWindow']),chunk=512*1024;
+  assert.equal(c.streamRelayDispatchWindow(chunk,1),2);
+  assert.equal(c.streamRelayDispatchWindow(chunk,2),3);
+  assert.equal(c.streamRelayDispatchWindow(chunk,100),3);
+  assert.equal(c.streamRelayDispatchWindow(chunk,1,true),3);
+  c.MP4_RAM_QUEUE_BUDGET_BYTES=1024*1024;
+  assert.equal(c.streamRelayDispatchWindow(chunk,100),1,'memory bound overrides pressure');
+});
+test('STREAM preserves explicit Play intent across asynchronous unlock and decoder setup', async () => {
+  const c=context(['openPreview']);
+  let unlock;c.requireUnlocked=()=>new Promise(r=>{unlock=r});
+  c.navigator={userActivation:{isActive:true}};c.activePreview=null;
+  c.contents=new Map([['movie',{id:'movie'}]]);c.localHave=new Set();
+  c.cleanupPreview=()=>{};c.syncVisualViewport=()=>{};c.previewDebugState=()=>{};c.refreshPreviewStats=()=>{};
+  c.previewKind=()=> 'video';c.visibleName=()=> 'movie.mp4';c.visibleType=()=> 'video/mp4';c.inferMime=()=> 'video/mp4';
+  c.visibleSize=()=>1;c.fmtBytes=()=> '1 MB';c.seedCount=()=>1;c.getReadableFile=async()=>null;c.startRemotePreview=async()=>{};
+  c.$=()=>({classList:{add(){}},style:{}});
+  const entry={contentId:'movie'};
+  const opening=c.openPreview(entry);
+  c.navigator.userActivation.isActive=false;unlock(true);await opening;
+  assert.equal(c.activePreview.userPlayRequested,true,'the STREAM gesture survives async setup');
+  c.requireUnlocked=async()=>true;await c.openPreview(entry);
+  assert.equal(c.activePreview.userPlayRequested,false,'background opens retain automatic buffering policy');
+});
 test('MP4 source detection supports managed-only browsers and retains classic MSE when available', () => {
   const c=context(['previewMediaSourceType']);
   const classic=function(){},managed=function(){};
@@ -234,7 +259,7 @@ test('plant callbacks preserve the moving request window and reclaim only on cha
 });
 
 test('remote viewers and queued uploads keep seeder transports active until demand expires', () => {
-  const c=context(['pruneStreamDemands','meshHasActiveTransfer']);
+  const c=context(['retireStreamServe','pruneStreamDemands','meshHasActiveTransfer']);
   Object.assign(c,{remoteStreamDemands:new Map(),serveQueues:new Map(),sessions:new Map(),activePreview:null,localLive:null,activeLiveViewer:null});
   assert.equal(c.meshHasActiveTransfer(),false);
   c.remoteStreamDemands.set('movie',new Map([['viewer',{expires:Date.now()+10000}]]));
@@ -396,7 +421,7 @@ test('received relay bytes outrank a connected overlay with no payload evidence'
 });
 
 test('decoder progress retires queued copies delivered by rescue and rejects late stale requests', async () => {
-  const c=context(['streamRequestCurrent','queueServeChunks']),sent=[],pending=[];
+  const c=context(['streamRelayDispatchWindow','streamRequestCurrent','queueServeChunks']),sent=[],pending=[];
   Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
   const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:0,indexes:[0,1,2,3,4,5,6,7,8,9]};
   await c.queueServeChunks(m,'viewer');
@@ -424,9 +449,28 @@ test('normal decoder lookahead can use reserved relay capacity before it becomes
   assert.deepEqual(admissions,[true,false]);
 });
 
+test('closed and expired viewers release queued upload work without retiring another session', async () => {
+  const c=context(['streamRelayDispatchWindow','streamRequestCurrent','retireStreamServe','queueServeChunks']),sent=[],pending=[];
+  Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
+  const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:0,indexes:[0,1,2,3],supplyPressure:2};
+  await c.queueServeChunks(m,'viewer');assert.deepEqual(sent,[0,1,2],'pressure recruits bounded relay lookahead');
+  c.retireStreamServe({id:'movie',actor:'viewer',sid:'other'},true);
+  assert.equal(c.serveQueues.get('viewer|movie').hot.size,1);
+  c.retireStreamServe({id:'movie',actor:'viewer',sid:'session'},true);
+  for(const done of pending.splice(0))done();await new Promise(r=>setImmediate(r));
+  assert.deepEqual(sent,[0,1,2]);assert.equal(c.serveQueues.size,0);
+  await c.queueServeChunks({...m,seekEpoch:99},'viewer');assert.deepEqual(sent,[0,1,2],'late requests cannot revive a closed SID');
+  const resumed={...m,sid:'next',indexes:[3,4,5,6]};
+  await c.queueServeChunks(resumed,'viewer');
+  c.retireStreamServe({id:'movie',actor:'viewer',sid:'next'});
+  for(const done of pending.splice(0))done();await new Promise(r=>setImmediate(r));
+  assert.equal(c.streamRequestCurrent(resumed,'viewer'),true,'lease expiry allows the same live session to reconnect');
+  assert.equal(c.serveQueues.size,0);
+});
+
 
 test('backward seek replaces the seeder frontier and rejects obsolete epochs after its queue drains', async () => {
-  const c=context(['streamRequestCurrent','queueServeChunks']),sent=[];
+  const c=context(['streamRelayDispatchWindow','streamRequestCurrent','queueServeChunks']),sent=[];
   Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>sent.push(m.indexes[0])});
   const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:900,indexes:[900],seekEpoch:1};
   await c.queueServeChunks(m,'viewer');await new Promise(r=>setImmediate(r));
@@ -462,7 +506,7 @@ test('an asynchronous decrypt from the old seek cannot append to the new parser 
 });
 
 test('send timeouts retain physical transport capacity and keep two slots for the missing frontier', async () => {
-  const c=context(['boundedStreamPathSend']),timers=[],pending=[];
+  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[],pending=[];
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
   const path={path:'direct:slow',send:()=>new Promise(r=>pending.push(r))};
   const normal=Array.from({length:4},()=>c.boundedStreamPathSend('viewer',path,new Uint8Array(),{decoderHead:true},true));
@@ -490,7 +534,7 @@ test('frontier recovery follows playable runway and byte service instead of infl
 });
 
 test('busy transports retain useful upload work without waiting for a receiver timeout', async () => {
-  const c=context(['streamRequestCurrent','queueServeChunks']),sent=[];
+  const c=context(['streamRelayDispatchWindow','streamRequestCurrent','queueServeChunks']),sent=[];
   Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],seedEnabled:()=>true,sleep:async()=>{},serveChunksNow:async m=>{sent.push(m.indexes[0]);return sent.length>1}});
   await c.queueServeChunks({mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:20,indexes:[20]},'viewer');
   await new Promise(r=>setImmediate(r));
@@ -498,7 +542,7 @@ test('busy transports retain useful upload work without waiting for a receiver t
 });
 
 test('a late successful transport completion reopens its capacity after fallback', async () => {
-  const c=context(['boundedStreamPathSend']),timers=[],pending=[];
+  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[],pending=[];
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
   const path={path:'direct:slow',send:()=>new Promise(r=>pending.push(r))};
   for(let i=0;i<2;i++){

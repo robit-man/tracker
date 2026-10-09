@@ -80,6 +80,13 @@ positive SAFE, bounded sender WebSocket queues, and no runtime or media errors.
 `TRACKER_HTML` and `RESULT` work as described above. Omit `TRACKER_HTML` to test the
 deployed page.
 
+To combine mobile relay pressure, alternate-CDN loading, and the managed-only
+API branch before publication, add `DECODER_PRIMARY_BLOCKED=1 MANAGED_API_ONLY=1
+SEEK_TARGETS=6000,1200` and `TRACKER_HTML=/absolute/path/index.html` to that command.
+This checks the forward/backward seek followed by a minute at the 20-minute
+position. The managed API is emulated with Chromium MSE; physical iPhones still
+require device testing.
+
 For a longer continuous-playback regression past the reported 326-second stall:
 
 ```sh

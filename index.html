@@ -191,7 +191,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-09-verified-safe-mp4-v83';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-09-stream-play-intent-v84';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -376,9 +376,9 @@ function advertisedRemoteSeeders(cid){const out=[];for(const[a,set]of peerSeeds)
 function seedActors(cid){const out=[];if(seedEnabled(cid))out.push(actor);out.push(...advertisedRemoteSeeders(cid));return [...new Set(out)]}
 function seedCount(cid){return seedActors(cid).length}
 function profileFor(a){return a===actor?{alias:aliasFor(actor),color:colorFor(actor)}:(peerProfiles.get(a)||{alias:aliasFor(a),color:colorFor(a)})}
-function pruneStreamDemands(cid=''){const now=Date.now(),keys=cid?[cid]:[...remoteStreamDemands.keys()];for(const k of keys){const m=remoteStreamDemands.get(k);if(!m)continue;for(const[a,x]of [...m])if(Number(x.expires||0)<=now)m.delete(a);if(!m.size)remoteStreamDemands.delete(k)}}
+function pruneStreamDemands(cid=''){const now=Date.now(),keys=cid?[cid]:[...remoteStreamDemands.keys()];for(const k of keys){const m=remoteStreamDemands.get(k);if(!m)continue;for(const[a,x]of [...m])if(Number(x.expires||0)<=now){retireStreamServe({id:k,actor:a,sid:x.sid});m.delete(a)}if(!m.size)remoteStreamDemands.delete(k)}}
 function activeStreamCount(cid){pruneStreamDemands(cid);let n=remoteStreamDemands.get(cid)?.size||0;const s=activePreview?.session;if(s?.mode==='stream'&&s.cid===cid&&s.state==='downloading')n++;return n}
-function noteStreamDemandActivity(m){const cid=String(m?.id||''),a=String(m?.actor||''),sid=String(m?.sid||'');if(!cid||!a||a===actor||!sid)return;let by=remoteStreamDemands.get(cid);if(!by){by=new Map;remoteStreamDemands.set(cid,by)}const prev=by.get(a);if(prev?.timer)clearTimeout(prev.timer);const expires=Math.max(Date.now()+3000,Number(m.expires)||0),rec={sid,expires,lastSeen:Date.now(),timer:0};rec.timer=setTimeout(()=>{const cur=remoteStreamDemands.get(cid)?.get(a);if(cur&&cur.sid===sid&&cur.expires<=Date.now()){remoteStreamDemands.get(cid)?.delete(a);if(!remoteStreamDemands.get(cid)?.size)remoteStreamDemands.delete(cid);scheduleFileStatsRefresh(cid)}},Math.max(500,expires-Date.now()+120));by.set(a,rec);scheduleFileStatsRefresh(cid)}
+function noteStreamDemandActivity(m){const cid=String(m?.id||''),a=String(m?.actor||''),sid=String(m?.sid||'');if(!cid||!a||a===actor||!sid)return;let by=remoteStreamDemands.get(cid);if(!by){by=new Map;remoteStreamDemands.set(cid,by)}const prev=by.get(a);if(prev?.timer)clearTimeout(prev.timer);const expires=Math.max(Date.now()+3000,Number(m.expires)||0),rec={sid,expires,lastSeen:Date.now(),timer:0};rec.timer=setTimeout(()=>{const cur=remoteStreamDemands.get(cid)?.get(a);if(cur&&cur.sid===sid&&cur.expires<=Date.now()){retireStreamServe({id:cid,actor:a,sid});remoteStreamDemands.get(cid)?.delete(a);if(!remoteStreamDemands.get(cid)?.size)remoteStreamDemands.delete(cid);scheduleFileStatsRefresh(cid)}},Math.max(500,expires-Date.now()+120));by.set(a,rec);scheduleFileStatsRefresh(cid)}
 function clearStreamDemandActivity(m){const cid=String(m?.id||''),a=String(m?.actor||''),sid=String(m?.sid||'');const by=remoteStreamDemands.get(cid),rec=by?.get(a);if(!rec||sid&&rec.sid!==sid)return;if(rec.timer)clearTimeout(rec.timer);by.delete(a);if(!by.size)remoteStreamDemands.delete(cid);scheduleFileStatsRefresh(cid)}
 function noteFileTraffic(cid,bytes){cid=String(cid||'');bytes=Number(bytes)||0;if(!cid||bytes<=0)return;const now=performance.now(),x=fileTraffic.get(cid)||{total:0,lastTotal:0,lastAt:now,bps:0,activeUntil:0,timer:0};x.total+=bytes;const dt=Math.max(1,now-x.lastAt);if(dt>=160){const instant=(x.total-x.lastTotal)*1000/dt;x.bps=x.bps?x.bps*.68+instant*.32:instant;x.lastTotal=x.total;x.lastAt=now}x.activeUntil=now+1600;if(x.timer)clearTimeout(x.timer);x.timer=setTimeout(()=>scheduleFileStatsRefresh(cid),1750);fileTraffic.set(cid,x);scheduleFileStatsRefresh(cid)}
 let fileStatsTimer=0,fileStatsDirty=new Set();
@@ -718,13 +718,21 @@ function chooseReinforcedPath(paths,hint=0){if(!paths.length)return null;if(path
    bytes. Such a promise must NEVER monopolize a seeder queue or prevent the next
    decoder-frontier retransmission. Limits are per receiver + transport path. */
 const streamPathDispatches=new Map();
+function streamRelayDispatchWindow(bytes,pressure=1,rescue=false){
+  // Binary base64 plus the sealed frame's base64 and framing overhead. Admission
+  // still reserves the exact frame bytes before publishing to the broker.
+  const wire=Math.ceil(Math.max(1,Number(bytes)||CHUNK_SIZE)*16/9)+4096;
+  const quantum=Math.max(CHUNK_SIZE*2,wire),budget=Math.min(MP4_RAM_QUEUE_BUDGET_BYTES,quantum*3);
+  const physical=Math.max(1,Math.floor(budget/wire));
+  return Math.min(physical,rescue?physical:Math.max(2,Math.ceil(2*Math.max(1,Number(pressure)||1))));
+}
 async function boundedStreamPathSend(remote,path,packet,metadata,critical=false){
   const key=`${remote}|${path.path}`,now=performance.now(),prev=streamPathDispatches.get(key)||{active:0,blockedUntil:0,failures:0};
   const rescue=!!(metadata?.frontierRescue||metadata?.hardRescue);
   if(!rescue&&prev.blockedUntil>now)return false;
   const regularCap=path.path.startsWith('relay:')?1:4;
   // Keep independent capacity for missing-frontier probes.
-  const cap=rescue?regularCap+2:(metadata?.decoderHead&&path.path.startsWith('relay:')?regularCap+1:regularCap);
+  const cap=path.path.startsWith('relay:')&&(rescue||metadata?.decoderHead)?streamRelayDispatchWindow(packet.byteLength,metadata?.supplyPressure,rescue):(rescue?regularCap+2:regularCap);
   if(prev.active>=cap)return false;
   prev.active++;streamPathDispatches.set(key,prev);
   const deadline=path.path.startsWith('relay:')?(critical?4200:6000):2200;
@@ -919,7 +927,7 @@ async function handleControl(packet,meta={},w=null,origin='direct'){
     case'live-relay':if(activeLiveViewer?.id===String(m.id||'')&&activeLiveViewer.publisher===m.actor){$('#liveViewerRoute').textContent='direct media pending · relay encoder started'}break;
     case'live-path':handleLivePath(m);break;
     case'stream-demand':answerStreamDemand(m).catch(()=>{});break;
-    case'stream-end':clearStreamDemandActivity(m);break;
+    case'stream-end':retireStreamServe(m,true);clearStreamDemandActivity(m);break;
     case'stream-offer':offerStreamSource(m);break;
     case'chunks-need':if(m.aggressive||m.hedge||m.decoderHead)wakeSeederRecoveryTransports();queueServeChunks(m,m.actor);break;
     case'chunk-tunnel':await receiveControlChunkTunnel(m,w,meta,origin);break;
@@ -1072,9 +1080,19 @@ function streamRequestCurrent(m,remote,record=false){
   if(m?.mode!=='stream')return true;
   const key=remote+'|'+String(m.id||'')+'|'+String(m.sid||''),epoch=Math.max(0,Number(m.seekEpoch)||0);
   const previous=streamServeEpochs.get(key);
-  if(previous!=null&&epoch<previous)return false;
+  if(previous===Infinity||previous!=null&&epoch<previous)return false;
   if(record){streamServeEpochs.set(key,epoch);if(streamServeEpochs.size>4096)streamServeEpochs.delete(streamServeEpochs.keys().next().value)}
   return true;
+}
+function retireStreamServe(m,closed=false){
+  const cid=String(m?.id||''),remote=String(m?.actor||''),sid=String(m?.sid||'');
+  if(!cid||!remote||!sid)return;
+  if(closed){
+    streamServeEpochs.set(remote+'|'+cid+'|'+sid,Infinity);
+    if(streamServeEpochs.size>4096)streamServeEpochs.delete(streamServeEpochs.keys().next().value);
+  }
+  const q=serveQueues.get(remote+'|'+cid);
+  if(q?.sid===sid){q.hot?.clear?.();q.bulk?.clear?.()}
 }
 async function queueServeChunks(m,remote){
   if(!streamRequestCurrent(m,remote,true))return false;
@@ -1116,7 +1134,7 @@ async function queueServeChunks(m,remote){
   let q=serveQueues.get(key);
   if(!q||!q.hot){q={hot:new Map(),bulk:new Map(),active:new Set(),pumping:false,sid:m.sid||'',decoderCursor:reportedCursor,seekEpoch:Number(m.seekEpoch)||0};serveQueues.set(key,q)}
   if(q.sid!==(m.sid||'')||q.seekEpoch!==(Number(m.seekEpoch)||0)){q.hot.clear();q.bulk.clear();q.sid=m.sid||'';q.seekEpoch=Number(m.seekEpoch)||0;q.decoderCursor=reportedCursor;q.focusCritical=false}
-  q.decoderCursor=Math.max(q.decoderCursor||0,reportedCursor);
+  q.decoderCursor=Math.max(q.decoderCursor||0,reportedCursor);q.supplyPressure=Math.max(1,Number(m.supplyPressure)||1);
   const frontier=q.decoderCursor;
   // A rescue may deliver bytes before their queued copy starts. Advancing
   // decoder evidence retires that copy, even if an older request arrives late.
@@ -1147,10 +1165,10 @@ async function queueServeChunks(m,remote){
       // chunks; late decoder-head requests can overtake old speculative prefetch.
       const hinted=(m.pathHints||[]).find(x=>x?.preferred||x?.strong);
       const relay=hinted?.path?.startsWith('relay:')||(!hinted&&!bulkRoutesFor(remote).length);
-      const width=relay?2:(IS_MOBILEISH?3:6);
+      const width=()=>relay?streamRelayDispatchWindow(Number(m.chunkSize)||CHUNK_SIZE,q.supplyPressure):(IS_MOBILEISH?3:6);
       const running=new Set();
       while(q.hot.size||q.bulk.size||running.size){
-        while(running.size<width&&(q.hot.size||q.bulk.size)){
+        while(running.size<width()&&(q.hot.size||q.bulk.size)){
           const map=q.hot.size?q.hot:q.bulk;
           const idx=map===q.hot?Math.min(...map.keys()):map.keys().next().value;
           const item=map.get(idx);map.delete(idx);
@@ -1194,7 +1212,7 @@ async function serveChunksNow(m,remote){
        (idx<focus.focusCursor||idx>=focus.focusCursor+focus.focusChunks))return false;
     const dupeKey=remote+'|'+cid+'|'+(m.sid||'')+'|'+(Number(m.seekEpoch)||0)+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
     if(c.locked){seedSalt=seedSaltFor(cid);const sk=await seedEnvelopeKey(cid,actor,seedSalt),iv=randomBytes(12),ct=await aesEncryptKey(sk,part,iv,`seedwrap:${cid}:${idx}`);wirePart=concatBytes(iv,ct)}
-    const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seekEpoch:Number(m.seekEpoch)||0,seedSalt,mode:m.mode||'',decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge,mobileStartup:!!m.mobileStartup&&idx>=Number(m.decoderCursor||0)&&idx<Number(m.decoderCursor||0)+2};
+    const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seekEpoch:Number(m.seekEpoch)||0,seedSalt,mode:m.mode||'',decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge,supplyPressure:Math.max(1,Number(focus?.supplyPressure)||Number(m.supplyPressure)||1),mobileStartup:!!m.mobileStartup&&idx>=Number(m.decoderCursor||0)&&idx<Number(m.decoderCursor||0)+2};
     if(!streamRequestCurrent(m,remote))return false;
     const proven=pathHints.some(h=>h&&typeof h==='object'&&h.strong&&h.bps>0),frontierRescue=m.frontierRescue===true,bootstrap=!proven&&!frontierRescue&&(m.hardRescue===true||idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS),sent=await sendBinaryMultipathActor(remote,packet,{...metadata,frontierRescue},idx,pathHints,!frontierRescue&&!proven&&(aggressive||bootstrap));
     if(sent){serveRecentlySent.set(dupeKey,performance.now());if(serveRecentlySent.size>4096){const cut=performance.now()-2500;for(const[k,t]of serveRecentlySent)if(t<cut)serveRecentlySent.delete(k)}served+=part.length;noteFileTraffic(cid,part.length)}return sent
@@ -1453,7 +1471,7 @@ async function schedulerTickBody(s){
           mode:s.mode,mobileStartup:IS_MOBILEISH&&s.mode==='stream'&&!s.playbackStarted,decoderHead,decoderCursor:Math.max(0,frontier),
           // Never flood all planes with normal bulk just because SAFE is low.
           // Independent head hedges handle truly missing critical chunks.
-          hedge:false,aggressive:false,pathHints,
+          hedge:false,aggressive:false,pathHints,supplyPressure:Math.max(1,Number(s.safePlantPressure)||1),
           safeCritical:s.mode==='stream'&&safeFocusActive(s),focusChunks:s.mode==='stream'?streamRefillWindowCaps(s).min:0
         }));
         if(!ok&&epoch===(s.seekEpoch||0)){let reclaimed=0;for(const idx of batch){
@@ -2013,7 +2031,11 @@ function expireWarmPreview(){previewWarmTimer=0;if(!activePreview?.hiddenAt)retu
 async function closePreview(){const p=activePreview;if(previewCanStayWarm(p)){p.hiddenAt=Date.now();p.wasPlayingBeforeHide=!!(p.media&&!p.media.paused);try{p.media?.pause?.()}catch(_){}if(p?.playbackWatchdog){clearInterval(p.playbackWatchdog);p.playbackWatchdog=0}if(p?.decoderPump){clearInterval(p.decoderPump);p.decoderPump=0}if(p?.decoderPromoteTimer){clearTimeout(p.decoderPromoteTimer);p.decoderPromoteTimer=0}$('#previewModal').classList.remove('show');$('#previewModal').classList.remove('theater');clearTimeout(previewWarmTimer);previewWarmTimer=setTimeout(expireWarmPreview,PREVIEW_WARM_TTL_MS);return}cleanupPreview();$('#previewModal').classList.remove('show')}
 async function reopenWarmPreview(entry,c){const p=activePreview;if(!p||p.c?.id!==c.id||!p.hiddenAt)return false;clearTimeout(previewWarmTimer);previewWarmTimer=0;p.hiddenAt=0;syncVisualViewport();$('#previewModal').classList.add('show');$('#previewName').textContent=p.name;$('#previewMeta').textContent=`${p.mime} · ${fmtBytes(visibleSize(entry,c))} · ${seedCount(c.id)} source${seedCount(c.id)===1?'':'s'}`;if(p.session?.state==='downloading'){startPlaybackWatchdog(p);ensureStreamHorizon('reopen',true);announceStreamDemand(p.session).catch(()=>{});scheduleSession(p.session,0)}refreshPreviewStats(true);const state=streamBufferedState(p);if(p.media&&streamCanStartPlayback(p,p.session,state)){const q=p.media.play();q?.catch?.(()=>{p.autoplayBlocked=true;refreshPreviewStats()})}return true}
 async function openPreview(entry){
-  const c=contents.get(entry.contentId);if(!c)return;if(activePreview?.c?.id===c.id&&activePreview.hiddenAt){if(await reopenWarmPreview(entry,c))return}if(!await requireUnlocked(entry))return;cleanupPreview();syncVisualViewport();const kind=previewKind(entry,c),name=visibleName(entry),mime=inferMime(name,visibleType(entry,c));activePreview={entry,c,kind,name,mime,mode:'buffer',parts:(kind==='video'||kind==='audio')?[]:new Array(contentTotal(c)),pending:new Map(),appendIndex:0,appending:false,allReceived:false,session:null,objectUrl:null,mediaSourceUrl:null,threeCleanup:null,hiddenAt:0};previewDebugState(activePreview);$('#previewName').textContent=name;$('#previewMeta').textContent=`${mime} · ${fmtBytes(visibleSize(entry,c))} · ${seedCount(c.id)} source${seedCount(c.id)===1?'':'s'}`;$('#previewStage').innerHTML='<div class="previewEmpty">Preparing peer stream…</div>';$('#previewModal').classList.add('show');$('#previewState').textContent='PREPARING';refreshPreviewStats();
+  // STREAM is an explicit Play request. Preserve its activation across unlock,
+  // file lookup and decoder imports so a growing acquisition target cannot
+  // leave already-playable A/V paused. Background opens retain the auto gate.
+  const userRequestedPlayback=!!navigator.userActivation?.isActive;
+  const c=contents.get(entry.contentId);if(!c)return;if(activePreview?.c?.id===c.id&&activePreview.hiddenAt){if(await reopenWarmPreview(entry,c))return}if(!await requireUnlocked(entry))return;cleanupPreview();syncVisualViewport();const kind=previewKind(entry,c),name=visibleName(entry),mime=inferMime(name,visibleType(entry,c));activePreview={entry,c,kind,name,mime,userPlayRequested:userRequestedPlayback,mode:'buffer',parts:(kind==='video'||kind==='audio')?[]:new Array(contentTotal(c)),pending:new Map(),appendIndex:0,appending:false,allReceived:false,session:null,objectUrl:null,mediaSourceUrl:null,threeCleanup:null,hiddenAt:0};previewDebugState(activePreview);$('#previewName').textContent=name;$('#previewMeta').textContent=`${mime} · ${fmtBytes(visibleSize(entry,c))} · ${seedCount(c.id)} source${seedCount(c.id)===1?'':'s'}`;$('#previewStage').innerHTML='<div class="previewEmpty">Preparing peer stream…</div>';$('#previewModal').classList.add('show');$('#previewState').textContent='PREPARING';refreshPreviewStats();
   const f=await getReadableFile(c.id);if(f){await renderPreviewBlob(f);$('#previewState').textContent='LOCAL FILE';$('#previewState').className='previewBadge good';$('#previewProgressBar').style.width='100%';return}
   if(localHave.has(c.id)){await previewFromLocalChunks(entry,c);return}
   await startRemotePreview(entry,c)
