@@ -81,7 +81,7 @@ test('a closed old peer cannot tear down its replacement',async()=>{
 });
 
 function chunkHarness(names){
- let nextId=0;const sent=[],c=vm.createContext({console,Uint8Array,Map,Set,Date,performance:{now:()=>1000},actor:'source',window:{},localLive:null,activeLiveViewer:null,liveChunkSources:new Map(),verifiedMediaPaths:new Map(),CHUNK_SIZE:16,MP4_RAM_QUEUE_BUDGET_BYTES:64,SCHEDULER_TICK_MS:180,crypto:{randomUUID:()=>String(++nextId)},msg:(type,data)=>({type,relayBinary:2,...data}),sendActorIngress:async(a,m)=>sent.push({a,...m}),retireStreamServe:()=>{},sendLiveAnnouncement:async()=>{},$ :()=>({textContent:''}),liveRecorderMimes:()=>['video/webm'],closeLivePublisherPeer:()=>{},MediaRecorder:class{constructor(){this.state='inactive'}start(){this.state='recording'}stop(){this.state='inactive'}},setInterval:()=>1,streamPathHintsFor:()=>[],seedLivePathEvidence:()=>{},normalizeLiveWebm:(_,raw)=>raw,previewMediaSourceType:()=>({isTypeSupported:()=>true}),ensureLiveChunkPlayer:()=>{},retireLiveViewerSource:()=>{},resetLiveChunkPlayer:()=>{},tickLiveChunkViewer:()=>{}});
+ let nextId=0;const sent=[],c=vm.createContext({console,Uint8Array,Map,Set,Date,performance:{now:()=>1000},actor:'source',window:{},localLive:null,activeLiveViewer:null,liveMedia:new Map(),liveChunkSources:new Map(),verifiedMediaPaths:new Map(),CHUNK_SIZE:16,MP4_RAM_QUEUE_BUDGET_BYTES:64,SCHEDULER_TICK_MS:180,crypto:{randomUUID:()=>String(++nextId)},msg:(type,data)=>({type,relayBinary:2,...data}),sendActorIngress:async(a,m)=>sent.push({a,...m}),retireStreamServe:()=>{},sendLiveAnnouncement:async()=>{},$ :()=>({textContent:''}),liveRecorderMimes:()=>['video/webm'],closeLivePublisherPeer:()=>{},MediaRecorder:class{constructor(){this.state='inactive'}start(){this.state='recording'}stop(){this.state='inactive'}},setInterval:()=>1,streamPathHintsFor:()=>[],seedLivePathEvidence:()=>{},normalizeLiveWebm:(_,raw)=>raw,previewMediaSourceType:()=>({isTypeSupported:()=>true}),ensureLiveChunkPlayer:()=>{},retireLiveViewerSource:()=>{},resetLiveChunkPlayer:()=>{},tickLiveChunkViewer:()=>{}});
  for(const name of names)vm.runInContext(source(name),c);return{c,sent};
 }
 test('modern viewers use a retained byte source and duplicate watches preserve its encoder',async()=>{
@@ -170,4 +170,9 @@ test('a growing live media duration cannot be mistaken for a completed file or c
 });
 test('ManagedMediaSource live playback disables remote playback before attaching its media URL',()=>{
  const{c}=chunkHarness(['ensureLiveChunkPlayer']);const MS=class{static isTypeSupported(){return true}addEventListener(){}};c.window.ManagedMediaSource=MS;c.previewMediaSourceType=()=>MS;c.URL={createObjectURL:()=> 'blob:managed'};let attached=false;const el={set src(value){assert.equal(this.disableRemotePlayback,true);attached=value==='blob:managed'}};assert.equal(c.ensureLiveChunkPlayer({el},'video/mp4;codecs=avc1.42E01E'),true);assert.equal(attached,true);
+});
+test('an active chunk viewer survives missed heartbeats while idle and legacy listings still expire',()=>{
+ const{c}=chunkHarness(['pruneLiveMedia']);c.LIVE_EXPIRE_MS=14000;let ended=0;c.closeLiveViewer=()=>ended++;
+ const live={id:'live',actor:'publisher',lastSeen:0},idle={id:'idle',actor:'other',lastSeen:0};c.liveMedia.set('live',live);c.liveMedia.set('idle',idle);c.activeLiveViewer={id:'live',chunked:true};assert.equal(c.pruneLiveMedia(),true);assert.equal(c.liveMedia.get('live'),live);assert.equal(c.liveMedia.has('idle'),false);assert.equal(ended,0);
+ c.activeLiveViewer.chunked=false;assert.equal(c.pruneLiveMedia(),true);assert.equal(c.liveMedia.has('live'),false);assert.equal(ended,1);
 });

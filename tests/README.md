@@ -237,3 +237,9 @@ Negotiation includes explicit H.264/AAC and H.264/Opus formats, filtered by the
 publisher's encoder and receiver's MSE support. ManagedMediaSource uses the same
 remote-playback setting as file playback. These checks do not replace Safari
 or physical iPhone validation.
+
+Set `OUTAGE_MS=18000 MODES=screen` to exercise a disconnect longer than the
+legacy announcement expiry. An active chunk viewer remains reconnectable until
+explicitly closed or the publisher ends the broadcast; missing heartbeats alone
+do not discard its decoder, verified route evidence or stream generation. Idle
+catalog listings and legacy connections retain their expiry behavior.

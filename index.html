@@ -234,7 +234,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-09-live-stream-routes-v92';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-09-live-stream-routes-v93';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -604,7 +604,7 @@ function captureLiveStream(mode){
 }
 function liveCaptureConstraints(mode){return{audio:mode!=='video'?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false,video:mode!=='audio'?{width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:30}}:false}}
 function liveEntryFromLocal(){if(!localLive)return null;return{id:localLive.id,actor,mode:localLive.mode,name:localLive.name,started:localLive.started,viewers:localLive.watchers.size,lastSeen:Date.now(),fallbackMime:localLive.fallbackMime||'',relayChunks:2,relayMimes:liveRecorderMimes(localLive.mode,localLive.stream)}}
-function pruneLiveMedia(){const now=Date.now();let changed=false;for(const[id,l]of [...liveMedia]){if(l.actor===actor)continue;if(now-Number(l.lastSeen||0)>LIVE_EXPIRE_MS){liveMedia.delete(id);changed=true;if(activeLiveViewer?.id===id)closeLiveViewer('Publisher heartbeat expired')}}return changed}
+function pruneLiveMedia(){const now=Date.now();let changed=false;for(const[id,l]of [...liveMedia]){if(l.actor===actor)continue;if(now-Number(l.lastSeen||0)>LIVE_EXPIRE_MS){if(activeLiveViewer?.id===id&&activeLiveViewer.chunked)continue;liveMedia.delete(id);changed=true;if(activeLiveViewer?.id===id)closeLiveViewer('Publisher heartbeat expired')}}return changed}
 async function sendLiveAnnouncement(target=''){if(!localLive)return false;const live=liveEntryFromLocal(),m=msg('live-announce',{live});if(target)return sendActorIngress(target,m);await broadcast(m);return true}
 function handleLiveAnnouncement(m){const l=m?.live;if(!l||!l.id||m.actor!==l.actor||m.actor===actor)return;const old=liveMedia.get(l.id)||{};liveMedia.set(l.id,{...old,...l,actor:m.actor,lastSeen:Date.now(),viewers:Number(l.viewers)||0});scheduleHeaderRender(true);renderTree();if(String(selectedId||'')==='live:'+l.id)renderDetails();if(activeLiveViewer?.id===l.id){activeLiveViewer.lastAnnounce=Date.now();$('#liveViewerOwner').textContent=profileFor(l.actor).alias.toUpperCase()}}
 function handleLiveEnd(m){const id=String(m.id||'');if(!id)return;const l=liveMedia.get(id);if(l&&l.actor===m.actor)liveMedia.delete(id);if(activeLiveViewer?.id===id&&activeLiveViewer.publisher===m.actor)closeLiveViewer('Publisher stopped live media');renderAll()}
@@ -762,7 +762,7 @@ function tickLiveChunkViewer(v){
   if(!v.startedPlayback&&streamBufferedAhead(p)>=band.high&&v.el.readyState>=2){v.startedPlayback=true;v.el.play().catch(()=>{v.startedPlayback=false;$('#liveViewerStatus').textContent='CLICK PLAY'})}
   if(!v.el.paused&&v.el.readyState>=2)v.startedPlayback=true;
   const hints=streamPathHintsFor(s,v.publisher),path=hints.find(x=>x.preferred)||hints[0];
-  $('#liveViewerStatus').textContent=v.startedPlayback?'LIVE':'BUILDING LIVE RESERVE';$('#liveViewerRoute').textContent=`${path?.path||'file-stream routes'} · ${ahead.toFixed(1)}s SAFE · ${v.relayNextSeq}/${v.head} chunks`;
+  $('#liveViewerStatus').textContent=v.startedPlayback?(ahead>0?'LIVE':'RECOVERING LIVE STREAM'):'BUILDING LIVE RESERVE';$('#liveViewerRoute').textContent=`${path?.path||'file-stream routes'} · ${ahead.toFixed(1)}s SAFE · ${v.relayNextSeq}/${v.head} chunks`;
   if(v.el.error){restartLiveChunkViewer(v);return}
   if(v.relaySourceBuffer&&!v.relaySourceBuffer.updating&&v.appendSeq==null)trimPreviewBehind(p);
   const recovery=Math.max(SCHEDULER_TICK_MS/1000,(Number(s.deliveryLatency)||SCHEDULER_TICK_MS/1000)+4*(Number(s.deliveryJitter)||0));
@@ -782,7 +782,7 @@ async function handleLiveChunkBinary(packet,{metadata,peerId},w){
   const id=v.relayId,receiving=v.receiving;receiving.add(idx);let raw;try{raw=new Uint8Array(await decryptBytes(packet,`live-chunk:${id}:${idx}`))}catch(_){receiving.delete(idx);return}receiving.delete(idx);
   if(activeLiveViewer!==v||id!==v.relayId||raw.length!==length||idx<v.relayNextSeq||v.relayPending.has(idx))return;
   if(v.pendingBytes+raw.length>MP4_RAM_QUEUE_BUDGET_BYTES){restartLiveChunkViewer(v);return}
-  v.head=Math.max(v.head,idx+1);v.relayPending.set(idx,raw);v.pendingBytes+=raw.length;v.relayActive=true;v.lastMediaAt=Date.now();noteStreamDelivery(v.session,idx);
+  v.head=Math.max(v.head,idx+1);v.relayPending.set(idx,raw);v.pendingBytes+=raw.length;v.relayActive=true;v.lastMediaAt=Date.now();const listing=liveMedia.get(v.id);if(listing?.actor===v.publisher)listing.lastSeen=v.lastMediaAt;noteStreamDelivery(v.session,idx);
   const plane=metadata.relayPlane&&relayPlaneName(metadata.relayPlane),path=plane==='bc'?'bc':plane?`relay:${plane}`:w?`direct:${w.key||w.name||w.strategy||'route'}`:'unknown';rewardProviderPath(v.session,v.publisher,path,raw.length);pumpLiveChunkPlayer(v);tickLiveChunkViewer(v);
 }
 

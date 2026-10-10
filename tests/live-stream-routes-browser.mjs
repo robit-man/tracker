@@ -56,7 +56,7 @@ try{
   // A complete network outage cannot preserve a live buffer indefinitely; the
   // requirement here is recovery over the SAME byte stream after reconnecting.
   if(mode==='screen'&&!result.directHarness){
-   await contexts[1].setOffline(true);await delay(6000);report.outage=await snapshot(viewer);await contexts[1].setOffline(false);const old=report.outage.time;
+   await contexts[1].setOffline(true);await delay(Number(process.env.OUTAGE_MS)||6000);report.outage=await snapshot(viewer);await contexts[1].setOffline(false);const old=report.outage.time;
    await viewer.waitForFunction(old=>{const e=document.querySelector('#liveViewerStage video');return e.currentTime>old+3&&!e.paused},old,{timeout:60000});report.recovered=await snapshot(viewer);assert.equal(report.recovered.live.viewer.relayId,relayId,'disconnect recovery preserves the recorder and stream generation');
   }
   report.publisher=await snapshot(source);assert.ok(report.publisher.live.publisher.viewers.every(x=>x.chunked&&!x.mediaPc),'no live media PeerConnection on the source');assert.ok(report.publisher.live.publisher.viewers.every(x=>x.retainedBytes+x.queuedBytes<=64*1024*1024));report.end=await snapshot(viewer);report.passed=true;console.log('PASS',mode,JSON.stringify({start:report.start.time,end:report.end.time,path:report.end.route,repair:report.repair?.fault,audio:report.audio}));
