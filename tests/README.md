@@ -290,3 +290,22 @@ uses the actual WebRTC data-channel backpressure without the file stress
 harness's additional serial bandwidth-delay queue. `FIXTURE` can select the
 full ETV movie for simultaneous file/live playback. Leave `NATIVE_DIRECT` off
 to retain that deliberately constrained link for file scheduling stress tests.
+
+Verify local source linking with actual hash workers and public relays:
+
+```sh
+node --test tests/source-link.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps \
+  node tests/source-link-browser.mjs
+```
+
+The browser test opens three independent room members with direct ICE disabled.
+A member who never owned the listing rejects a same-size corrupt file, links a
+renamed matching copy, reloads and relinks the orphaned listing, then supplies a
+byte-identical download to a third member after the original uploader closes.
+It also checks that the listing and original publisher stay unchanged.
+`TRACKER_HTML` selects a predeployment snapshot; omit it to check the live site.
+`BROWSER=firefox` selects Firefox, and `BROWSER_EXECUTABLE` can select its binary.
+`RESULT` selects the JSON evidence path. Unit tests additionally cover locked
+content hashes, permission reauthorization, stale handles, picker cancellation,
+and respecting the global seeding-off setting.

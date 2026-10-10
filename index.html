@@ -250,7 +250,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-10-adaptive-live-v94';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-10-source-link-v95';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -506,6 +506,14 @@ function renderHeader(){
   const seeds=advertisedSeeds().length;$('#seedStatus').textContent=`SEEDING ${seeds} FILE${seeds===1?'':'S'}`;$('#seedCount').textContent=seeds;$('#servedBytes').textContent=fmtBytes(served)
 }
 function renderModes(){const labels={off:'Disable seeding',selected:'Seed selected files',all:'Seed all local files'},icons={off:'seedOff',selected:'seedSelected',all:'seedAll'};document.querySelectorAll('.mode').forEach(b=>{const on=b.dataset.mode===seedMode;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));setActionIcon(b,icons[b.dataset.mode],labels[b.dataset.mode])});$('#seedModeDescription').textContent=seedMode==='off'?'Seeding off':seedMode==='all'?'Seeding all local files':'Seeding selected files'}
+function sourceLinkActions(cid){
+  if(sourceVerifying.has(cid)){
+    const p=sourceVerifyProgress.get(cid),pct=Math.max(0,Math.min(100,Math.round((p?.fraction||0)*100))),label=p?`Verifying source ${pct}%${p.rate?` · ${fmtRate(p.rate)}`:''}`:'Choose local source';
+    return `<button class="mini sourceRecovery active" disabled data-icon="refresh" data-tooltip="${label}">${label}</button>`
+  }
+  const reauth=!localHave.has(cid)&&sourceNeedsAuth.has(cid)?'<button class="mini sourceRecovery" data-reauth data-icon="unlock" data-tooltip="Reauthorize source">REAUTHORIZE</button>':'';
+  return reauth+'<button class="mini sourceRecovery" data-relink data-icon="link" data-tooltip="Link local source">LINK LOCAL SOURCE</button>'
+}
 function renderTree(){
   const token=++renderSeq,q=$('#search').value.trim().toLowerCase(),box=$('#tree');let html='';
   const match=x=>{const n=visibleName(x).toLowerCase();return!q||n.includes(q)||entryPath(x.id).toLowerCase().includes(q)};
@@ -517,8 +525,8 @@ function renderTree(){
       html+=`<div class="row folder ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}"><div class="nameCell" style="--indent:${depth*16}px"><button class="chev ${open?'open':''}" data-toggle data-icon="chevron" data-tooltip="${open?'Collapse folder':'Expand folder'}" aria-expanded="${!!open}">›</button><span class="fileMark folderMark">${svgIcon('folder')}</span><span class="nameText">${esc(x.name)}</span></div><div data-label="Size">${fmtBytes(st.size)}</div><div class="ownerCell" data-label="Contents"><span class="subtle">${st.files} file${st.files===1?'':'s'}</span></div><div class="avail" data-label="Availability"><span class="subtle">${st.available}/${st.files} live</span></div><div class="subtle" data-label="Active streams">${st.active||0}</div><div class="actionsCell"></div></div>`;
       if(open)walk(x.id,depth+1)
     }else{
-      const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||x.originActor||''),n=seedCount(x.contentId),have=localHave.has(x.contentId),seeding=seedEnabled(x.contentId),locked=!!c.locked,unlocked=!locked||unlockedMeta.has(c.id),name=visibleName(x),kind=iconKind(x,c),canPreview=unlocked&&previewable(x,c),needsAuth=sourceNeedsAuth.has(x.contentId),missing=sourceMissing.has(x.contentId),claimed=sourceClaims.has(x.contentId),verifying=sourceVerifying.has(x.contentId),vp=sourceVerifyProgress.get(x.contentId),verifyPct=vp?Math.max(0,Math.min(100,Math.round((vp.fraction||0)*100))):0,recovery=verifying?`<button class="mini sourceRecovery active" disabled data-icon="refresh" data-tooltip="Verifying source ${verifyPct}%${vp?.rate?` · ${fmtRate(vp.rate)}`:''}">VERIFY ${verifyPct}%${vp?.rate?` · ${fmtRate(vp.rate)}`:''}</button>`:(!have&&claimed?(needsAuth?'<button class="mini sourceRecovery" data-reauth data-icon="unlock" data-tooltip="Reauthorize source">REAUTHORIZE</button>':missing?'<button class="mini sourceRecovery" data-relink data-icon="link" data-tooltip="Relink source">RELINK SOURCE</button>':''):''),dl=activeDownloadState(x.contentId),dlPct=dl?Math.max(0,Math.min(1,dl.pct||0)):0,downloadButton=have?'Save file':dl?(dl.state==='paused'?'View paused transfer':'View download progress'):'Download file';
-      html+=`<div class="row ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}" data-cid="${esc(x.contentId)}"><div class="nameCell" style="--indent:${depth*16}px"><span class="chev"></span><span class="fileMark ${esc(kind)}">${svgIcon(kind)}</span><span class="nameText ${locked&&!unlocked?'lockedName':''}" ${locked&&!unlocked?'data-unlock-title title="Click to unlock"':''}>${esc(name)}</span></div><div data-label="Size">${fmtBytes(visibleSize(x,c))}</div><div class="ownerCell" data-label="Publisher"><span class="avatar" style="--c:${esc(p.color)}">${esc(initials(p.alias))}</span><span class="ownerName">${esc(p.alias)}</span></div><div class="avail" data-label="Availability" data-source-stat>${availabilityHtml(n,x.contentId)}</div><div data-label="Active streams" data-active-stat>${activeStreamCount(x.contentId)}</div><div class="actionsCell">${locked&&!unlocked?'<button class="mini" data-unlock data-icon="unlock" data-tooltip="Unlock file">UNLOCK</button>':`${recovery}${canPreview?'<button class="mini" data-stream data-icon="play" data-tooltip="Stream file">STREAM</button>':''}<button class="mini ${dl?'downloading':''}" data-download data-icon="${have?'save':dl?(dl.state==='paused'?'pause':'refresh'):'download'}" data-tooltip="${downloadButton}">${downloadButton}</button>${have?`<button class="mini ${seeding?'active good':'good'}" data-seed data-icon="seed" data-tooltip="${seeding?'Stop seeding file':'Seed file'}" aria-pressed="${seeding}">${seeding?'SEEDING':'SEED'}</button>`:''}`}</div>${dl?`<div class="rowDownloadProgress" title="${Math.round(dlPct*100)}%"><i style="width:${(dlPct*100).toFixed(2)}%"></i></div>`:''}</div>`;
+      const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||x.originActor||''),n=seedCount(x.contentId),have=localHave.has(x.contentId),seeding=seedEnabled(x.contentId),locked=!!c.locked,unlocked=!locked||unlockedMeta.has(c.id),name=visibleName(x),kind=iconKind(x,c),canPreview=unlocked&&previewable(x,c),recovery=sourceLinkActions(x.contentId),dl=activeDownloadState(x.contentId),dlPct=dl?Math.max(0,Math.min(1,dl.pct||0)):0,downloadButton=have?'Save file':dl?(dl.state==='paused'?'View paused transfer':'View download progress'):'Download file';
+      html+=`<div class="row ${selectedId===x.id?'selected':''}" data-id="${esc(x.id)}" data-cid="${esc(x.contentId)}"><div class="nameCell" style="--indent:${depth*16}px"><span class="chev"></span><span class="fileMark ${esc(kind)}">${svgIcon(kind)}</span><span class="nameText ${locked&&!unlocked?'lockedName':''}" ${locked&&!unlocked?'data-unlock-title title="Click to unlock"':''}>${esc(name)}</span></div><div data-label="Size">${fmtBytes(visibleSize(x,c))}</div><div class="ownerCell" data-label="Publisher"><span class="avatar" style="--c:${esc(p.color)}">${esc(initials(p.alias))}</span><span class="ownerName">${esc(p.alias)}</span></div><div class="avail" data-label="Availability" data-source-stat>${availabilityHtml(n,x.contentId)}</div><div data-label="Active streams" data-active-stat>${activeStreamCount(x.contentId)}</div><div class="actionsCell">${recovery}${locked&&!unlocked?'<button class="mini" data-unlock data-icon="unlock" data-tooltip="Unlock file">UNLOCK</button>':`${canPreview?'<button class="mini" data-stream data-icon="play" data-tooltip="Stream file">STREAM</button>':''}<button class="mini ${dl?'downloading':''}" data-download data-icon="${have?'save':dl?(dl.state==='paused'?'pause':'refresh'):'download'}" data-tooltip="${downloadButton}">${downloadButton}</button>${have?`<button class="mini ${seeding?'active good':'good'}" data-seed data-icon="seed" data-tooltip="${seeding?'Stop seeding file':'Seed file'}" aria-pressed="${seeding}">${seeding?'SEEDING':'SEED'}</button>`:''}`}</div>${dl?`<div class="rowDownloadProgress" title="${Math.round(dlPct*100)}%"><i style="width:${(dlPct*100).toFixed(2)}%"></i></div>`:''}</div>`;
       if(locked&&!unlocked&&unlockRows.has(x.id))html+=`<div class="unlockRow" data-unlock-for="${esc(x.id)}"><div class="unlockInline" style="--indent:${depth*16+43}px"><span class="subtle">PASSWORD</span><input type="password" autocomplete="current-password" data-unlock-pass placeholder="Enter password"><button class="mini good" data-unlock-submit data-icon="unlock" data-tooltip="Unlock file">UNLOCK</button><span class="subtle">salted verifier + wrapped AES-256 key</span></div></div>`;
     }
   }};
@@ -1564,9 +1572,60 @@ async function hardTransferRescue(s,reason='no-byte-hard-rescue'){
 function bulkReachablePeerCount(){let n=0;for(const a of relayActors.keys())if(bulkRoutesFor(a).length)n++;return n}
 async function promoteRelayActor(a){const x=relayActors.get(a);if(!a||a===actor)return false;const now=Date.now(),last=peerPromotionAt.get(a)||0;if(now-last<5000)return bulkRoutesFor(a).length>0;peerPromotionAt.set(a,now);const hasNats=!!Object.keys(x?.planes||{}).some(p=>relayPlaneName(p)==='nats');if(!hasNats&&!nknState.client&&!nknState.starting)startNkn().catch(()=>{});if(x?.nknAddr&&nknState.connected)await ensureNknRoute(x.nknAddr,a).catch(()=>{});if(natsState.nc&&!natsState.sessions.has(a)){if(actor<a)makeNatsOffer(a).catch(()=>{});else sendActorIngress(a,msg('route-promote',{requester:actor,nknAddr:privacyPublicNknAddr()})).catch(()=>{})}return bulkRoutesFor(a).length>0}
 async function waitForSeederRoutes(cid,timeout=3200){const until=Date.now()+timeout;await broadcast(msg('seed-query',{ids:[cid]}));while(Date.now()<until){const candidates=advertisedRemoteSeeders(cid);await Promise.allSettled(candidates.map(promoteRelayActor));const live=liveSeeders(cid);if(live.length)return live;await sleep(120)}return liveSeeders(cid)}
-async function verifySourceCandidate(cid,file,{strict=true}={}){const c=contents.get(cid);if(!c||!file)throw Error('source unavailable');const stamp=sourceStamps.get(cid);if(!strict&&stamp&&stampMatches(file,stamp))return true;const plainExpected=c.locked?Number(unlockedMeta.get(cid)?.plainSize):Number(c.size);if(Number.isFinite(plainExpected)&&plainExpected>=0&&file.size!==plainExpected)throw Error(`size mismatch: selected ${fmtBytes(file.size)}, expected ${fmtBytes(plainExpected)}`);const started=performance.now(),progress=(fraction,done,elapsed)=>{const rate=elapsed>0?done/(elapsed/1000):0;sourceVerifyProgress.set(cid,{fraction,done,total:file.size,rate,started});scheduleDownloadRowRender();if(selectedId&&catalog.get(selectedId)?.contentId===cid)renderDetails()};sourceVerifyProgress.set(cid,{fraction:0,done:0,total:file.size,rate:0,started});try{let h;if(c.locked){const key=unlockedKeys.get(cid);if(!key)throw Error('unlock this file first so the original source can be re-verified');h=await hashLockedFileStreaming(file,key,c.lock,progress);if(h.root!==c.root)throw Error('selected file does not match the original locked swarm')}else{h=await hashFileStreaming(file,progress);if(h.root!==c.root)throw Error('selected file does not match this swarm')}progress(1,file.size,Math.max(1,performance.now()-started));return true}finally{setTimeout(()=>{sourceVerifyProgress.delete(cid);renderTree()},700)}}
-async function reauthorizeSource(cid){const c=contents.get(cid),entry=[...catalog.values()].find(x=>x.contentId===cid&&!x.deleted);let h=sourceHandles.get(cid);if(!h)try{h=await idbGet('handles',cid)}catch(_){}if(!h)return relinkSource(cid);try{sourceVerifying.add(cid);renderTree();let p=typeof h.requestPermission==='function'?await h.requestPermission({mode:'read'}):'granted';if(p!=='granted')throw Error('file permission was not granted');const f=await h.getFile();await verifySourceCandidate(cid,f,{strict:false});sourceHandles.set(cid,h);sourceFiles.set(cid,f);localHave.add(cid);sourceClaims.add(cid);sourceStamps.set(cid,sourceStamp(f));sourceNeedsAuth.delete(cid);sourceMissing.delete(cid);await persistHandle(cid,h);await saveState();await broadcastAvailability();renderAll();toast(`<b>Source restored.</b> ${esc(entry?visibleName(entry):cid)} is seeding-capable again.`,'good')}catch(e){sourceNeedsAuth.add(cid);toast(`<b>Could not restore source.</b> ${esc(e.message||e)}`,'bad')}finally{sourceVerifying.delete(cid);renderTree()}}
-async function relinkSource(cid){const c=contents.get(cid),entry=[...catalog.values()].find(x=>x.contentId===cid&&!x.deleted);if(c?.locked&&!unlockedKeys.has(cid)){if(entry){unlockRows.add(entry.id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(entry.id)}"] input`)?.focus())}toast('<b>Unlock required.</b> Enter the file password, then relink the original source.','bad');return}let handle=null,file=null;try{if(typeof window.showOpenFilePicker==='function'){const a=await window.showOpenFilePicker({multiple:false});handle=a?.[0]||null;if(!handle)return;file=await handle.getFile()}else{file=await new Promise(resolve=>{const i=document.createElement('input');i.type='file';i.style.display='none';document.body.append(i);i.onchange=()=>{const f=i.files?.[0]||null;i.remove();resolve(f)};i.click()});if(!file)return}sourceVerifying.add(cid);renderTree();toast(`<b>Verifying source</b> ${esc(file.name)} against the swarm root in a background worker…`);await verifySourceCandidate(cid,file,{strict:true});sourceFiles.set(cid,file);localHave.add(cid);sourceClaims.add(cid);sourceStamps.set(cid,sourceStamp(file));sourceNeedsAuth.delete(cid);sourceMissing.delete(cid);if(handle)await persistHandle(cid,handle);await saveState();await broadcastAvailability();renderAll();toast(`<b>Source relinked.</b> ${esc(entry?visibleName(entry):file.name)} can seed again.`,'good')}catch(e){if(e?.name!=='AbortError')toast(`<b>Relink rejected.</b> ${esc(e.message||e)}`,'bad')}finally{sourceVerifying.delete(cid);renderTree()}}
+async function verifySourceCandidate(cid,file){const c=contents.get(cid);if(!c||!file)throw Error('source unavailable');const plainExpected=c.locked?Number(unlockedMeta.get(cid)?.plainSize):Number(c.size);if(Number.isFinite(plainExpected)&&plainExpected>=0&&file.size!==plainExpected)throw Error(`size mismatch: selected ${fmtBytes(file.size)}, expected ${fmtBytes(plainExpected)}`);const started=performance.now(),progress=(fraction,done,elapsed)=>{const rate=elapsed>0?done/(elapsed/1000):0;sourceVerifyProgress.set(cid,{fraction,done,total:file.size,rate,started});scheduleDownloadRowRender();if(selectedId&&catalog.get(selectedId)?.contentId===cid)renderDetails()};sourceVerifyProgress.set(cid,{fraction:0,done:0,total:file.size,rate:0,started});try{let h;if(c.locked){const key=unlockedKeys.get(cid);if(!key)throw Error('unlock this file first so the original source can be re-verified');h=await hashLockedFileStreaming(file,key,c.lock,progress);if(h.root!==c.root)throw Error('selected file does not match the original locked swarm')}else{h=await hashFileStreaming(file,progress);if(h.root!==c.root)throw Error('selected file does not match this swarm')}progress(1,file.size,Math.max(1,performance.now()-started));return true}finally{setTimeout(()=>{sourceVerifyProgress.delete(cid);renderTree()},700)}}
+async function linkVerifiedSource(cid,file,handle=null){
+  // Source attachment never changes the catalog entry or its publisher. Only the
+  // complete canonical content hash can authorize a new local copy to seed it.
+  await verifySourceCandidate(cid,file);
+  if(handle)await persistHandle(cid,handle);
+  else{await idbDel('handles',cid);sourceHandles.delete(cid)}
+  sourceFiles.set(cid,file);localHave.add(cid);sourceClaims.add(cid);sourceStamps.set(cid,sourceStamp(file));
+  selectedSeeds.add(cid);seedSaltFor(cid);sourceNeedsAuth.delete(cid);sourceMissing.delete(cid);
+  await saveState();await broadcastAvailability();renderAll()
+}
+async function pickSourceFile(){
+  if(typeof window.showOpenFilePicker==='function'){
+    const handles=await window.showOpenFilePicker({multiple:false}),handle=handles?.[0];
+    return handle?{file:await handle.getFile(),handle}:null
+  }
+  return new Promise((resolve,reject)=>{
+    const input=document.createElement('input');input.type='file';input.style.display='none';document.body.append(input);
+    const finish=value=>{input.remove();resolve(value)};
+    input.onchange=()=>finish(input.files?.[0]?{file:input.files[0],handle:null}:null);
+    input.oncancel=()=>finish(null);
+    try{input.click()}catch(e){input.remove();reject(e)}
+  })
+}
+async function reauthorizeSource(cid){
+  if(sourceVerifying.has(cid)||!contents.has(cid))return;
+  const entry=[...catalog.values()].find(x=>x.contentId===cid&&!x.deleted);
+  let handle=sourceHandles.get(cid);if(!handle)try{handle=await idbGet('handles',cid)}catch(_){}
+  if(!handle)return relinkSource(cid);
+  try{
+    sourceVerifyProgress.delete(cid);sourceVerifying.add(cid);renderTree();
+    const permission=typeof handle.requestPermission==='function'?await handle.requestPermission({mode:'read'}):'granted';
+    if(permission!=='granted')throw Error('file permission was not granted');
+    await linkVerifiedSource(cid,await handle.getFile(),handle);
+    toast(`<b>Source restored.</b> ${esc(entry?visibleName(entry):cid)}${seedMode==='off'?' is linked. Seeding is switched off.':' is now seeding.'}`,'good')
+  }catch(e){sourceNeedsAuth.add(cid);toast(`<b>Could not restore source.</b> ${esc(e.message||e)}`,'bad')}
+  finally{sourceVerifying.delete(cid);renderTree()}
+}
+async function relinkSource(cid){
+  const c=contents.get(cid),entry=[...catalog.values()].find(x=>x.contentId===cid&&!x.deleted);
+  if(!c||sourceVerifying.has(cid))return;
+  if(c.locked&&!unlockedKeys.has(cid)){
+    if(entry){unlockRows.add(entry.id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(entry.id)}"] input`)?.focus())}
+    toast('<b>Unlock required.</b> Enter the file password, then link your local copy.','bad');return
+  }
+  try{
+    sourceVerifyProgress.delete(cid);sourceVerifying.add(cid);renderTree();
+    const candidate=await pickSourceFile();if(!candidate)return;
+    toast(`<b>Verifying source</b> ${esc(candidate.file.name)} against the swarm root in a background worker…`);
+    await linkVerifiedSource(cid,candidate.file,candidate.handle);
+    toast(`<b>Source linked.</b> ${esc(entry?visibleName(entry):candidate.file.name)}${seedMode==='off'?' is ready. Seeding is switched off.':' is now seeding.'}`,'good')
+  }catch(e){if(e?.name!=='AbortError')toast(`<b>Link rejected.</b> ${esc(e.message||e)}`,'bad')}
+  finally{sourceVerifying.delete(cid);renderTree()}
+}
 async function getReadableFile(cid){
   let f=sourceFiles.get(cid);if(f)return f;
   const h=sourceHandles.get(cid);if(h){try{const p=typeof h.queryPermission==='function'?await h.queryPermission({mode:'read'}):'granted';if(p==='granted'){f=await h.getFile();sourceFiles.set(cid,f);return f}}catch(_){ }}
