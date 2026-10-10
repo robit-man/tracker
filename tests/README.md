@@ -162,3 +162,19 @@ actual GitHub Pages deployment. `RESULT` selects the JSON trace and screenshot
 prefix. Screen audio is optional and depends on the surface selected by the user;
 the virtual desktop test covers video-only capture, with audio handling and
 capture lifecycle covered by the unit regressions.
+
+Room-link QR sharing:
+
+```sh
+npm install --prefix /tmp/tracker-test-deps playwright jsqr pngjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  node tests/room-share-browser.mjs
+```
+
+This harness scans both the PNG data and rendered desktop/mobile QR image with
+an independent decoder, requiring the complete page URL including its private
+room fragment. It checks copying (including the clipboard fallback), downloaded
+PNG contents, updated URLs on reopening, focus containment, Escape/backdrop close,
+and offline generation. Omit `TRACKER_HTML` to test the deployed Pages site;
+`RESULT` selects the JSON trace and screenshot prefix. The embedded QR encoder is
+Project Nayuki's MIT-licensed library, pinned to the commit recorded in the HTML.
