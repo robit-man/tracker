@@ -96,6 +96,24 @@ TRACKER_TEST_DEPS=/tmp/tracker-test-deps TICKS=210 MIN_PLAY_TIME=326 \
 
 Test deadlines and sample counts are harness limits, not controller set points.
 
+Check reserve protection throughout playback with enough bandwidth to sustain
+the file, including a reduction to 768 KiB/s followed by restoration:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps RESERVE_GUARD=1 TICKS=150 \
+  node tests/streaming-browser.mjs /path/to/ETV.mp4
+```
+
+This separate scenario keeps playback at 1× and introduces no outage or seek.
+After SAFE first reaches the measured upper reserve, **every** subsequent sample
+must stay above the current dynamic lower band and advance playback. It also
+records both exact band boundaries. This catches brief reserve collapses that
+a check of only the final buffer would miss.
+
+Add `RESERVE_GUARD=1 SUSTAIN_TICKS=90` to the public seek harness to check the same
+invariant for 90 seconds after its forward/backward seek and reserve buildup.
+The public test reads exact reserve telemetry from the open debug panel.
+
 Reproduce decoder-CDN failure and false whole-movie SAFE accounting with a real MP4:
 
 ```sh

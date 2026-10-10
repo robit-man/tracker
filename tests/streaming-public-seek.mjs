@@ -16,7 +16,8 @@ async function snapshot(page){return page.evaluate(()=>{
  const get=id=>document.getElementById(id)?.textContent,v=document.querySelector('#previewStage video');
  const ranges=v?Array.from({length:v.buffered.length},(_,i)=>[v.buffered.start(i),v.buffered.end(i)]):[],time=v?.currentTime||0;
  const range=ranges.find(([a,b])=>time>=a-.05&&time<=b+.05);
- return {at:new Date().toISOString(),time,safe:range?Math.max(0,range[1]-time):0,paused:v?.paused,ready:v?.readyState,error:v?.error?.message,state:get('previewState'),metrics:get('previewDebugMetrics'),events:get('previewDebugEvents'),paths:get('previewDiagRoutes'),routes:PrivateTrackerMesh.routes(),nats:PrivateTrackerMesh.nats(),mqtt:PrivateTrackerMesh.mqtt(),mesh:PrivateTrackerMesh.status(),served:get('servedBytes'),writeBacklog:PrivateTrackerMesh.writeBacklog?.()};
+ const data=document.getElementById('previewDebugMetrics')?.dataset;
+ return {at:new Date().toISOString(),time,safe:range?Math.max(0,range[1]-time):0,band:data&&{low:Number(data.safeLow),high:Number(data.safeHigh),recovery:Number(data.safeRecovery)},paused:v?.paused,ready:v?.readyState,error:v?.error?.message,state:get('previewState'),metrics:get('previewDebugMetrics'),events:get('previewDebugEvents'),paths:get('previewDiagRoutes'),routes:PrivateTrackerMesh.routes(),nats:PrivateTrackerMesh.nats(),mqtt:PrivateTrackerMesh.mqtt(),mesh:PrivateTrackerMesh.status(),served:get('servedBytes'),writeBacklog:PrivateTrackerMesh.writeBacklog?.()};
 })}
 try {
  const mobile=process.env.MOBILE_VIEWER==='1';
@@ -58,13 +59,23 @@ try {
   for(let i=0;i<120;i++){await new Promise(r=>setTimeout(r,1000));const x=await collect('seek '+target);if(x.viewer.time>target+3&&x.viewer.safe>0&&!x.viewer.paused){recovered=true;break}}
   assert.ok(recovered,'public relay seek resumes at '+target);
  }
+ if(process.env.RESERVE_GUARD==='1'){
+  let armed=false;
+  for(let i=0;i<180;i++){const x=await collect('reserve kickoff');if(x.viewer.safe>=x.viewer.band.high&&x.viewer.band.high>0){armed=true;break}await new Promise(r=>setTimeout(r,1000))}
+  assert.ok(armed,'public relay reserve reaches its measured upper band');
+ }
  const before=await collect('sustain start');
- for(let i=0;i<60;i++){await new Promise(r=>setTimeout(r,1000));await collect('sustain')}
+ const sustained=[];
+ for(let i=0;i<Number(process.env.SUSTAIN_TICKS||60);i++){await new Promise(r=>setTimeout(r,1000));sustained.push(await collect('sustain'))}
  const elapsed=(Date.parse(samples.at(-1).viewer.at)-Date.parse(before.viewer.at))/1000;
  assert.ok(samples.at(-1).viewer.time>before.viewer.time+elapsed*.9,'public relay playback continues without repeated stalls');
  const steady=samples.slice(-20);
  assert.ok(steady.every((x,i)=>!i||x.viewer.time>steady[i-1].viewer.time+.5),'every final observation advances playback');
- assert.ok(samples.at(-1).viewer.safe>before.viewer.safe,'reserve grows during sustained refill');
+ if(process.env.RESERVE_GUARD==='1'){
+  const violations=sustained.filter(x=>x.viewer.safe<x.viewer.band.low);
+  assert.equal(violations.length,0,'every public relay post-kickoff SAFE sample stays above its dynamic lower band: '+JSON.stringify(violations.map(x=>({time:x.viewer.time,safe:x.viewer.safe,low:x.viewer.band.low}))));
+  assert.ok(sustained.every((x,i)=>!i||x.viewer.time>sustained[i-1].viewer.time+.5),'every protected observation advances without a stall');
+ }else assert.ok(samples.at(-1).viewer.safe>before.viewer.safe,'reserve grows during sustained refill');
  assert.ok(samples.at(-1).viewer.safe>0,'playable reserve survives');
  assert.equal(errors.length,0,'no browser runtime errors');
  assert.ok(samples.every(s=>!s.source.writeBacklog||Math.max(s.source.writeBacklog.nats,...Object.values(s.source.writeBacklog.mqtt))<8*1024*1024),'source WebSocket queues remain bounded');

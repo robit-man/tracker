@@ -30,17 +30,29 @@ console.log('RTC connected; indexing file');await a.locator('#harnessFile').setI
 const cid=await a.evaluate(()=>window.__tracker.seed());console.log('Seed indexed',cid);await b.waitForFunction(cid=>window.__tracker.catalog.has(cid),cid);
 await b.evaluate(cid=>window.__tracker.openPreview(window.__tracker.catalog.get(cid)),cid);
 const samples=[];const ticks=Number(process.env.TICKS||120);
+const reserveGuard=process.env.RESERVE_GUARD==='1';
 for(let i=0;i<ticks;i++){
  await new Promise(r=>setTimeout(r,1000));
  if(i===20){await a.evaluate(()=>{__link.bps=768*1024});console.log('LINK slower: 768 KiB/s')}
- if(i===35){await b.evaluate(()=>{__tracker.p.media.playbackRate=4});console.log('PLAYBACK consumption: 4x')}
- if(i===50){await a.evaluate(()=>{__link.pause=true});console.log('LINK outage')}
+ if(!reserveGuard&&i===35){await b.evaluate(()=>{__tracker.p.media.playbackRate=4});console.log('PLAYBACK consumption: 4x')}
+ if(!reserveGuard&&i===50){await a.evaluate(()=>{__link.pause=true});console.log('LINK outage')}
  if(i===65){await a.evaluate(()=>{__link.pause=false;__link.bps=8*1024*1024});console.log('LINK restored: 8 MiB/s')}
- if(i===85){await b.evaluate(()=>{const p=__tracker.p;p.media.currentTime=Math.max(0,p.media.currentTime-3)});console.log('BUFFERED SEEK back 3s')}
+ if(!reserveGuard&&i===85){await b.evaluate(()=>{const p=__tracker.p;p.media.currentTime=Math.max(0,p.media.currentTime-3)});console.log('BUFFERED SEEK back 3s')}
  const stats=await b.evaluate(()=>__tracker.stats());samples.push({tick:i,...stats});console.log(JSON.stringify({tick:i,...stats}));if(stats.state==='error')break;
 }
 fs.writeFileSync(resultPath,JSON.stringify({fixture,errors,samples},null,2));
 assert.equal(errors.length,0,'no browser runtime errors');
+if(reserveGuard){
+ const armed=samples.findIndex(s=>s.time>0&&s.band&&s.safe>=s.band.high);
+ assert.ok(armed>=0,'reserve reaches its measured upper band');
+ const guarded=samples.slice(armed);
+ const violations=guarded.filter(s=>s.safe<s.band.low);
+ assert.equal(violations.length,0,'every post-kickoff SAFE sample stays above the dynamic lower band: '+JSON.stringify(violations.map(s=>({tick:s.tick,safe:s.safe,low:s.band.low}))));
+ assert.ok(guarded.every((s,i)=>!i||s.time>guarded[i-1].time+.5),'each observation advances without a stall');
+ assert.ok(samples.at(-1).time>ticks*.8,'sustained playback advances at real time');
+ assert.ok(samples.every(s=>s.state!=='error'&&!s.mediaError),'no transport/parser/media errors');
+ console.log('PASS: every post-kickoff observation preserves the dynamic lower band under changing adequate bandwidth. Trace: '+resultPath);
+}else{
 if(process.env.MIN_PLAY_TIME){
  assert.ok(samples.at(-1).time>Number(process.env.MIN_PLAY_TIME),'playback passes the reported later-stream failure');
  const steady=samples.slice(-20);
@@ -59,4 +71,5 @@ assert.ok(sought.at(-1).segBytes>sought[0].segBytes,'buffered seek preserves sub
 assert.ok(new Set(samples.filter(s=>s.ready).map(s=>Math.round(s.target*10))).size>10,'reserve adapts dynamically');
 assert.ok(new Set(samples.filter(s=>s.ready).map(s=>s.requestChunks)).size>3,'request window adapts dynamically');
 console.log('PASS: bandwidth change, dropped head, outage recovery, buffered seek and adaptive controller. Trace: '+resultPath);
+}
 }finally{await browser.close();server.close();}

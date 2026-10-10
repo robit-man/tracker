@@ -19,6 +19,7 @@ function context(names) {
     MP4_RAM_QUEUE_BUDGET_BYTES: 64 * 1024 * 1024,
     MP4_QUEUE_HIGH_BYTES: 48 * 1024 * 1024, MP4_QUEUE_HIGH_SEGMENTS: 48,
     STREAM_STARTUP_LANES: 12, STREAM_MIN_PER_SOURCE: 8, IS_MOBILEISH: false,
+    activePreview: null,
     SAFE_HOT_BATCH_CHUNKS: 24, SAFE_CRITICAL_WINDOW: 32, DECODER_HEAD_HEDGE_WIDTH: 3,
     streamLargeTier: () => 0,
     mp4ProgressiveCursor: s => s.head || 0,
@@ -192,6 +193,35 @@ test('falling SAFE increases acquisition even when bulk throughput remains posit
   assert.ok(s.safePlantPressure > 0);
   assert.ok(c.safeBufferCritical(p, s));
 });
+test('refill protects the lower band before a measured response can spend it', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  s.deliveryLatency=6;s.deliveryJitter=1;
+  const band=c.streamSafeBand(s,p);
+  p.ahead=band.low+band.recovery/2;
+  assert.ok(p.ahead>band.low,'the actual lower band has not been crossed');
+  assert.ok(c.safeBufferCritical(p,s),'decoder priority starts before crossing it');
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.ok(s.safeSupplyRate>=1.5-1e-9,'acquisition covers the projected floor deficit');
+  assert.ok(band.high>=band.low+band.rate*band.recovery,'upper reserve covers another measured response');
+});
+test('excess reserve cannot bank negative demand against the next refill', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  p.ahead=200;c.updateSafeRateController(p,s,p.ahead);
+  for(let i=0;i<20;i++){c.advance(1000);p.media.currentTime++;p.ahead--;c.updateSafeRateController(p,s,p.ahead)}
+  assert.equal(s.safeIntegral,0);
+  s.safeIntegral=-10000;s.deliveryLatency=5;
+  p.ahead=c.streamSafeBand(s,p).low+1;
+  c.advance(1000);p.media.currentTime++;
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.ok(s.safeIntegral>=0);
+  assert.ok(s.safeSupplyRate>p.media.playbackRate);
+});
+test('a preceding production burst cannot dilute transport pressure below floor protection', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  s.safeProductionRate=50;s.deliveryLatency=5;p.ahead=2;
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.ok(s.safePlantPressure>2,'carrier pressure follows required replacement, not stale burst throughput');
+});
 test('duplicate callback bursts do not create fictitious PID samples', () => {
   const c = context(controlFunctions), { p, s } = plant();
   const first = c.updateSafeRateController(p, s, p.ahead);
@@ -216,6 +246,29 @@ test('delivery measurement includes the original request across retries', () => 
   assert.ok(s.deliveryLatency > .2);
   assert.ok(s.deliveryJitter > .01);
   assert.equal(s.requestedAt.has(10), false);
+});
+test('speculative queue age cannot inflate the decoder recovery band', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  p.mode='mp4box';p.mp4boxReady=true;c.activePreview=p;s.head=10;
+  s.requestedAt=new Map([[10,1000],[400,1000]]);
+  const before=c.streamSafeBand(s,p);
+  c.advance(30000);c.noteStreamDelivery(s,400);
+  assert.equal(s.deliveryQueueLatency,30);
+  assert.equal(c.streamSafeBand(s,p).low,before.low,'tail queue residence is not a missing decoder response');
+  s.safeWaitHead=10;s.safeWaitAt=29000;
+  c.noteStreamDelivery(s,10);
+  assert.ok(s.deliveryLatency<1,'only the actual contiguous input wait is measured');
+  assert.ok(s.deliveryJitter<1);
+});
+test('a newly exposed decoder head does not inherit speculative reservation age', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  s.head=10;s.inflight.set(10,{ts:1000});
+  const before=c.streamSafeBand(s,p);
+  c.advance(30000);
+  assert.equal(c.streamSafeBand(s,p).low,before.low);
+  s.safeWaitHead=10;s.safeWaitAt=31000;
+  c.advance(2000);
+  assert.ok(c.streamSafeBand(s,p).low>before.low,'a real missing-frontier wait still raises protection');
 });
 test('decoder admission follows the moving horizon and independently reopens as playback consumes it', () => {
   const c = context([...controlFunctions, 'mp4DecoderSupplyGate']), { p, s } = plant();
