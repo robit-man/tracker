@@ -140,3 +140,25 @@ after a partial prefix, and requires zero SAFE and no native Blob playback until
 the whole file is received and verified. Complete native playback must load once
 and continue without replacing its source URL. Use a movie longer than two
 minutes; the reported 1,401-chunk Eternal Sunshine MP4 is the regression fixture.
+
+Screen capture and icon controls:
+
+```sh
+node --test tests/*.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  node tests/live-media-browser.mjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" RELAY_ONLY=1 \
+  node tests/live-media-browser.mjs
+```
+
+The live-media harness requires `Xvfb` and Chromium on Linux. It creates a private
+virtual desktop and calls the real `getDisplayMedia()` API; it does not record
+your desktop or use a mocked capture stream. Two separate browser contexts use
+normal room discovery and signaling to publish and receive that screen. It checks
+continued playback, remote stop, icon centering, accessible names, hover and focus
+tooltips, and all seven header actions at a 320px viewport. `RELAY_ONLY=1` disables
+direct ICE to exercise encrypted relay segments. Omit `TRACKER_HTML` to test the
+actual GitHub Pages deployment. `RESULT` selects the JSON trace and screenshot
+prefix. Screen audio is optional and depends on the surface selected by the user;
+the virtual desktop test covers video-only capture, with audio handling and
+capture lifecycle covered by the unit regressions.
