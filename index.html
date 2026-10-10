@@ -191,7 +191,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-09-predictive-safe-reserve-v85';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-09-contiguous-safe-supply-v86';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -631,19 +631,52 @@ function reserveRelayWrite(client,bytes,critical=false){
   if(!client)return null;let state=relayWriteReservations.get(client);if(!state){state={bytes:0};relayWriteReservations.set(client,state)}
   const quantum=Math.max(CHUNK_SIZE*2,bytes),budget=Math.min(MP4_RAM_QUEUE_BUDGET_BYTES,quantum*(critical?3:1));
   if(Math.max(state.bytes,relayWriteBacklog(client))+bytes>budget)return null;
-  state.bytes+=bytes;let released=false;return()=>{if(!released){released=true;state.bytes=Math.max(0,state.bytes-bytes)}}
+  state.bytes+=bytes;let released=false;return()=>{if(!released){released=true;state.bytes=Math.max(0,state.bytes-bytes);state.wake?.()}}
 }
-async function publishRelayBinaryFrames(plane,frames,critical=false){
+async function acquireRelayWrite(client,bytes,critical=false,owner=''){
+  if(!client)return null;
+  let state=relayWriteReservations.get(client);
+  if(!state){state={bytes:0};relayWriteReservations.set(client,state)}
+  if(!state.waiters?.length){const release=reserveRelayWrite(client,bytes,critical);if(release){state.lastOwner=owner;return release}}
+  /* Share the broker's complete-frame credits between viewers. A failed
+     immediate reservation used to send one viewer into slow fallback while
+     the current uploader reacquired every newly released credit. */
+  if(state.bytes+(state.waitingBytes||0)+bytes>MP4_RAM_QUEUE_BUDGET_BYTES)return null;
+  state.waiters=state.waiters||[];state.waitingBytes=(state.waitingBytes||0)+bytes;
+  return new Promise(resolve=>{
+    state.waiters.push({bytes,critical,owner,resolve});
+    state.wake=()=>{
+      if(state.wakeTimer){clearTimeout(state.wakeTimer);state.wakeTimer=0}
+      if((typeof client.isClosed==='function'&&client.isClosed())||client.connected===false){
+        for(const request of state.waiters.splice(0))request.resolve(null);state.waitingBytes=0;return;
+      }
+      while(state.waiters.length){
+        const order=state.waiters.map((x,i)=>i).sort((a,b)=>Number(state.waiters[a].owner===state.lastOwner)-Number(state.waiters[b].owner===state.lastOwner));
+        let at=-1,release=null;
+        for(const i of order){const request=state.waiters[i];release=reserveRelayWrite(client,request.bytes,request.critical);if(release){at=i;break}}
+        if(at<0)break;
+        const next=state.waiters[at];
+        state.waiters.splice(at,1);state.waitingBytes-=next.bytes;state.lastOwner=next.owner;next.resolve(release);
+      }
+      /* Control traffic can fill the socket without holding a binary lease.
+         Its drain must wake admission even when no release callback will fire. */
+      if(state.waiters.length)state.wakeTimer=setTimeout(()=>{state.wakeTimer=0;state.wake()},SCHEDULER_TICK_MS);
+    };
+    state.wake();
+  });
+}
+async function publishRelayBinaryFrames(plane,frames,critical=false,owner='',metadata=null){
   const bytes=frames.reduce((n,raw)=>n+raw.length+128,0);
   if(plane==='nats'){
-    const nc=natsState.nc,release=reserveRelayWrite(nc,bytes,critical);if(!release)return false;
-    try{for(const raw of frames)nc.publish(natsSubjects().relay,enc.encode(raw));await nc.flush();return true}catch(_){return false}finally{release()}
+    const nc=natsState.nc,release=await acquireRelayWrite(nc,bytes,critical,owner);if(!release)return false;
+    try{if(metadata&&!streamRequestCurrent(metadata,owner))return false;for(const raw of frames)nc.publish(natsSubjects().relay,enc.encode(raw));await nc.flush();return true}catch(_){return false}finally{release()}
   }
   if(plane==='mqtt'){
     const jobs=[];
-    for(const url of mqttRelayState.ready){const c=mqttRelayState.clients.get(url);if(!c?.connected)continue;const release=reserveRelayWrite(c,bytes,critical);if(!release)continue;
-      const sends=frames.map(raw=>new Promise(resolve=>{try{c.publish(mqttRelayState.topic,raw,{qos:1,retain:false},err=>resolve(!err))}catch(_){resolve(false)}}));
-      jobs.push(Promise.all(sends).then(r=>r.every(Boolean)).finally(release));
+    for(const url of mqttRelayState.ready){const c=mqttRelayState.clients.get(url);if(!c?.connected)continue;
+      jobs.push((async()=>{const release=await acquireRelayWrite(c,bytes,critical,owner);if(!release)return false;
+        try{if(metadata&&!streamRequestCurrent(metadata,owner))return false;const sends=frames.map(raw=>new Promise(resolve=>{try{c.publish(mqttRelayState.topic,raw,{qos:1,retain:false},err=>resolve(!err))}catch(_){resolve(false)}}));return(await Promise.all(sends)).every(Boolean)}finally{release()}
+      })());
     }
     return firstSuccessfulSend(jobs)
   }
@@ -652,7 +685,7 @@ async function publishRelayBinaryFrames(plane,frames,critical=false){
 async function publishRelayBinaryPacket(packet,metadata,to,{except='',sourceActor=actor,hop=0,relayId='',planes=null}={}){
   const use=(planes||localRelayPlanes()).filter(p=>p!==except);if(!use.length)return false;
   const critical=!!(metadata?.decoderHead||metadata?.frontierRescue||metadata?.hardRescue),jobs=[];
-  for(const plane of use){const frames=await relayBinaryFrames(packet,metadata,to,sourceActor,hop,relayId,relayBinaryFrameChars(plane));jobs.push(publishRelayBinaryFrames(plane,frames,critical))}
+  for(const plane of use){const frames=await relayBinaryFrames(packet,metadata,to,sourceActor,hop,relayId,relayBinaryFrameChars(plane));jobs.push(publishRelayBinaryFrames(plane,frames,critical,to,metadata))}
   return firstSuccessfulSend(jobs)
 }
 async function sendRelayBinaryActor(remote,packet,metadata={},hint=0){const local=localRelayPlanes();if(!local.length)return false;const seenRemote=remoteRelayPlanes(remote).filter(p=>RELAY_PLANES.includes(p)),common=local.filter(p=>seenRemote.includes(p)),idx=Math.max(0,Number(metadata?.idx)||0),key=`${remote}|${metadata?.id||''}|${idx}`,attempt=relaySendAttempts.get(key)||0;relaySendAttempts.set(key,attempt+1);if(relaySendAttempts.size>6000)relaySendAttempts.clear();const hedge=metadata?.mode==='stream'&&idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS&&attempt===0;let planes;if(hedge)planes=local;else{const pool=common.length?common:local;planes=pool.length?[pool[(Math.abs(Number(hint)||0)+attempt)%pool.length]]:[]}return publishRelayBinaryPacket(packet,metadata,remote,{planes})}
@@ -728,13 +761,17 @@ function streamRelayDispatchWindow(bytes,pressure=1,rescue=false){
 }
 async function boundedStreamPathSend(remote,path,packet,metadata,critical=false){
   const key=`${remote}|${path.path}`,now=performance.now(),prev=streamPathDispatches.get(key)||{active:0,blockedUntil:0,failures:0};
+  const chunk=metadata?.sid&&metadata?.id&&Number.isInteger(metadata.idx)?JSON.stringify([metadata.id,metadata.sid,Number(metadata.seekEpoch)||0,metadata.idx]):null;
+  /* A rescue may use another carrier. Cloning a still-pending frame onto the
+     SAME carrier spends the bandwidth needed by the next contiguous chunk. */
+  if(chunk&&prev.chunks?.has(chunk))return false;
   const rescue=!!(metadata?.frontierRescue||metadata?.hardRescue);
   if(!rescue&&prev.blockedUntil>now)return false;
   const regularCap=path.path.startsWith('relay:')?1:4;
   // Keep independent capacity for missing-frontier probes.
   const cap=path.path.startsWith('relay:')&&(rescue||metadata?.decoderHead)?streamRelayDispatchWindow(packet.byteLength,metadata?.supplyPressure,rescue):(rescue?regularCap+2:regularCap);
   if(prev.active>=cap)return false;
-  prev.active++;streamPathDispatches.set(key,prev);
+  prev.active++;if(chunk){prev.chunks=prev.chunks||new Set();prev.chunks.add(chunk)}streamPathDispatches.set(key,prev);
   const deadline=path.path.startsWith('relay:')?(critical?4200:6000):2200;
   let tid=0,expired=false;
   // A deadline permits fallback; it does not cancel an underlying transport.
@@ -744,6 +781,7 @@ async function boundedStreamPathSend(remote,path,packet,metadata,critical=false)
     return result;
   }).finally(()=>{
     prev.active=Math.max(0,prev.active-1);
+    if(chunk)prev.chunks.delete(chunk);
     if(streamPathDispatches.size>512)for(const[k,v]of streamPathDispatches)if(v.active===0&&v.blockedUntil<performance.now()-60000)streamPathDispatches.delete(k);
   });
   try{
@@ -1542,17 +1580,13 @@ function mp4DecoderSupplyGate(p,s){
      as soon as playback uses ANY time below this cap. No sticky HOLD flag and
      no 22% dead band. Future verified chunks still prefetch to IndexedDB. */
   const ramSeconds=mp4SafeRamHorizon(p);
-  if(streamBufferedAhead(p)>=ramSeconds)return false;
-  /* Admit against the feedback horizon, including fragments already queued
-     for BOTH tracks. This prevents a fast peer from filling browser quotas
-     while the PID is asking only for enough reserve to survive measured
-     recovery. The independent ticker reopens admission as the plant changes. */
-  if(p.mp4boxReady&&s){
-    updateSafeRateController(p,s,streamBufferedAhead(p));
-    const ends=[...(p.mp4TrackBuffers?.values()||[])].map(sb=>Number(sb.__queuedMediaEnd)||0);
-    const projected=ends.length?Math.max(0,Math.min(...ends)-(Number(p.media?.currentTime)||0)):0;
-    if(Math.max(streamBufferedAhead(p),projected)>=streamTargetSeconds(p,s))return false;
-  }
+  if(streamBufferedAhead(p)>=ramSeconds){if(s){s.safeSupplyHeld=true;s.safeResponseWaitAt=0}return false}
+  /* The feedback horizon prioritizes acquisition; it is not a ceiling on
+     useful reserve. Convert every available contiguous byte while the real
+     MSE/queue budgets have room. Stopping at a small feedback target stranded
+     verified cache bytes until SAFE had already approached the lower band. */
+  if(p.mp4boxReady&&s)updateSafeRateController(p,s,streamBufferedAhead(p));
+  if(s)s.safeSupplyHeld=false;
   return true;
 }
 
@@ -2144,7 +2178,8 @@ function streamSafeBand(s,p){
   const head=mp4ProgressiveCursor(s);
   const waiting=s?.safeWaitHead===head?Number(s.safeWaitAt):NaN;
   const headAge=Number.isFinite(waiting)?Math.max(0,(performance.now()-waiting)/1000):0;
-  const recovery=Math.max(tick,latency+4*jitter,append,headAge);
+  const productionAge=s?.safeResponseWaitAt&&!s.safeSupplyHeld?Math.max(0,(performance.now()-s.safeResponseWaitAt)/1000):0;
+  const recovery=Math.max(tick,latency+4*jitter,append,headAge,productionAge,Number(s?.safeResponseTail)||0);
   const burst=Math.max(tick*rate,Number(s?.safeGrowthQuantum)||0,bps>0?(Number(s?.chunkSize)||CHUNK_SIZE)/bps:0);
   const drain=Math.max(0,-(Number(s?.safeSlopeEma)||0));
   const remaining=Math.max(0,mediaOriginalDuration(p)-(Number(p?.media?.currentTime)||0));
@@ -2168,19 +2203,38 @@ function updateSafeRateController(p,s,ahead,band=streamSafeBand(s,p)){
      samples. Preserve elapsed time so bursty MSE updates cannot fake slope. */
   if(prevAt&&now-prevAt<SCHEDULER_TICK_MS&&s.safeControl)return s.safeControl;
   const dt=prevAt?Math.max(.001,(now-prevAt)/1000):0;
-  const play=Number(p?.media?.currentTime)||0,playDelta=play-(Number(s.safeCtlPlay)||0);
+  const state=streamBufferedState(p),play=state.time,playDelta=play-(Number(s.safeCtlPlay)||0);
+  const end=state.inRange?state.time+state.ahead:0;
   const seek=!!p?.media?.seeking||playDelta<0||playDelta>dt*band.rate+band.burst;
   const slope=dt&&!seek?(ahead-(Number(s.safeCtlAhead)||0))/dt:0;
   const alpha=dt?1-Math.exp(-dt/band.recovery):1;
   s.safeSlopeEma=seek?0:(Number(s.safeSlopeEma)||0)*(1-alpha)+slope*alpha;
   if(dt&&!seek){
-    const growth=Math.max(0,ahead-(Number(s.safeCtlAhead)||0)+Math.max(0,playDelta));
+    /* Read time and A/V end in one snapshot. Subtracting two independently
+       sampled playback clocks can report tiny "production" with NO append. */
+    const priorEnd=Number(s.safeCtlEnd)||0;
+    const change=priorEnd>0?end-priorEnd:state.ahead;
+    const growth=change>Number.EPSILON*Math.max(1,end,Number(s.safeCtlEnd)||0)*8?change:0;
     s.safeProductionRate=(Number(s.safeProductionRate)||0)*(1-alpha)+(growth/dt)*alpha;
     if(growth>0)s.safeGrowthQuantum=(Number(s.safeGrowthQuantum)||growth)*(1-alpha)+growth*alpha;
+    if(growth>0&&s.safeResponseWaitAt){
+      /* Measure the complete plant: acquisition, ordered decoding and BOTH
+         appended tracks. Chunk receipt alone misses a stalled fragment chain.
+         Retain observations covering the playable reserve; healthy production
+         must replace that reserve before an old slow response is forgotten. */
+      const samples=s.safeResponses=s.safeResponses||[];
+      samples.push({response:Math.max(SCHEDULER_TICK_MS/1000,(now-s.safeResponseWaitAt)/1000),produced:growth});
+      let produced=samples.reduce((n,x)=>n+x.produced,0);
+      const window=Math.max(band.high,ahead),limit=Math.max(2,Math.ceil(MP4_MSE_TARGET_BUDGET_BYTES/Math.max(1,s.chunkSize)));
+      while(samples.length>1&&(produced-samples[0].produced>=window||samples.length>limit))produced-=samples.shift().produced;
+      s.safeResponseTail=Math.max(...samples.map(x=>x.response));s.safeResponseWaitAt=0;
+    }
   }
-  s.safeCtlAt=now;s.safeCtlAhead=ahead;s.safeCtlPlay=play;
+  if(seek)s.safeResponseWaitAt=0;
+  s.safeCtlAt=now;s.safeCtlAhead=ahead;s.safeCtlPlay=play;s.safeCtlEnd=end;
   band=streamSafeBand(s,p);
   const target=band.high,error=target-ahead,recovery=band.recovery;
+  if(!s.safeSupplyHeld){if(!s.safeResponseWaitAt)s.safeResponseWaitAt=now}else s.safeResponseWaitAt=0;
   const q=mp4QueuePressure(p),saturated=q.bytes>=MP4_QUEUE_HIGH_BYTES||q.segments>=MP4_QUEUE_HIGH_SEGMENTS||ahead>=mp4SafeRamHorizon(p);
   let integral=seek?0:Math.max(0,Number(s.safeIntegral)||0);
   /* Anti-windup: physical backpressure cannot be cured with more requests. */

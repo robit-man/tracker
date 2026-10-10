@@ -25,6 +25,7 @@ function context(names) {
     mp4ProgressiveCursor: s => s.head || 0,
     mp4QueuePressure: p => p.queue || { bytes: 0, segments: 0 },
     streamBufferedAhead: p => p.ahead,
+    streamBufferedState: p => ({time:p.media.currentTime,ahead:p.ahead,inRange:p.ahead>0}),
     streamAverageMediaBytesPerSecond: p => p.c.size / p.originalDurationSeconds,
     mediaOriginalDuration: p => p.originalDurationSeconds || 0,
   });
@@ -222,6 +223,36 @@ test('a preceding production burst cannot dilute transport pressure below floor 
   c.updateSafeRateController(p,s,p.ahead);
   assert.ok(s.safePlantPressure>2,'carrier pressure follows required replacement, not stale burst throughput');
 });
+test('reserve recovery includes ordered decoding and A/V append, and remembers slow production', () => {
+  const c=context(controlFunctions),{p,s}=plant();p.ahead=0;
+  c.updateSafeRateController(p,s,0);
+  c.advance(5000);p.ahead=2;
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.equal(s.safeResponseTail,5);
+  assert.ok(c.streamSafeBand(s,p).recovery>=5);
+  c.advance(500);p.ahead=4;
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.equal(s.safeResponseTail,5,'one quick fragment cannot erase a slow whole-plant response');
+  p.ahead=100;s.safeSupplyHeld=true;c.advance(1000);c.updateSafeRateController(p,s,p.ahead);
+  assert.equal(s.safeResponseWaitAt,0,'intentional reserve holds do not become delivery delays');
+});
+test('independently sampled playback clocks cannot masquerade as an A/V append', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  c.updateSafeRateController(p,s,p.ahead);s.safeResponseWaitAt=1000;
+  c.advance(1000);p.media.currentTime=1;p.ahead=3;
+  c.updateSafeRateController(p,s,3.0001);
+  assert.equal(s.safeResponses,undefined,'unchanged buffered end is zero production');
+  assert.equal(s.safeResponseWaitAt,1000);
+});
+test('first playable A/V after an uncached seek counts media produced, not the absolute timestamp', () => {
+  const c=context(controlFunctions),{p,s}=plant();
+  p.originalDurationSeconds=10000;p.c.size=3000000000;p.media.currentTime=1200;p.ahead=0;
+  c.updateSafeRateController(p,s,0);
+  c.advance(500);p.ahead=2;
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.equal(s.safeGrowthQuantum,2,'two newly playable seconds do not become 1,202 seconds of production');
+  assert.ok(c.streamSafeBand(s,p).low<10);
+});
 test('duplicate callback bursts do not create fictitious PID samples', () => {
   const c = context(controlFunctions), { p, s } = plant();
   const first = c.updateSafeRateController(p, s, p.ahead);
@@ -270,14 +301,17 @@ test('a newly exposed decoder head does not inherit speculative reservation age'
   c.advance(2000);
   assert.ok(c.streamSafeBand(s,p).low>before.low,'a real missing-frontier wait still raises protection');
 });
-test('decoder admission follows the moving horizon and independently reopens as playback consumes it', () => {
+test('verified decoder supply continues above the feedback horizon until the physical MSE budget', () => {
   const c = context([...controlFunctions, 'mp4DecoderSupplyGate']), { p, s } = plant();
   c.drainMp4SourceBuffers = () => {};
   c.previewDebugEvent = () => {};
   p.mode = 'mp4box'; p.mp4boxReady = true;
   p.mp4TrackBuffers = new Map([[1, { __queuedMediaEnd: 100 }], [2, { __queuedMediaEnd: 100 }]]);
-  assert.equal(c.mp4DecoderSupplyGate(p, s), false);
-  p.media.currentTime = 98; p.ahead = 2; c.advance(1000);
+  p.ahead=100;
+  assert.equal(c.mp4DecoderSupplyGate(p, s), true,'a soft feedback target cannot strand ready cache bytes');
+  p.ahead=c.mp4SafeRamHorizon(p);
+  assert.equal(c.mp4DecoderSupplyGate(p,s),false,'physical media capacity still bounds decoder admission');
+  p.media.currentTime=1;p.ahead--;c.advance(1000);
   assert.equal(c.mp4DecoderSupplyGate(p, s), true);
 });
 test('a leading video queue cannot suppress input needed by the audio track', () => {
@@ -287,6 +321,17 @@ test('a leading video queue cannot suppress input needed by the audio track', ()
   p.mode = 'mp4box'; p.mp4boxReady = true; p.ahead = 0;
   p.mp4TrackBuffers = new Map([[1, { __queuedMediaEnd: 100 }], [2, { __queuedMediaEnd: 0 }]]);
   assert.equal(c.mp4DecoderSupplyGate(p, s), true);
+});
+test('queued fragments do not end response measurement before A/V becomes playable', () => {
+  const c=context([...controlFunctions,'mp4DecoderSupplyGate']),{p,s}=plant();
+  c.drainMp4SourceBuffers=()=>{};c.previewDebugEvent=()=>{};
+  p.mode='mp4box';p.mp4boxReady=true;p.ahead=0;
+  p.queue={segments:48,bytes:0};
+  p.mp4TrackBuffers=new Map([[1,{__queuedMediaEnd:100}],[2,{__queuedMediaEnd:100}]]);
+  s.safeResponseWaitAt=1000;c.advance(2000);
+  assert.equal(c.mp4DecoderSupplyGate(p,s),false,'pending fragments bound additional parser input');
+  assert.ok(!s.safeSupplyHeld,'unappended fragments are not a healthy reserve hold');
+  assert.equal(s.safeResponseWaitAt,1000,'the actual end-to-end response is still pending');
 });
 test('plant callbacks preserve the moving request window and reclaim only on changed demand', () => {
   const c = context([...controlFunctions, 'preemptForDecoderUrgent', 'driveSafePlant']);
@@ -375,8 +420,8 @@ test('one hung carrier cannot delay a successful independent send', async () => 
 });
 
 function relayContext(){
-  const c=context(['firstSuccessfulSend','relayWriteBacklog','reserveRelayWrite','publishRelayBinaryFrames']);
-  Object.assign(c,{relayWriteReservations:new WeakMap(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder()});
+  const c=context(['firstSuccessfulSend','relayWriteBacklog','reserveRelayWrite','acquireRelayWrite','publishRelayBinaryFrames']);
+  Object.assign(c,{relayWriteReservations:new WeakMap(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder(),setTimeout,clearTimeout});
   return c;
 }
 test('relay admission retains actual pending writes and reserves room for the frontier', () => {
@@ -395,10 +440,65 @@ test('NATS admits whole chunks and holds capacity until broker flush completes',
   const nc={publish(){published++},flush:()=>new Promise(r=>{flush=r})};c.natsState.nc=nc;
   const frames=['x'.repeat(450000),'y'.repeat(450000)];
   const first=c.publishRelayBinaryFrames('nats',frames);
+  await new Promise(r=>setImmediate(r));
   assert.equal(published,2);
-  assert.equal(await c.publishRelayBinaryFrames('nats',frames),false);
+  const second=c.publishRelayBinaryFrames('nats',frames);
+  await new Promise(r=>setImmediate(r));
   assert.equal(published,2,'no fragments of an unadmitted chunk are published');
-  flush();assert.equal(await first,true);assert.equal(c.relayWriteReservations.get(nc).bytes,0);
+  flush();assert.equal(await first,true);await new Promise(r=>setImmediate(r));
+  assert.equal(published,4,'queued work receives the released credit');
+  flush();assert.equal(await second,true);assert.equal(c.relayWriteReservations.get(nc).bytes,0);
+});
+test('relay write credits rotate between viewers instead of making a starved viewer fall back', async () => {
+  const c=relayContext(),client={},chunk=900000,held=[];
+  for(let i=0;i<3;i++)held.push(await c.acquireRelayWrite(client,chunk,true,'A'));
+  const order=[];
+  const again=c.acquireRelayWrite(client,chunk,true,'A').then(release=>{order.push('A');return release});
+  const other=c.acquireRelayWrite(client,chunk,true,'B').then(release=>{order.push('B');return release});
+  held.shift()();const b=await other;
+  assert.deepEqual(order,['B'],'a newcomer receives the next complete-frame credit');
+  held.shift()();const a=await again;
+  assert.deepEqual(order,['B','A']);
+  for(const release of held)release();a();b();
+  assert.equal(c.relayWriteReservations.get(client).bytes,0);
+  assert.equal(c.relayWriteReservations.get(client).waitingBytes,0);
+});
+test('a superseded seek waiting for broker capacity sends no obsolete frames', async () => {
+  const c=relayContext();let published=0,flush,current=true;
+  c.streamRequestCurrent=()=>current;
+  c.natsState.nc={publish(){published++},flush:()=>new Promise(r=>{flush=r})};
+  const frames=['x'.repeat(900000)];
+  const first=c.publishRelayBinaryFrames('nats',frames);
+  await new Promise(r=>setImmediate(r));
+  const old=c.publishRelayBinaryFrames('nats',frames,false,'viewer',{mode:'stream',sid:'s',seekEpoch:0});
+  current=false;flush();assert.equal(await first,true);
+  assert.equal(await old,false);assert.equal(published,1);
+  assert.equal(c.relayWriteReservations.get(c.natsState.nc).bytes,0);
+});
+test('relay admission wakes after control-only backlog drains and releases closed-client waiters', async () => {
+  const c=relayContext(),timers=[];
+  c.setTimeout=fn=>{timers.push(fn);return timers.length};c.clearTimeout=()=>{};
+  const socket={bufferedAmount:10*1024*1024},client={protocol:{transport:{socket}}};
+  const pending=c.acquireRelayWrite(client,900000,true,'viewer');
+  socket.bufferedAmount=0;timers.shift()();const release=await pending;
+  assert.equal(typeof release,'function');release();
+  socket.bufferedAmount=10*1024*1024;
+  const closed=c.acquireRelayWrite(client,900000,true,'viewer');
+  client.isClosed=()=>true;timers.shift()();assert.equal(await closed,null);
+  assert.equal(c.relayWriteReservations.get(client).waitingBytes,0);
+});
+test('queued bulk cannot block an admissible frontier and queued frames obey the RAM bound', async () => {
+  const c=relayContext(),client={},chunk=900000,held=[];
+  c.MP4_RAM_QUEUE_BUDGET_BYTES=4*1024*1024;
+  for(let i=0;i<3;i++)held.push(await c.acquireRelayWrite(client,chunk,true,'A'));
+  const bulk=c.acquireRelayWrite(client,chunk,false,'bulk');
+  assert.equal(await c.acquireRelayWrite(client,chunk,true,'over-budget'),null,'waiting whole frames count against RAM');
+  c.MP4_RAM_QUEUE_BUDGET_BYTES=64*1024*1024;
+  const frontier=c.acquireRelayWrite(client,chunk,true,'B');
+  held.shift()();const urgent=await frontier;
+  assert.equal(typeof urgent,'function','critical credit remains usable while bulk awaits a smaller budget');
+  urgent();for(const release of held)release();(await bulk)();
+  assert.equal(c.relayWriteReservations.get(client).bytes,0);
 });
 test('MQTT requires acknowledgement of every fragment and ignores a hung alternate broker', async () => {
   const c=relayContext();
@@ -574,6 +674,22 @@ test('send timeouts retain physical transport capacity and keep two slots for th
   assert.equal(await c.boundedStreamPathSend('viewer',path,new Uint8Array(),{frontierRescue:true},true),false);
   for(const resolve of pending)resolve(true);await new Promise(r=>setImmediate(r));
   assert.equal(c.streamPathDispatches.get('viewer|direct:slow').active,0);
+});
+test('frontier retries cannot clone a pending chunk onto the same carrier, even after timeout', async () => {
+  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[];let finish,sends=0;
+  Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
+  const path={path:'relay:nats',send:()=>{sends++;return new Promise(r=>{finish=r})}},metadata={id:'movie',sid:'session',idx:10,seekEpoch:0,decoderHead:true};
+  const first=c.boundedStreamPathSend('viewer',path,new Uint8Array(512*1024),metadata,true);
+  await new Promise(r=>setImmediate(r));
+  const rescue={...metadata,frontierRescue:true};
+  assert.equal(await c.boundedStreamPathSend('viewer',path,new Uint8Array(512*1024),rescue,true),false);
+  assert.equal(sends,1);
+  const independent={path:'relay:mqtt',send:async()=>true};
+  assert.equal(await c.boundedStreamPathSend('viewer',independent,new Uint8Array(512*1024),rescue,true),true,'an independent repair carrier remains usable');
+  timers[0]();assert.equal(await first,false);
+  assert.equal(await c.boundedStreamPathSend('viewer',path,new Uint8Array(512*1024),rescue,true),false,'outer timeout did not cancel the physical frame');
+  assert.equal(sends,1);finish(true);await new Promise(r=>setImmediate(r));
+  assert.equal(c.streamPathDispatches.get('viewer|relay:nats').chunks.size,0,'actual completion releases the chunk');
 });
 
 test('frontier recovery follows playable runway and byte service instead of inflated retry latency', () => {

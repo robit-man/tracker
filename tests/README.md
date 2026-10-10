@@ -113,6 +113,10 @@ a check of only the final buffer would miss.
 Add `RESERVE_GUARD=1 SUSTAIN_TICKS=90` to the public seek harness to check the same
 invariant for 90 seconds after its forward/backward seek and reserve buildup.
 The public test reads exact reserve telemetry from the open debug panel.
+It additionally audits the buffer ten times per second and rejects rebuffering
+events after buildup. Add `EXTRA_VIEWER=1` to keep a second mobile receiver
+streaming from the same source while the tested receiver seeks and refills;
+this exercises shared relay capacity and duplicate frontier recovery traffic.
 
 Reproduce decoder-CDN failure and false whole-movie SAFE accounting with a real MP4:
 
