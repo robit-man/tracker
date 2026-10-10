@@ -8,7 +8,7 @@ function track(kind){return {kind,readyState:'live',listeners:[],stop(){this.rea
 function stream(...tracks){return {getTracks:()=>tracks,getVideoTracks:()=>tracks.filter(t=>t.kind==='video')}}
 function harness(){
  const nodes=new Map(),sent=[],toasts=[];let nextId=0;
- const c=vm.createContext({localLive:null,liveCaptureRequest:0,actor:'source',liveMedia:new Map(),navigator:{mediaDevices:{}},crypto:{randomUUID:()=>String(++nextId)},Date,console,
+ const c=vm.createContext({localLive:null,liveCaptureRequest:0,liveLowLatency:false,actor:'source',liveMedia:new Map(),navigator:{mediaDevices:{}},crypto:{randomUUID:()=>String(++nextId)},Date,console,
   LIVE_HEARTBEAT_MS:4000,setInterval:()=>1,clearInterval:()=>{},
   $:q=>{if(!nodes.has(q))nodes.set(q,{textContent:'',dataset:{},classList:{add(){},remove(){}}});return nodes.get(q)},
   liveCaptureConstraints:mode=>({audio:mode!=='video',video:mode!=='audio'}),liveRecorderMime:()=> 'video/webm',
@@ -82,7 +82,7 @@ test('a closed old peer cannot tear down its replacement',async()=>{
 
 function chunkHarness(names){
  let nextId=0;const sent=[],c=vm.createContext({console,Uint8Array,Map,Set,Date,performance:{now:()=>1000},actor:'source',window:{},localLive:null,activeLiveViewer:null,liveMedia:new Map(),liveChunkSources:new Map(),verifiedMediaPaths:new Map(),CHUNK_SIZE:16,MP4_RAM_QUEUE_BUDGET_BYTES:64,SCHEDULER_TICK_MS:180,crypto:{randomUUID:()=>String(++nextId)},msg:(type,data)=>({type,relayBinary:2,...data}),sendActorIngress:async(a,m)=>sent.push({a,...m}),retireStreamServe:()=>{},sendLiveAnnouncement:async()=>{},$ :()=>({textContent:''}),liveRecorderMimes:()=>['video/webm'],closeLivePublisherPeer:()=>{},MediaRecorder:class{constructor(){this.state='inactive'}start(){this.state='recording'}stop(){this.state='inactive'}},setInterval:()=>1,streamPathHintsFor:()=>[],seedLivePathEvidence:()=>{},normalizeLiveWebm:(_,raw)=>raw,previewMediaSourceType:()=>({isTypeSupported:()=>true}),ensureLiveChunkPlayer:()=>{},retireLiveViewerSource:()=>{},resetLiveChunkPlayer:()=>{},tickLiveChunkViewer:()=>{}});
- for(const name of names)vm.runInContext(source(name),c);return{c,sent};
+ for(const name of ['liveEncoderPolicy',...names])vm.runInContext(source(name),c);return{c,sent};
 }
 test('modern viewers use a retained byte source and duplicate watches preserve its encoder',async()=>{
  const{c,sent}=chunkHarness(['disposeLiveChunkSource','stopLiveRelayRecorder','liveJournalBudget','sendLiveChunkManifest','startLiveChunkRecorder','handleLiveChunkWatch']);
@@ -175,4 +175,54 @@ test('an active chunk viewer survives missed heartbeats while idle and legacy li
  const{c}=chunkHarness(['pruneLiveMedia']);c.LIVE_EXPIRE_MS=14000;let ended=0;c.closeLiveViewer=()=>ended++;
  const live={id:'live',actor:'publisher',lastSeen:0},idle={id:'idle',actor:'other',lastSeen:0};c.liveMedia.set('live',live);c.liveMedia.set('idle',idle);c.activeLiveViewer={id:'live',chunked:true};assert.equal(c.pruneLiveMedia(),true);assert.equal(c.liveMedia.get('live'),live);assert.equal(c.liveMedia.has('idle'),false);assert.equal(ended,0);
  c.activeLiveViewer.chunked=false;assert.equal(c.pruneLiveMedia(),true);assert.equal(c.liveMedia.has('live'),false);assert.equal(ended,1);
+});
+
+test('LIVE encoder batches follow capture cadence while stable policy stays unchanged',()=>{
+ const{c}=chunkHarness([]),live={mode:'screen',stream:{getVideoTracks:()=>[{getSettings:()=>({width:1280,height:720,frameRate:60})}]}};
+ const stable=c.liveEncoderPolicy(live,{});assert.equal(stable.video,1800000);assert.equal(stable.audio,128000);assert.equal(stable.batch,.36);
+ live.lowLatency=true;const low=c.liveEncoderPolicy(live,{});assert.equal(low.batch,2/60);assert.equal(low.audio,64000);
+ const compressed=c.liveEncoderPolicy(live,{liveBitrate:200000,liveRecovery:.4});assert.equal(compressed.video,200000);assert.ok(compressed.keyframe>=.4);
+});
+test('compression waits for sustained measured congestion and preserves an isolated repair',()=>{
+ const{c}=chunkHarness(['updateLiveEncoderFeedback']);let at=1000,restarts=0;c.performance.now=()=>at;c.startLiveChunkRecorder=()=>restarts++;
+ const state={},live={id:'live',lowLatency:true,peers:new Map([['viewer',state]])};c.localLive=live;
+ const j={viewer:'viewer',lowLatency:true,batchSeconds:.05,videoBitrate:1200000,maxVideoBitrate:1200000,audioBitrate:64000,ackedBytes:0,producedBytes:10000,retainedBytes:10000,started:at};state.relay=j;
+ const m={liveFeedback:{receivedBytes:9000,target:.2,delivery:.1,jitter:0}};c.updateLiveEncoderFeedback(j,m);
+ const step=received=>{at+=500;j.producedBytes+=75000;m.liveFeedback.receivedBytes=received;c.updateLiveEncoderFeedback(j,m)};
+ for(let i=0;i<3;i++)step(j.producedBytes+75000-1000);
+ assert.equal(restarts,0);step(m.liveFeedback.receivedBytes+10000);assert.equal(restarts,0,'one delayed frontier is not sustained congestion');
+ step(j.producedBytes+75000-1000);assert.equal(restarts,0);
+ for(let i=0;i<5&&!restarts;i++)step(m.liveFeedback.receivedBytes+10000);
+ assert.equal(restarts,1);assert.ok(state.liveBitrate<j.videoBitrate*.8);
+});
+test('live-edge controller adapts to jitter and seeks only within decoded media',()=>{
+ const{c}=chunkHarness(['liveLatencyTarget','followLiveEdge']);let ranges=[[0,10]];
+ c.decoderBufferedRanges=()=>ranges;c.streamBufferedAhead=p=>Math.max(0,ranges.at(-1)[1]-p.media.currentTime);
+ const v={lowLatency:true,batchSeconds:.06,session:{deliveryLatency:.1,deliveryJitter:0},el:{currentTime:2,playbackRate:1},relayNextSeq:20,startedPlayback:true};v.preview={media:v.el,mseAppendLatency:.01};
+ const quiet=c.liveLatencyTarget(v);v.session.deliveryJitter=.1;assert.ok(c.liveLatencyTarget(v)>quiet);c.followLiveEdge(v);assert.ok(v.el.currentTime<10&&v.el.currentTime>9);assert.ok(v.el.playbackRate>=1&&v.el.playbackRate<=1.12);assert.equal(v.liveJumps,1);
+ const corrected=v.el.currentTime;c.followLiveEdge(v);assert.equal(v.el.currentTime,corrected,'same appended frontier cannot trigger repeated seeks');
+ v.lowLatency=false;v.el.playbackRate=1.12;c.followLiveEdge(v);assert.equal(v.el.playbackRate,1);assert.equal(v.el.currentTime,corrected);assert.equal(v.latencyTarget,0);
+});
+test('compression recovery probes are bounded by the original capture quality',()=>{
+ const{c}=chunkHarness(['updateLiveEncoderFeedback']);let at=1000,restarts=0;c.performance.now=()=>at;c.startLiveChunkRecorder=()=>restarts++;
+ const state={feedbackSamples:11},j={viewer:'viewer',lowLatency:true,batchSeconds:.05,videoBitrate:500000,maxVideoBitrate:520000,audioBitrate:64000,ackedBytes:1,producedBytes:2,retainedBytes:0,started:at};state.relay=j;c.localLive={lowLatency:true,peers:new Map([['viewer',state]])};const m={liveFeedback:{target:.2,delivery:.1,jitter:0}};c.updateLiveEncoderFeedback(j,m);at+=500;j.ackedBytes=10000;j.producedBytes=10001;c.updateLiveEncoderFeedback(j,m);assert.equal(restarts,1);assert.equal(state.liveBitrate,520000);
+});
+
+test('video compression adapts a private capture track and releases it without stopping the broadcast',async()=>{
+ const{c}=chunkHarness(['disposeLiveChunkSource','stopLiveRelayRecorder','liveJournalBudget','sendLiveChunkManifest','startLiveChunkRecorder']);
+ const original={...track('video'),getSettings:()=>({width:1000,height:500,frameRate:20})},audio=track('audio');let clone;
+ original.clone=()=>clone={...track('video'),settings:original.getSettings(),getSettings(){return this.settings},async applyConstraints(x){this.settings={width:x.width.max,height:x.height.max,frameRate:x.frameRate.max}}};
+ c.MediaStream=class{constructor(tracks){this.tracks=tracks}};const state={sid:'session',mime:'video/webm',epoch:0,liveBitrate:100000},live={id:'live',mode:'screen',lowLatency:true,stream:{getVideoTracks:()=>[original],getAudioTracks:()=>[audio]},peers:new Map([['viewer',state]])};c.localLive=live;
+ c.startLiveChunkRecorder(live,'viewer',state);await new Promise(r=>setImmediate(r));assert.equal(state.relay.encoderTrack,clone);assert.ok(clone.settings.width<original.getSettings().width);assert.ok(clone.settings.frameRate<20);assert.equal(original.getSettings().width,1000);
+ c.stopLiveRelayRecorder(state.relay);assert.equal(clone.stopped,true);assert.equal(original.stopped,undefined);assert.equal(audio.stopped,undefined);
+});
+test('audio-only feedback cannot trigger video quality probes or encoder resets',()=>{
+ const{c}=chunkHarness(['updateLiveEncoderFeedback']);let resets=0;c.startLiveChunkRecorder=()=>resets++;const j={lowLatency:true,videoBitrate:0,viewer:'viewer'},state={relay:j,feedbackSamples:100};c.localLive={lowLatency:true,peers:new Map([['viewer',state]])};c.updateLiveEncoderFeedback(j,{liveFeedback:{target:.1,delivery:.1,jitter:0}});assert.equal(resets,0);
+});
+
+test('out-of-order byte delivery does not become a false bandwidth shortage',()=>{
+ const{c}=chunkHarness(['updateLiveEncoderFeedback']);let at=1000,resets=0;c.performance.now=()=>at;c.startLiveChunkRecorder=()=>resets++;
+ const j={viewer:'viewer',lowLatency:true,batchSeconds:.05,videoBitrate:1000000,maxVideoBitrate:1000000,audioBitrate:64000,ackedBytes:0,producedBytes:10000,retainedBytes:10000,started:at},state={relay:j};c.localLive={lowLatency:true,peers:new Map([['viewer',state]])};
+ for(let i=0;i<20;i++){at+=500;j.producedBytes+=50000;j.retainedBytes+=50000;c.updateLiveEncoderFeedback(j,{liveFeedback:{receivedBytes:j.producedBytes-1000,target:.2,delivery:.2,jitter:0}})}
+ assert.equal(resets,0,'one missing decoder frontier must not hide healthy tail delivery');assert.ok(j.deliveryRate>90000);
 });

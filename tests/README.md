@@ -243,3 +243,50 @@ legacy announcement expiry. An active chunk viewer remains reconnectable until
 explicitly closed or the publisher ends the broadcast; missing heartbeats alone
 do not discard its decoder, verified route evidence or stream generation. Idle
 catalog listings and legacy connections retain their expiry behavior.
+
+Enable the publisher's lightning button with `LOW_LATENCY=1` in
+`live-stream-routes-browser.mjs`. This exercises the same encrypted chunk routes
+with shorter capture batches, a measured playout cushion, live-edge catchup and
+per-viewer compression. Stable buffering remains the default. Compression learns
+from validated byte receipt and accumulated delivery debt, separately from
+ordered decoder acknowledgements; it changes bitrate
+and applies resolution/frame-rate constraints to a private capture track. An
+encoder quality change sends a fresh initialization, while ordinary repairs keep
+the current stream. There is no fixed seconds-based latency target.
+
+Measure capture-to-display latency using actual decoded pixels:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  node tests/live-latency-browser.mjs
+```
+
+This captures a changing clock barcode on a private Xvfb display using real
+`getDisplayMedia`, then reads the timestamp from the receiver's decoded video.
+The publisher and receiver run in separate browsers with direct ICE disabled.
+It compares stable mode with LIVE, constrains receiver admission to 40,000 B/s,
+checks compression, restores capacity and checks live-edge recovery. The gate
+uses actual encrypted broker payloads; it models a constrained last mile, not a
+physical carrier network. Capture settings must remain unchanged by a slow
+viewer's compression. `FIREFOX_VIEWER=1` selects Firefox, `FIREFOX_BINARY` can
+select an installed binary, and `CONGESTION=0` skips bandwidth shaping. Omit
+`TRACKER_HTML` to time the actual deployed site; admission shaping requires the
+HTML override. Both browsers use the host clock, avoiding clock-offset estimates.
+The JSON contains all pixel timing samples, not just their medians.
+
+Check mobile file cards with real file import, long filenames, all metadata,
+action hit areas and element bounds at 320, 360, 390 and 640 pixels, plus compact
+desktop rows at 1280 pixels:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  node tests/mobile-cards-browser.mjs
+```
+
+`RESULT` chooses the JSON path and screenshot prefix for both harnesses.
+
+`DIRECT_HARNESS=1 NATIVE_DIRECT=1` in `live-stream-routes-browser.mjs`
+uses the actual WebRTC data-channel backpressure without the file stress
+harness's additional serial bandwidth-delay queue. `FIXTURE` can select the
+full ETV movie for simultaneous file/live playback. Leave `NATIVE_DIRECT` off
+to retain that deliberately constrained link for file scheduling stress tests.
