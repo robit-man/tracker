@@ -34,12 +34,57 @@ function context(names) {
   return c;
 }
 const controlFunctions = ['contentChunkSize', 'mp4SafeRamHorizon', 'streamSafeBand', 'safeBufferCritical', 'updateSafeRateController', 'noteStreamDelivery', 'streamRefillWindowCaps', 'streamPendingCap', 'streamTargetSeconds'];
+test('compact relay envelopes preserve encrypted metadata, exact bytes and recipient authentication', async () => {
+  const c=context(['encryptBytes','decryptBytes','binaryRelayEnvelope','consumeBinaryRelayEnvelope']),received=[];
+  const crypto=require('node:crypto').webcrypto;
+  Object.assign(c,{crypto,Uint8Array,DataView,enc:new TextEncoder(),dec:new TextDecoder(),actor:'source',privacyPublicNknAddr:()=>'',
+    aesKey:await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']),noteRelayActor:()=>{},handleBinary:async(packet,meta)=>received.push({packet,meta})});
+  const payload=new Uint8Array(512*1024).fill(42),metadata={kind:'chunk',id:'private-content-identifier',sid:'private-session-identifier',idx:9};
+  const frame=await c.binaryRelayEnvelope(payload,metadata,'viewer');
+  assert.ok(frame.length<payload.length+1024,'the binary broker adds framing, not nested base64');
+  assert.equal(new TextDecoder().decode(frame).includes(metadata.sid),false,'metadata remains encrypted');
+  c.actor='viewer';await c.consumeBinaryRelayEnvelope(frame,'nats');assert.equal(received.length,1);
+  assert.deepEqual(received[0].packet,payload);assert.equal(received[0].meta.metadata.sid,metadata.sid);
+  c.actor='other';await c.consumeBinaryRelayEnvelope(frame,'nats');assert.equal(received.length,1,'another room peer cannot accept an addressed upload');
+  c.actor='viewer';const damaged=frame.slice();damaged[damaged.length-1]^=1;await c.consumeBinaryRelayEnvelope(damaged,'nats');
+  await c.consumeBinaryRelayEnvelope(frame.slice(0,20),'nats');await c.consumeBinaryRelayEnvelope(frame,'mqtt');assert.equal(received.length,1,'tampered, truncated and wrong-plane frames are rejected');
+  c.aesKey=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);await c.consumeBinaryRelayEnvelope(frame,'nats');assert.equal(received.length,1,'a different private room cannot decrypt the envelope');
+});
+test('binary relay recognition cannot collide with an ordinary base64 control envelope', async () => {
+  const c=context(['consumeRelayFrame']);let binary=0,legacy=0;
+  Object.assign(c,{dec:new TextDecoder(),openSeal:async()=>{legacy++;return null},consumeBinaryRelayEnvelope:async()=>{binary++}});
+  await c.consumeRelayFrame(new TextEncoder().encode('PRB2ordinary-base64-prefix'),'nats');
+  assert.equal(legacy,1);assert.equal(binary,0);
+  await c.consumeRelayFrame(new Uint8Array([80,82,66,2,1,2,3]),'nats');assert.equal(binary,1);
+});
+
+test('compact NATS delivery requires receiver opt-in, a shared plane and an admitted payload size', async () => {
+  const c=context(['firstSuccessfulSend','publishRelayBinaryPacket']),sent=[];let legacy=0;
+  Object.assign(c,{actor:'source',localRelayPlanes:()=>['nats'],remoteRelayPlanes:()=>['nats'],natsState:{nc:{info:{max_payload:1024}}},
+   binaryRelayEnvelope:async()=>new Uint8Array(600),relayBinaryFrames:async()=>{legacy++;return ['legacy']},relayBinaryFrameChars:()=>240000,
+   publishRelayBinaryFrames:async(plane,frames)=>{sent.push(frames[0]);return true}});
+  await c.publishRelayBinaryPacket(new Uint8Array(1),{relayBinary:2},'viewer');assert.equal(legacy,0);assert.ok(sent[0] instanceof Uint8Array);
+  await c.publishRelayBinaryPacket(new Uint8Array(1),{},'old-viewer');assert.equal(legacy,1,'old viewers retain text fragmentation');
+  c.remoteRelayPlanes=()=>['mqtt'];await c.publishRelayBinaryPacket(new Uint8Array(1),{relayBinary:2},'bridge-viewer');assert.equal(legacy,2,'cross-plane delivery retains bridge framing');
+  c.remoteRelayPlanes=()=>['nats'];c.natsState.nc.info.max_payload=500;await c.publishRelayBinaryPacket(new Uint8Array(1),{relayBinary:2},'viewer');assert.equal(legacy,3,'broker payload bounds force fragmentation');
+});
+
+test('each receiver subscribes to its own encrypted media subject alongside legacy room delivery', async () => {
+  const c=context(['natsSubjects','startNats']),subscribed=[],consumers=[];
+  const nc={closed:()=>new Promise(()=>{}),subscribe:subject=>{subscribed.push(subject);return {subject}}};
+  Object.assign(c,{actor:'receiver',roomHash:'abc123',natsState:{nc:null},meshStatus:new Map(),updateMeshState:()=>{},configuredNatsServers:()=>['wss://broker'],
+   importNats:async()=>({wsconnect:async()=>nc}),natsConsume:(sub,fn)=>consumers.push(sub.subject),handleNatsPresence:()=>{},handleNatsSignal:()=>{},handleNatsRelay:()=>{},publishNatsPresence:async()=>{},setInterval:()=>1});
+  assert.equal(await c.startNats(),true);assert.ok(subscribed.includes('tracker.abc123.binary.receiver'));
+  assert.ok(subscribed.includes('tracker.abc123.relay'),'older sources can still deliver room fragments');
+  assert.ok(consumers.includes('tracker.abc123.binary.receiver'));assert.notEqual(c.natsSubjects('other').binary,c.natsSubjects().binary,'another viewer does not receive this media upload');
+});
+
 test('relay lookahead follows receiver pressure inside the complete-frame byte budget', () => {
   const c=context(['streamRelayDispatchWindow']),chunk=512*1024;
   assert.equal(c.streamRelayDispatchWindow(chunk,1),2);
-  assert.equal(c.streamRelayDispatchWindow(chunk,2),3);
-  assert.equal(c.streamRelayDispatchWindow(chunk,100),3);
-  assert.equal(c.streamRelayDispatchWindow(chunk,1,true),3);
+  assert.equal(c.streamRelayDispatchWindow(chunk,2),4);
+  assert.equal(c.streamRelayDispatchWindow(chunk,100),Math.floor(c.MP4_RAM_QUEUE_BUDGET_BYTES/(Math.ceil(chunk*16/9)+4096)));
+  assert.equal(c.streamRelayDispatchWindow(chunk,1,true),4);
   c.MP4_RAM_QUEUE_BUDGET_BYTES=1024*1024;
   assert.equal(c.streamRelayDispatchWindow(chunk,100),1,'memory bound overrides pressure');
 });
@@ -58,6 +103,18 @@ test('STREAM preserves explicit Play intent across asynchronous unlock and decod
   assert.equal(c.activePreview.userPlayRequested,true,'the STREAM gesture survives async setup');
   c.requireUnlocked=async()=>true;await c.openPreview(entry);
   assert.equal(c.activePreview.userPlayRequested,false,'background opens retain automatic buffering policy');
+});
+test('mobile STREAM survives catalog arriving before source availability without a discovery timeout', async () => {
+  const c=context(['startRemotePreview']),scheduled=[],queries=[],wake=[];
+  Object.assign(c,{activePreview:{kind:'video'},sessionBySid:new Map(),IS_MOBILEISH:true,STREAM_INITIAL_CHUNKS:48,crypto:{randomUUID:()=> 'stream'},
+   wakeTransferTransports:force=>wake.push(force),advertisedRemoteSeeders:()=>[],msg:(type,data)=>({type,...data}),broadcast:m=>{queries.push(m);return new Promise(()=>{})},$:()=>({}),
+   initStreamingMedia:async()=>{},visibleName:()=> 'movie.mp4',contentTotal:()=>100,contentChunkSize:()=>512*1024,swarmInit:async()=>new Uint8Array(32),
+   previewDebugEvent:()=>{},scheduleFileStatsRefresh:()=>{},primeStreamSession:()=>{},ensureStreamHorizon:()=>{},refreshPreviewStats:()=>{},announceStreamDemand:async()=>{},scheduleSession:s=>scheduled.push(s)});
+  await c.startRemotePreview({id:'entry'},{id:'movie',size:51200000});
+  assert.equal(c.activePreview.session.state,'downloading');
+  assert.equal(c.activePreview.session.holders.size,0,'source recruitment remains active while advertisements arrive');
+  assert.equal(c.activePreview.session.safeResponseWaitAt,c.activePreview.session.started,'whole-plant response includes metadata acquisition and the first playable append');
+  assert.equal(scheduled.length,1);assert.equal(queries[0].type,'seed-query');assert.equal(wake[0],true);
 });
 test('MP4 source detection supports managed-only browsers and retains classic MSE when available', () => {
   const c=context(['previewMediaSourceType']);
@@ -205,6 +262,16 @@ test('refill protects the lower band before a measured response can spend it', (
   assert.ok(s.safeSupplyRate>=1.5-1e-9,'acquisition covers the projected floor deficit');
   assert.ok(band.high>=band.low+band.rate*band.recovery,'upper reserve covers another measured response');
 });
+test('upper reserve stores measured production bursts and covers concurrent drain', () => {
+  const c=context(controlFunctions),{p,s}=plant();s.deliveryLatency=8;s.deliveryJitter=1;
+  const baseline=c.streamSafeBand(s,p);
+  s.safeProductionRate=4;s.safeSlopeEma=-1;const burst=c.streamSafeBand(s,p);
+  assert.equal(burst.low,baseline.low,'production demand does not disguise the safety floor');
+  assert.ok(burst.high>=burst.low+burst.burst+5*burst.recovery,'store actual supply and protect ongoing consumption during response');
+  assert.ok(burst.high>baseline.high);s.safeProductionRate=1e6;
+  assert.equal(c.streamSafeBand(s,p).high,Math.min(c.mp4SafeRamHorizon(p),p.originalDurationSeconds-p.media.currentTime),'physical byte capacity and remaining media still bound aggressive reserve');
+});
+
 test('excess reserve cannot bank negative demand against the next refill', () => {
   const c=context(controlFunctions),{p,s}=plant();
   p.ahead=200;c.updateSafeRateController(p,s,p.ahead);
@@ -236,6 +303,23 @@ test('reserve recovery includes ordered decoding and A/V append, and remembers s
   p.ahead=100;s.safeSupplyHeld=true;c.advance(1000);c.updateSafeRateController(p,s,p.ahead);
   assert.equal(s.safeResponseWaitAt,0,'intentional reserve holds do not become delivery delays');
 });
+test('the first native seek into playable A/V still measures metadata and startup response', () => {
+  const c=context(controlFunctions),{p,s}=plant();s.started=1000;p.ahead=0;
+  c.updateSafeRateController(p,s,0);c.advance(20000);p.media.seeking=true;p.media.currentTime=.04;p.ahead=2;
+  c.updateSafeRateController(p,s,p.ahead);
+  assert.equal(s.safeResponseTail,20,'native startup seeking cannot discard the complete acquisition response');
+  assert.equal(s.safeStartupObserved,true);assert.ok(c.streamSafeBand(s,p).low>=20);
+});
+
+test('quick refill of a small reserve cannot erase the slow response before it replaces playable capacity', () => {
+  const c=context(controlFunctions),{p,s}=plant();p.ahead=0;
+  c.updateSafeRateController(p,s,0);c.advance(20000);p.ahead=2;c.updateSafeRateController(p,s,p.ahead);
+  for(let i=0;i<30;i++){c.advance(500);p.ahead+=2;c.updateSafeRateController(p,s,p.ahead)}
+  assert.equal(s.safeResponseTail,20,'a quick burst beyond the old target retains learned stall coverage');
+  assert.ok(c.streamSafeBand(s,p).low>=20,'the lower reserve does not collapse immediately after recovery');
+  assert.ok(s.safeResponses.length<=Math.ceil(c.MP4_MSE_TARGET_BUDGET_BYTES/s.chunkSize));
+});
+
 test('independently sampled playback clocks cannot masquerade as an A/V append', () => {
   const c=context(controlFunctions),{p,s}=plant();
   c.updateSafeRateController(p,s,p.ahead);s.safeResponseWaitAt=1000;
@@ -421,7 +505,7 @@ test('one hung carrier cannot delay a successful independent send', async () => 
 
 function relayContext(){
   const c=context(['firstSuccessfulSend','relayWriteBacklog','reserveRelayWrite','acquireRelayWrite','publishRelayBinaryFrames']);
-  Object.assign(c,{relayWriteReservations:new WeakMap(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder(),setTimeout,clearTimeout});
+  Object.assign(c,{relayWriteReservations:new WeakMap(),serveQueues:new Map(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder(),setTimeout,clearTimeout});
   return c;
 }
 test('common-broker frames deliver to their recipient without recruiting legacy bridge peers', async () => {
@@ -477,6 +561,14 @@ test('NATS admits whole chunks and holds capacity until broker flush completes',
   assert.equal(published,4,'queued work receives the released credit');
   flush();assert.equal(await second,true);assert.equal(c.relayWriteReservations.get(nc).bytes,0);
 });
+test('NATS publishes compact bytes without converting the encrypted frame to text', async () => {
+  const c=relayContext(),frame=new Uint8Array([80,82,66,2,255,128]),sent=[];
+  c.natsSubjects=who=>({relay:'room.relay',binary:'room.binary.'+who});
+  c.natsState.nc={publish:(subject,payload)=>sent.push({subject,payload}),flush:async()=>{}};
+  assert.equal(await c.publishRelayBinaryFrames('nats',[frame],true,'viewer'),true);assert.equal(sent[0].payload,frame);assert.equal(sent[0].subject,'room.binary.viewer');
+  await c.publishRelayBinaryFrames('nats',['legacy']);assert.equal(sent[1].subject,'room.relay','legacy framing keeps the shared room subject');
+});
+
 test('relay write credits rotate between viewers instead of making a starved viewer fall back', async () => {
   const c=relayContext(),client={},chunk=900000,held=[];
   for(let i=0;i<3;i++)held.push(await c.acquireRelayWrite(client,chunk,true,'A'));
@@ -490,6 +582,21 @@ test('relay write credits rotate between viewers instead of making a starved vie
   for(const release of held)release();a();b();
   assert.equal(c.relayWriteReservations.get(client).bytes,0);
   assert.equal(c.relayWriteReservations.get(client).waitingBytes,0);
+});
+test('broker admission follows current pressure while already-queued work retains the RAM ceiling', async () => {
+  const c=relayContext(),client={},chunk=900000,held=[];let pressure=1;
+  for(let i=0;i<3;i++)held.push(await c.acquireRelayWrite(client,chunk,true,'A'));
+  const urgent=c.acquireRelayWrite(client,chunk,true,'B',()=>pressure);
+  pressure=3;c.relayWriteReservations.get(client).wake();
+  const release=await urgent;
+  assert.equal(typeof release,'function','existing work gains credit immediately when the controller raises demand');
+  assert.equal(c.relayWriteReservations.get(client).bytes,4*chunk);
+  for(const done of held)done();release();
+  c.MP4_RAM_QUEUE_BUDGET_BYTES=4*1024*1024;
+  const leases=[];for(let i=0;i<4;i++)leases.push(c.reserveRelayWrite(client,chunk,true,100));
+  assert.ok(leases.every(x=>typeof x==='function'));
+  assert.equal(c.reserveRelayWrite(client,chunk,true,100),null,'high pressure cannot overrun the physical byte budget');
+  for(const done of leases)done();
 });
 test('a superseded seek waiting for broker capacity sends no obsolete frames', async () => {
   const c=relayContext();let published=0,flush,current=true;
@@ -550,6 +657,41 @@ test('stream dispatch exploits the proven path instead of striping onto an unpro
   assert.deepEqual(sent,['relay:nats'],'ordinary decoder lookahead does not duplicate every chunk');
   sent.length=0;await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:17,decoderHead:true,frontierRescue:true});
   assert.deepEqual(sent,['relay:nats','relay:mqtt'],'the irreplaceable missing head still races independent carriers');
+});
+
+test('a busy proven upload queues normal work while missing heads retain independent rescue', async () => {
+  const c=context(['firstSuccessfulSend','chooseReinforcedPath','sendBinaryMultipathActor']);
+  const paths=[{path:'relay:nats',bps:2000000,score:500},{path:'relay:mqtt',bps:0,score:18}],sent=[];
+  Object.assign(c,{STREAM_PATH_STRONG_SCORE:100,STREAM_PATH_EXPLORE_EVERY:16,streamDataCandidates:()=>paths,
+    boundedStreamPathSend:async(remote,p,packet,metadata,critical,onBusy)=>{sent.push(p.path);if(p.path==='relay:nats'){onBusy();return false}return true}});
+  const hints=[{path:'relay:nats',strong:true,bps:2000000}];
+  assert.equal(await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:1,decoderHead:true},1,hints),false);
+  assert.deepEqual(sent,['relay:nats'],'capacity pressure stays queued instead of flooding unproven fallback');
+  sent.length=0;assert.equal(await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:1,decoderHead:true,frontierRescue:true},1,hints),true);
+  assert.deepEqual(sent,['relay:nats','relay:mqtt'],'missing-head rescue retains independent delivery');
+  c.boundedStreamPathSend=async(remote,p)=>{sent.push(p.path);return p.path!=='relay:nats'};
+  sent.length=0;assert.equal(await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:1,decoderHead:true},1,hints),true);
+  assert.deepEqual(sent,['relay:nats','relay:mqtt'],'an actual path failure still falls back');
+  c.boundedStreamPathSend=async(remote,p,packet,metadata,critical,onBusy)=>{sent.push(p.path);if(p.path==='relay:mqtt'){onBusy();return false}return true};
+  sent.length=0;assert.equal(await c.sendBinaryMultipathActor('viewer',new Uint8Array(),{idx:16},16,hints),true);
+  assert.deepEqual(sent,['relay:mqtt','relay:nats'],'a busy unproven exploration lane yields back to the proven carrier');
+});
+
+test('ordinary stream retries reuse a completed handoff while explicit rescue and new seeks retransmit', async () => {
+  const c=context(['serveChunksNow']),sent=[],reads=[];
+  Object.assign(c,{contents:new Map([['movie',{size:5242880}]]),seedEnabled:()=>true,contentTotal:()=>10,contentChunkSize:()=>512*1024,
+   streamRequestCurrent:()=>true,serveQueues:new Map(),serveRecentlySent:new Map(),served:0,STREAM_SERVE_CONCURRENCY:4,RELAY_BOOTSTRAP_HEDGE_CHUNKS:4,
+   readLocalChunk:async(id,idx)=>{reads.push(idx);return new Uint8Array(16)},encryptBytes:async x=>x,
+   sendBinaryMultipathActor:async(remote,packet,m)=>{sent.push(m);return true},noteFileTraffic:()=>{},scheduleHeaderRender:()=>{}});
+  const request={mode:'stream',id:'movie',sid:'session',seekEpoch:1,indexes:[2],decoderHead:true};
+  assert.equal(await c.serveChunksNow(request,'viewer'),true);c.advance(20000);
+  await c.serveChunksNow(request,'viewer');assert.equal(sent.length,1,'elapsed time alone cannot clone a completed handoff');
+  assert.equal(reads.length,1,'retries do not reread or reencrypt completed work');
+  await c.serveChunksNow({...request,frontierRescue:true},'viewer');assert.equal(sent.length,2,'an explicitly missing frontier can still recover loss');
+  await c.serveChunksNow({...request,seekEpoch:2},'viewer');assert.equal(sent.length,3,'a new range can refeed previously handed-off bytes');
+  c.sendBinaryMultipathActor=async()=>false;
+  assert.equal(await c.serveChunksNow({...request,indexes:[3]},'viewer'),false);
+  assert.equal(c.serveRecentlySent.has('viewer|movie|session|1|3'),false,'failed admission never suppresses a useful retry');
 });
 
 test('mobile kickoff opens relay paths while asynchronous media setup has no session yet', () => {
@@ -613,13 +755,24 @@ test('decoder progress retires queued copies delivered by rescue and rejects lat
   await c.queueServeChunks({...m,decoderCursor:8,indexes:[8,9],safeCritical:true,focusChunks:2},'viewer');
   await c.queueServeChunks({...m,indexes:[2,3,4]},'viewer');
   const q=c.serveQueues.get('viewer|movie');
-  assert.deepEqual([...q.hot.keys()],[8,9]);
+  assert.deepEqual([...q.hot.keys()],[]);
+  assert.deepEqual(sent,[0,1,8,9],'a changed decoder head wakes dispatch before old uploads settle');
   for(const done of pending.splice(0))done();
   await new Promise(r=>setImmediate(r));
   assert.deepEqual(sent,[0,1,8,9],'already-consumed input does not compete with the new frontier');
   for(const done of pending.splice(0))done();
   await new Promise(r=>setImmediate(r));
   assert.equal(c.serveQueues.size,0);
+});
+
+test('pending speculative uploads cannot occupy the contiguous refill dispatch window', async () => {
+  const c=context(['streamRelayDispatchWindow','streamRequestCurrent','queueServeChunks']),sent=[],pending=[];
+  Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
+  const m={mode:'stream',id:'movie',sid:'session',decoderCursor:0,indexes:[40,41]};
+  await c.queueServeChunks(m,'viewer');assert.deepEqual(sent,[40,41]);
+  await c.queueServeChunks({...m,indexes:[0,1],decoderHead:true},'viewer');
+  await new Promise(r=>setImmediate(r));assert.deepEqual(sent,[40,41,0,1],'playable supply starts while both speculative uploads remain pending');
+  for(const done of pending.splice(0))done();await new Promise(r=>setImmediate(r));assert.equal(c.serveQueues.size,0);
 });
 
 test('normal decoder lookahead can use reserved relay capacity before it becomes a rescue', async () => {
@@ -633,14 +786,14 @@ test('normal decoder lookahead can use reserved relay capacity before it becomes
 test('closed and expired viewers release queued upload work without retiring another session', async () => {
   const c=context(['streamRelayDispatchWindow','streamRequestCurrent','retireStreamServe','queueServeChunks']),sent=[],pending=[];
   Object.assign(c,{streamServeEpochs:new Map(),serveQueues:new Map(),bulkRoutesFor:()=>[],serveChunksNow:async m=>{sent.push(m.indexes[0]);await new Promise(r=>pending.push(r))}});
-  const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:0,indexes:[0,1,2,3],supplyPressure:2};
-  await c.queueServeChunks(m,'viewer');assert.deepEqual(sent,[0,1,2],'pressure recruits bounded relay lookahead');
+  const m={mode:'stream',id:'movie',sid:'session',decoderHead:true,decoderCursor:0,indexes:[0,1,2,3,4],supplyPressure:2};
+  await c.queueServeChunks(m,'viewer');assert.deepEqual(sent,[0,1,2,3],'pressure recruits bounded relay lookahead');
   c.retireStreamServe({id:'movie',actor:'viewer',sid:'other'},true);
   assert.equal(c.serveQueues.get('viewer|movie').hot.size,1);
   c.retireStreamServe({id:'movie',actor:'viewer',sid:'session'},true);
   for(const done of pending.splice(0))done();await new Promise(r=>setImmediate(r));
-  assert.deepEqual(sent,[0,1,2]);assert.equal(c.serveQueues.size,0);
-  await c.queueServeChunks({...m,seekEpoch:99},'viewer');assert.deepEqual(sent,[0,1,2],'late requests cannot revive a closed SID');
+  assert.deepEqual(sent,[0,1,2,3]);assert.equal(c.serveQueues.size,0);
+  await c.queueServeChunks({...m,seekEpoch:99},'viewer');assert.deepEqual(sent,[0,1,2,3],'late requests cannot revive a closed SID');
   const resumed={...m,sid:'next',indexes:[3,4,5,6]};
   await c.queueServeChunks(resumed,'viewer');
   c.retireStreamServe({id:'movie',actor:'viewer',sid:'next'});
@@ -703,6 +856,17 @@ test('send timeouts retain physical transport capacity and keep two slots for th
   for(const resolve of pending)resolve(true);await new Promise(r=>setImmediate(r));
   assert.equal(c.streamPathDispatches.get('viewer|direct:slow').active,0);
 });
+test('upload deadlines grow with measured byte service and outstanding refill work', async () => {
+  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),pending=[],delays=[];
+  Object.assign(c,{streamPathDispatches:new Map(),setTimeout:(fn,ms)=>{delays.push(ms);return delays.length},clearTimeout:()=>{}});
+  const path={path:'relay:nats',bps:512*1024,send:()=>new Promise(r=>pending.push(r))};
+  const jobs=Array.from({length:5},(_,idx)=>c.boundedStreamPathSend('viewer',path,new Uint8Array(512*1024),{idx,decoderHead:true,supplyPressure:3},true));
+  await new Promise(r=>setImmediate(r));
+  assert.ok(delays[4]>=10000,'the fifth queued payload is allowed its measured wire service instead of an arbitrary short failure');
+  c.advance(5000);for(const done of pending)done(true);assert.ok((await Promise.all(jobs)).every(Boolean));
+  const state=c.streamPathDispatches.get('viewer|relay:nats');assert.equal(state.active,0);assert.equal(state.responseMs,5000,'completed sends update the next response estimate');
+});
+
 test('frontier retries cannot clone a pending chunk onto the same carrier, even after timeout', async () => {
   const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[];let finish,sends=0;
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});

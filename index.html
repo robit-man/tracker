@@ -191,7 +191,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-09-targeted-safe-relays-v87';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-09-binary-safe-relays-v89';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -252,7 +252,7 @@ function initials(name){return String(name||'?').split(/\s+/).slice(0,2).map(x=>
 function nextV(){return{c:++clock,a:actor}}
 function absorbV(v){clock=Math.max(clock,Number(v?.c)||0)}
 function cmpV(a,b){a=a||{c:0,a:''};b=b||{c:0,a:''};return Number(a.c)!==Number(b.c)?Number(a.c)-Number(b.c):String(a.a).localeCompare(String(b.a))}
-function msg(type,data={}){return{v:2,mid:crypto.randomUUID(),type,actor,ts:Date.now(),...data}}
+function msg(type,data={}){return{v:2,mid:crypto.randomUUID(),type,actor,ts:Date.now(),relayBinary:2,...data}}
 function remember(mid){if(!mid)return false;if(seen.has(mid))return true;seen.set(mid,Date.now());if(seen.size>2500){const cut=Date.now()-600000;for(const[k,t]of seen)if(t<cut)seen.delete(k)}return false}
 function toast(html,kind=''){const d=document.createElement('div');d.className='toast '+kind;d.innerHTML=html;$('#toastBox').append(d);setTimeout(()=>d.remove(),5200)}
 function bitHas(bits,i){return !!(bits[i>>3]&(1<<(i&7)))}
@@ -630,24 +630,26 @@ async function publishRelayRawOnPlane(plane,raw){if(plane==='nats')return publis
 // send() promise that only copied bytes into the browser's WebSocket buffer.
 const relayWriteReservations=new WeakMap();
 function relayWriteBacklog(client){const p=client?.protocol,stream=client?.stream,socket=p?.transport?.socket||stream?.socket;return Math.max(0,Number(socket?.bufferedAmount)||0)+Math.max(0,Number(stream?.writableLength??stream?._writableState?.length)||0)+Math.max(0,Number(p?.outbound?.size?.())||0)}
-function reserveRelayWrite(client,bytes,critical=false){
+function reserveRelayWrite(client,bytes,critical=false,pressure=1){
   if(!client)return null;let state=relayWriteReservations.get(client);if(!state){state={bytes:0};relayWriteReservations.set(client,state)}
-  const quantum=Math.max(CHUNK_SIZE*2,bytes),budget=Math.min(MP4_RAM_QUEUE_BUDGET_BYTES,quantum*(critical?3:1));
+  const demand=typeof pressure==='function'?pressure():pressure;
+  const quantum=Math.max(CHUNK_SIZE*2,bytes),lanes=critical?Math.max(3,Math.ceil(2*Math.max(1,Number(demand)||1))):1;
+  const budget=Math.min(MP4_RAM_QUEUE_BUDGET_BYTES,quantum*lanes);
   if(Math.max(state.bytes,relayWriteBacklog(client))+bytes>budget)return null;
   state.bytes+=bytes;let released=false;return()=>{if(!released){released=true;state.bytes=Math.max(0,state.bytes-bytes);state.wake?.()}}
 }
-async function acquireRelayWrite(client,bytes,critical=false,owner=''){
+async function acquireRelayWrite(client,bytes,critical=false,owner='',pressure=1){
   if(!client)return null;
   let state=relayWriteReservations.get(client);
   if(!state){state={bytes:0};relayWriteReservations.set(client,state)}
-  if(!state.waiters?.length){const release=reserveRelayWrite(client,bytes,critical);if(release){state.lastOwner=owner;return release}}
+  if(!state.waiters?.length){const release=reserveRelayWrite(client,bytes,critical,pressure);if(release){state.lastOwner=owner;return release}}
   /* Share the broker's complete-frame credits between viewers. A failed
      immediate reservation used to send one viewer into slow fallback while
      the current uploader reacquired every newly released credit. */
   if(state.bytes+(state.waitingBytes||0)+bytes>MP4_RAM_QUEUE_BUDGET_BYTES)return null;
   state.waiters=state.waiters||[];state.waitingBytes=(state.waitingBytes||0)+bytes;
   return new Promise(resolve=>{
-    state.waiters.push({bytes,critical,owner,resolve});
+    state.waiters.push({bytes,critical,owner,pressure,resolve});
     state.wake=()=>{
       if(state.wakeTimer){clearTimeout(state.wakeTimer);state.wakeTimer=0}
       if((typeof client.isClosed==='function'&&client.isClosed())||client.connected===false){
@@ -656,7 +658,7 @@ async function acquireRelayWrite(client,bytes,critical=false,owner=''){
       while(state.waiters.length){
         const order=state.waiters.map((x,i)=>i).sort((a,b)=>Number(state.waiters[a].owner===state.lastOwner)-Number(state.waiters[b].owner===state.lastOwner));
         let at=-1,release=null;
-        for(const i of order){const request=state.waiters[i];release=reserveRelayWrite(client,request.bytes,request.critical);if(release){at=i;break}}
+        for(const i of order){const request=state.waiters[i];release=reserveRelayWrite(client,request.bytes,request.critical,request.pressure);if(release){at=i;break}}
         if(at<0)break;
         const next=state.waiters[at];
         state.waiters.splice(at,1);state.waitingBytes-=next.bytes;state.lastOwner=next.owner;next.resolve(release);
@@ -670,14 +672,15 @@ async function acquireRelayWrite(client,bytes,critical=false,owner=''){
 }
 async function publishRelayBinaryFrames(plane,frames,critical=false,owner='',metadata=null){
   const bytes=frames.reduce((n,raw)=>n+raw.length+128,0);
+  const pressure=()=>{const q=metadata?.mode==='stream'?serveQueues.get(owner+'|'+metadata.id):null;return Math.max(1,Number(q?.sid===metadata?.sid?q?.supplyPressure:0)||Number(metadata?.supplyPressure)||1)};
   if(plane==='nats'){
-    const nc=natsState.nc,release=await acquireRelayWrite(nc,bytes,critical,owner);if(!release)return false;
-    try{if(metadata&&!streamRequestCurrent(metadata,owner))return false;for(const raw of frames)nc.publish(natsSubjects().relay,enc.encode(raw));await nc.flush();return true}catch(_){return false}finally{release()}
+    const nc=natsState.nc,release=await acquireRelayWrite(nc,bytes,critical,owner,pressure);if(!release)return false;
+    try{if(metadata&&!streamRequestCurrent(metadata,owner))return false;for(const raw of frames)nc.publish(typeof raw==='string'?natsSubjects().relay:natsSubjects(owner).binary,typeof raw==='string'?enc.encode(raw):raw);await nc.flush();return true}catch(_){return false}finally{release()}
   }
   if(plane==='mqtt'){
     const jobs=[];
     for(const url of mqttRelayState.ready){const c=mqttRelayState.clients.get(url);if(!c?.connected)continue;
-      jobs.push((async()=>{const release=await acquireRelayWrite(c,bytes,critical,owner);if(!release)return false;
+      jobs.push((async()=>{const release=await acquireRelayWrite(c,bytes,critical,owner,pressure);if(!release)return false;
         try{if(metadata&&!streamRequestCurrent(metadata,owner))return false;const sends=frames.map(raw=>new Promise(resolve=>{try{c.publish(mqttRelayState.topic,raw,{qos:1,retain:false},err=>resolve(!err))}catch(_){resolve(false)}}));return(await Promise.all(sends)).every(Boolean)}finally{release()}
       })());
     }
@@ -685,10 +688,37 @@ async function publishRelayBinaryFrames(plane,frames,critical=false,owner='',met
   }
   const r=await Promise.allSettled(frames.map(raw=>publishRelayRawOnPlane(plane,raw)));return r.length>0&&r.every(x=>x.status==='fulfilled'&&x.value===true)
 }
+async function binaryRelayEnvelope(packet,metadata,to){
+  const payload=packet instanceof Uint8Array?packet:new Uint8Array(packet);
+  const header=enc.encode(JSON.stringify({v:2,from:actor,to,ts:Date.now(),nknAddr:privacyPublicNknAddr(),m:metadata}));
+  const body=new Uint8Array(4+header.length+payload.length);
+  new DataView(body.buffer).setUint32(0,header.length);body.set(header,4);body.set(payload,4+header.length);
+  const sealed=new Uint8Array(await encryptBytes(body,'relay-binary-v2')),frame=new Uint8Array(4+sealed.length);
+  frame.set([80,82,66,2]);frame.set(sealed,4);return frame;
+}
+async function consumeBinaryRelayEnvelope(raw,plane){
+  try{
+    if(plane!=='nats'||raw.length<36||raw.length>12_000_000)return;
+    const body=new Uint8Array(await decryptBytes(raw.subarray(4),'relay-binary-v2'));
+    if(body.length<4)return;const length=new DataView(body.buffer,body.byteOffset,body.byteLength).getUint32(0);
+    if(length>65536||length+4>=body.length)return;
+    const header=JSON.parse(dec.decode(body.subarray(4,4+length)));
+    if(header.v!==2||!header.from||header.from===actor||header.to!==actor||Math.abs(Date.now()-Number(header.ts||0))>180000)return;
+    noteRelayActor(header.from,header.nknAddr,plane);
+    await handleBinary(body.subarray(4+length),{peerId:`relay:${plane}:${header.from}`,metadata:{...(header.m||{}),relayActor:header.from,relayPlane:plane}},null);
+  }catch(_){}
+}
 async function publishRelayBinaryPacket(packet,metadata,to,{except='',sourceActor=actor,hop=0,relayId='',planes=null}={}){
   const use=(planes||localRelayPlanes()).filter(p=>p!==except);if(!use.length)return false;
   const critical=!!(metadata?.decoderHead||metadata?.frontierRescue||metadata?.hardRescue),jobs=[];
-  for(const plane of use){const frames=await relayBinaryFrames(packet,metadata,to,sourceActor,hop,relayId,relayBinaryFrameChars(plane),!!to&&remoteRelayPlanes(to).includes(plane));jobs.push(publishRelayBinaryFrames(plane,frames,critical,to,metadata))}
+  for(const plane of use){
+    // Opt in only on a shared binary broker. Cross-plane and legacy peers keep
+    // fragmented text delivery; the compact header is still authenticated and encrypted.
+    if(plane==='nats'&&metadata?.relayBinary===2&&to&&remoteRelayPlanes(to).includes('nats')){
+      const frame=await binaryRelayEnvelope(packet,metadata,to),limit=Number(natsState.nc?.info?.max_payload)||CHUNK_SIZE*2;
+      if(frame.length<=limit){jobs.push(publishRelayBinaryFrames(plane,[frame],critical,to,metadata));continue}
+    }
+    const frames=await relayBinaryFrames(packet,metadata,to,sourceActor,hop,relayId,relayBinaryFrameChars(plane),!!to&&remoteRelayPlanes(to).includes(plane));jobs.push(publishRelayBinaryFrames(plane,frames,critical,to,metadata))}
   return firstSuccessfulSend(jobs)
 }
 async function sendRelayBinaryActor(remote,packet,metadata={},hint=0){const local=localRelayPlanes();if(!local.length)return false;const seenRemote=remoteRelayPlanes(remote).filter(p=>RELAY_PLANES.includes(p)),common=local.filter(p=>seenRemote.includes(p)),idx=Math.max(0,Number(metadata?.idx)||0),key=`${remote}|${metadata?.id||''}|${idx}`,attempt=relaySendAttempts.get(key)||0;relaySendAttempts.set(key,attempt+1);if(relaySendAttempts.size>6000)relaySendAttempts.clear();const hedge=metadata?.mode==='stream'&&idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS&&attempt===0;let planes;if(hedge)planes=local;else{const pool=common.length?common:local;planes=pool.length?[pool[(Math.abs(Number(hint)||0)+attempt)%pool.length]]:[]}return publishRelayBinaryPacket(packet,metadata,remote,{planes})}
@@ -758,28 +788,34 @@ function streamRelayDispatchWindow(bytes,pressure=1,rescue=false){
   // Binary base64 plus the sealed frame's base64 and framing overhead. Admission
   // still reserves the exact frame bytes before publishing to the broker.
   const wire=Math.ceil(Math.max(1,Number(bytes)||CHUNK_SIZE)*16/9)+4096;
-  const quantum=Math.max(CHUNK_SIZE*2,wire),budget=Math.min(MP4_RAM_QUEUE_BUDGET_BYTES,quantum*3);
-  const physical=Math.max(1,Math.floor(budget/wire));
-  return Math.min(physical,rescue?physical:Math.max(2,Math.ceil(2*Math.max(1,Number(pressure)||1))));
+  const physical=Math.max(1,Math.floor(MP4_RAM_QUEUE_BUDGET_BYTES/wire));
+  const demand=Math.max(2,Math.ceil(2*Math.max(1,Number(pressure)||1)));
+  return Math.min(physical,demand+(rescue?2:0));
 }
-async function boundedStreamPathSend(remote,path,packet,metadata,critical=false){
+async function boundedStreamPathSend(remote,path,packet,metadata,critical=false,onBusy=null){
   const key=`${remote}|${path.path}`,now=performance.now(),prev=streamPathDispatches.get(key)||{active:0,blockedUntil:0,failures:0};
   const chunk=metadata?.sid&&metadata?.id&&Number.isInteger(metadata.idx)?JSON.stringify([metadata.id,metadata.sid,Number(metadata.seekEpoch)||0,metadata.idx]):null;
   /* A rescue may use another carrier. Cloning a still-pending frame onto the
      SAME carrier spends the bandwidth needed by the next contiguous chunk. */
-  if(chunk&&prev.chunks?.has(chunk))return false;
+  if(chunk&&prev.chunks?.has(chunk)){onBusy?.();return false}
   const rescue=!!(metadata?.frontierRescue||metadata?.hardRescue);
   if(!rescue&&prev.blockedUntil>now)return false;
   const regularCap=path.path.startsWith('relay:')?1:4;
   // Keep independent capacity for missing-frontier probes.
   const cap=path.path.startsWith('relay:')&&(rescue||metadata?.decoderHead)?streamRelayDispatchWindow(packet.byteLength,metadata?.supplyPressure,rescue):(rescue?regularCap+2:regularCap);
-  if(prev.active>=cap)return false;
+  if(prev.active>=cap){onBusy?.();return false}
   prev.active++;if(chunk){prev.chunks=prev.chunks||new Set();prev.chunks.add(chunk)}streamPathDispatches.set(key,prev);
-  const deadline=path.path.startsWith('relay:')?(critical?4200:6000):2200;
+  const bootstrap=path.path.startsWith('relay:')?(critical?4200:6000):2200;
+  /* Account for the bytes already sharing this path. A fixed send deadline
+     declared healthy uploads broken as soon as refill increased concurrency. */
+  const response=Number(prev.responseMs)||0,jitter=Number(prev.responseJitterMs)||0;
+  const flight=path.bps>0?packet.byteLength*prev.active*2000/path.bps:0;
+  const deadline=Math.max(response>0?response+4*jitter:bootstrap,SCHEDULER_TICK_MS,flight);
   let tid=0,expired=false;
   // A deadline permits fallback; it does not cancel an underlying transport.
   // Hold its capacity until the real send settles, including data-channel waits.
   const work=Promise.resolve().then(()=>path.send(packet,{...metadata,txPath:path.path})).then(Boolean,()=>false).then(result=>{
+    if(result){const elapsed=Math.max(SCHEDULER_TICK_MS,performance.now()-now),prior=Number(prev.responseMs)||elapsed;prev.responseJitterMs=(Number(prev.responseJitterMs)||0)*.75+Math.abs(elapsed-prior)*.25;prev.responseMs=prior*.75+elapsed*.25}
     if(result&&expired){prev.failures=Math.max(0,prev.failures-1);prev.blockedUntil=0}
     return result;
   }).finally(()=>{
@@ -818,12 +854,18 @@ async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHin
   const mobileRelays=metadata?.mobileStartup&&!pathHints.some(h=>h?.strong&&h.bps>0)?ordered.filter(x=>x.path.startsWith('relay:')).slice(0,2):[];
   if(mobileRelays.length)selected=mobileRelays;
   // All sends are individually bounded; receipt, not dispatch, awards credit.
-  const send=x=>boundedStreamPathSend(remote,x,packet,metadata,critical);
+  let capacityBlocked=false;
+  const send=x=>boundedStreamPathSend(remote,x,packet,metadata,critical,()=>{if(pathHints.some(h=>h?.path===x.path&&h?.strong&&h.bps>0))capacityBlocked=true});
   if(await firstSuccessfulSend(selected.map(send)))return true;
+  /* A full proven carrier is backpressure, not evidence of a broken route.
+     Keep ordinary work in the source queue until its credit returns. Falling
+     through here flooded unproven relays with copies while playable supply
+     waited behind those uploads. Missing-head rescues still race carriers. */
+  if(capacityBlocked&&!rescue&&!aggressive)return false;
   for(const x of ordered)if(!selected.includes(x)&&await send(x))return true;
   return false;
 }
-async function consumeRelayFrame(raw,plane){let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;if(Number(e.hop)>0&&e.via&&e.via!==e.from){noteRelayActor(e.from,e.nknAddr,'');noteRelayActor(e.via,'',plane)}else noteRelayActor(e.from,e.nknAddr,plane);if(e.target&&e.target!==actor)return;/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
+async function consumeRelayFrame(raw,plane){if(typeof raw!=='string'){const bytes=raw instanceof Uint8Array?raw:new Uint8Array(raw);if(bytes[0]===80&&bytes[1]===82&&bytes[2]===66&&bytes[3]===2)return consumeBinaryRelayEnvelope(bytes,plane)}let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;if(Number(e.hop)>0&&e.via&&e.via!==e.from){noteRelayActor(e.from,e.nknAddr,'');noteRelayActor(e.via,'',plane)}else noteRelayActor(e.from,e.nknAddr,plane);if(e.target&&e.target!==actor)return;/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
   if(e.kind==='binfrag'&&e.to&&e.to!==actor){const hop=Math.max(0,Number(e.hop)||0),bridgeKey=`${e.from}|${e.to}|${e.rid}|${i}|${hop}`;if(hop<RELAY_DATA_MAX_HOPS&&!relayBridgeSeen.has(bridgeKey)){relayBridgeSeen.set(bridgeKey,Date.now());const reachable=remoteRelayPlanes(e.to);if(reachable.includes(relayPlaneName(plane)))return;const targetPlanes=reachable.filter(p=>RELAY_PLANES.includes(p)&&p!==relayPlaneName(plane));if(targetPlanes.length){const bridged=await seal({...e,via:actor,hop:hop+1,ts:Date.now()});for(const p of targetPlanes)publishRelayRawOnPlane(p,bridged).catch(()=>{})}}return}
   const key=`${e.kind}|${plane}|${e.from}|${e.rid}`;let x=relayRx.get(key);if(!x){x={kind:e.kind,parts:new Array(n),count:0,chars:0,ts:Date.now(),to:e.to||'',from:e.from,nknAddr:e.nknAddr||'',m:e.m||null,hop:Number(e.hop)||0,rid:e.rid};relayRx.set(key,x)}if(x.parts[i]===undefined){x.parts[i]=String(e.d||'');x.count++;x.chars+=x.parts[i].length;if(x.chars>12_000_000){relayRx.delete(key);return}}if(relayRx.size>RELAY_RX_MAX_SESSIONS||[...relayRx.values()].reduce((z,v)=>z+(v.chars||0),0)>RELAY_RX_MAX_BYTES){
     for(const [oldKey,old] of [...relayRx].sort((a,b)=>(a[1].ts||0)-(b[1].ts||0))){
@@ -866,12 +908,12 @@ if(bc)bc.onmessage=e=>{const x=e.data;if(!x?.packet||x.from===actor||x.to&&x.to!
 /* NATS: encrypted rendezvous + custom WebRTC data channel.  Unlike the
    Trystero planes this gives every pair an additional independent signaling
    path and can consume TURN credentials for symmetric-NAT/CGNAT cases. */
-const natsState={module:null,nc:null,presence:null,signal:null,relay:null,timer:null,sessions:new Map()};
+const natsState={module:null,nc:null,presence:null,signal:null,relay:null,binary:null,timer:null,sessions:new Map()};
 async function importNats(){if(natsState.module)return natsState.module;let last;for(const u of [`https://esm.run/@nats-io/nats-core@${NATS_VERSION}`,`https://esm.sh/@nats-io/nats-core@${NATS_VERSION}?bundle`,`https://cdn.jsdelivr.net/npm/@nats-io/nats-core@${NATS_VERSION}/+esm`]){try{const m=await import(u);if(!m.wsconnect)throw Error('wsconnect missing');return natsState.module=m}catch(e){last=e}}throw last||Error('NATS unavailable')}
-function natsSubjects(remote=actor){const h=roomHash.slice(0,28);return{presence:`tracker.${h}.presence`,signal:`tracker.${h}.signal.${remote}`,relay:`tracker.${h}.relay`}}
+function natsSubjects(remote=actor){const h=roomHash.slice(0,28);return{presence:`tracker.${h}.presence`,signal:`tracker.${h}.signal.${remote}`,relay:`tracker.${h}.relay`,binary:`tracker.${h}.binary.${remote}`}}
 async function natsPublish(subject,obj){if(!natsState.nc)return false;try{natsState.nc.publish(subject,enc.encode(await seal(obj)));return true}catch(_){return false}}
 async function natsConsume(sub,fn){try{for await(const m of sub)fn(m.data)}catch(_){}}
-async function publishNatsRelayRaw(raw){if(!natsState.nc||relayWriteBacklog(natsState.nc)+raw.length>CHUNK_SIZE*8)return false;try{natsState.nc.publish(natsSubjects().relay,enc.encode(raw));meshStatus.set('nats-relay','on');return true}catch(_){return false}}
+async function publishNatsRelayRaw(raw){if(!natsState.nc||relayWriteBacklog(natsState.nc)+raw.length>CHUNK_SIZE*8)return false;try{natsState.nc.publish(typeof raw==='string'?natsSubjects().relay:natsSubjects(owner).binary,typeof raw==='string'?enc.encode(raw):raw);meshStatus.set('nats-relay','on');return true}catch(_){return false}}
 async function handleNatsRelay(raw){await consumeRelayFrame(raw,'nats')}
 function waitIce(pc,timeout=4200){return new Promise(resolve=>{if(pc.iceGatheringState==='complete')return resolve();let t;const done=()=>{clearTimeout(t);pc.removeEventListener('icegatheringstatechange',check);resolve()},check=()=>{if(pc.iceGatheringState==='complete')done()};t=setTimeout(done,timeout);pc.addEventListener('icegatheringstatechange',check)})}
 async function natsSignal(remote,type,payload,session){if(privacyEnabled()&&payload?.sdp)payload={...payload,sdp:privacySanitizeSdp(payload.sdp)};return natsPublish(natsSubjects(remote).signal,{v:11,type,from:actor,to:remote,session,ts:Date.now(),payload,nknAddr:privacyPublicNknAddr(),privacy:privacyEnabled()})}
@@ -902,8 +944,8 @@ async function handleNatsPresence(raw){try{const m=await openSeal(dec.decode(raw
 async function handleNatsSignal(raw){try{const m=await openSeal(dec.decode(raw));if(m?.v!==11||m.to!==actor||m.from===actor||Math.abs(Date.now()-m.ts)>90000)return;noteRelayActor(m.from,m.nknAddr,'nats-signal');if(m.type==='offer')await acceptNatsOffer(m);else if(m.type==='answer'){const x=natsState.sessions.get(m.from);if(x&&!x.closed&&x.session===m.session&&x.pc.signalingState==='have-local-offer')await x.pc.setRemoteDescription({type:'answer',sdp:privacySanitizeSdp(m.payload?.sdp||'')})}}catch(_){}}
 async function publishNatsPresence(){return natsPublish(natsSubjects().presence,{v:11,actor,ts:Date.now(),expires:Date.now()+30000,nknAddr:privacyPublicNknAddr(),privacy:privacyEnabled()})}
 function configuredNatsServers(){let out=[...(SIGNALING_ENDPOINTS.nats||[])];try{const x=JSON.parse(localStorage.getItem('private-tracker-nats-servers')||'[]');if(Array.isArray(x))out.push(...x)}catch(_){}try{if(Array.isArray(window.PRIVATE_TRACKER_NATS_SERVERS))out.push(...window.PRIVATE_TRACKER_NATS_SERVERS)}catch(_){}return [...new Set(out.map(String).filter(x=>/^wss:\/\//i.test(x)))]}
-async function startNats(){if(natsState.nc)return true;meshStatus.set('nats','loading');updateMeshState();try{const mod=await importNats();natsState.nc=await mod.wsconnect({servers:configuredNatsServers(),reconnect:false,maxReconnectAttempts:0,timeout:5000});const liveNc=natsState.nc;liveNc.closed().then(()=>{if(natsState.nc===liveNc){natsState.nc=null;meshStatus.set('nats','off');meshStatus.set('nats-relay','off');updateMeshState()}}).catch(()=>{});natsState.presence=natsState.nc.subscribe(natsSubjects().presence);natsState.signal=natsState.nc.subscribe(natsSubjects().signal);natsState.relay=natsState.nc.subscribe(natsSubjects().relay);natsConsume(natsState.presence,handleNatsPresence);natsConsume(natsState.signal,handleNatsSignal);natsConsume(natsState.relay,handleNatsRelay);meshStatus.set('nats','ready');meshStatus.set('nats-relay','ready');await publishNatsPresence();natsState.timer=setInterval(()=>{if(!document.hidden)publishNatsPresence().catch(()=>{})},IS_MOBILEISH?20000:12000);updateMeshState();return true}catch(_){meshStatus.set('nats','err');updateMeshState();return false}}
-function stopNats(){clearInterval(natsState.timer);for(const r of [...natsState.sessions.keys()])closeNatsPeer(r);try{natsState.presence?.unsubscribe?.()}catch(_){}try{natsState.signal?.unsubscribe?.()}catch(_){}try{natsState.relay?.unsubscribe?.()}catch(_){}try{natsState.nc?.close?.()}catch(_){}natsState.nc=null}
+async function startNats(){if(natsState.nc)return true;meshStatus.set('nats','loading');updateMeshState();try{const mod=await importNats();natsState.nc=await mod.wsconnect({servers:configuredNatsServers(),reconnect:false,maxReconnectAttempts:0,timeout:5000});const liveNc=natsState.nc;liveNc.closed().then(()=>{if(natsState.nc===liveNc){natsState.nc=null;meshStatus.set('nats','off');meshStatus.set('nats-relay','off');updateMeshState()}}).catch(()=>{});natsState.presence=natsState.nc.subscribe(natsSubjects().presence);natsState.signal=natsState.nc.subscribe(natsSubjects().signal);natsState.relay=natsState.nc.subscribe(natsSubjects().relay);natsState.binary=natsState.nc.subscribe(natsSubjects().binary);natsConsume(natsState.binary,handleNatsRelay);natsConsume(natsState.presence,handleNatsPresence);natsConsume(natsState.signal,handleNatsSignal);natsConsume(natsState.relay,handleNatsRelay);meshStatus.set('nats','ready');meshStatus.set('nats-relay','ready');await publishNatsPresence();natsState.timer=setInterval(()=>{if(!document.hidden)publishNatsPresence().catch(()=>{})},IS_MOBILEISH?20000:12000);updateMeshState();return true}catch(_){meshStatus.set('nats','err');updateMeshState();return false}}
+function stopNats(){clearInterval(natsState.timer);for(const r of [...natsState.sessions.keys()])closeNatsPeer(r);try{natsState.presence?.unsubscribe?.()}catch(_){}try{natsState.signal?.unsubscribe?.()}catch(_){}try{natsState.relay?.unsubscribe?.()}catch(_){}try{natsState.binary?.unsubscribe?.()}catch(_){}try{natsState.nc?.close?.()}catch(_){}natsState.nc=null}
 
 /* NKN is the outbound-only encrypted overlay fallback.  Its wrapper implements
    the exact same ctl/bin interface as WebRTC, including binary chunk metadata. */
@@ -1035,7 +1077,7 @@ function pickDemandPushIndexes(m){
   for(let i=0;i<pool.length&&out.length<2;i++)out.push(pool[(start+i)%pool.length]);
   return out
 }
-async function answerStreamDemand(m){const cid=String(m.id||''),sid=String(m.sid||'');noteStreamDemandActivity(m);wakeSeederRecoveryTransports();if(!cid||!sid||Number(m.expires||0)<Date.now()||!seedEnabled(cid))return false;const c=contents.get(cid);if(!c)return false;const indexes=pickDemandPushIndexes(m);sendActorIngress(m.actor,msg('stream-offer',{id:cid,sid,ready:true,indexes})).catch(()=>{});if(indexes.length)queueServeChunks({id:cid,indexes,total:contentTotal(c),chunkSize:contentChunkSize(c),sid,seekEpoch:Number(m.seekEpoch)||0,mode:'stream',hedge:true,demandPush:true},m.actor).catch(()=>{});return true}
+async function answerStreamDemand(m){const cid=String(m.id||''),sid=String(m.sid||'');noteStreamDemandActivity(m);wakeSeederRecoveryTransports();if(!cid||!sid||Number(m.expires||0)<Date.now()||!seedEnabled(cid))return false;const c=contents.get(cid);if(!c)return false;const indexes=pickDemandPushIndexes(m);sendActorIngress(m.actor,msg('stream-offer',{id:cid,sid,ready:true,indexes})).catch(()=>{});if(indexes.length)queueServeChunks({id:cid,indexes,total:contentTotal(c),chunkSize:contentChunkSize(c),sid,seekEpoch:Number(m.seekEpoch)||0,relayBinary:Number(m.relayBinary)||0,mode:'stream',hedge:true,demandPush:true},m.actor).catch(()=>{});return true}
 function offerStreamSource(m){const s=sessionBySid.get(String(m.sid||''));if(!s||s.mode!=='stream'||s.cid!==String(m.id||'')||s.state!=='downloading')return;s.holders.add(m.actor);let set=peerSeeds.get(m.actor);if(!set){set=new Set;peerSeeds.set(m.actor,set)}set.add(s.cid);scheduleSession(s,0);refreshPreviewStats(true)}
 
 function activeTransferHasProgress(){for(const x of sessions.values())if(['downloading','verifying','storing'].includes(x.state)&&x.bytesReceived>0)return true;const s=activePreview?.session;return !!(s&&s.state==='downloading'&&s.bytesReceived>0)}
@@ -1197,7 +1239,7 @@ async function queueServeChunks(m,remote){
     while(q.bulk.size>128)q.bulk.delete(q.bulk.keys().next().value);
     while(q.hot.size>48)q.hot.delete([...q.hot.keys()].sort((a,b)=>b-a)[0]);
   }
-  if(q.pumping)return true;
+  if(q.pumping){q.wake?.();return true}
   q.pumping=true;
   (async()=>{
     try{
@@ -1207,9 +1249,14 @@ async function queueServeChunks(m,remote){
       const hinted=(m.pathHints||[]).find(x=>x?.preferred||x?.strong);
       const relay=hinted?.path?.startsWith('relay:')||(!hinted&&!bulkRoutesFor(remote).length);
       const width=()=>relay?streamRelayDispatchWindow(Number(m.chunkSize)||CHUNK_SIZE,q.supplyPressure):(IS_MOBILEISH?3:6);
-      const running=new Set();
+      const running=new Map();
+      const physical=Math.max(1,Math.floor(MP4_RAM_QUEUE_BUDGET_BYTES/CHUNK_SIZE));
+      const activeHot=()=>[...running.values()].filter(x=>x.hot&&x.sid===q.sid&&x.epoch===q.seekEpoch&&x.idx>=q.decoderCursor).length;
       while(q.hot.size||q.bulk.size||running.size){
-        while(running.size<width()&&(q.hot.size||q.bulk.size)){
+        /* An old tail upload can be waiting on a different carrier. Give the
+           contiguous refill its own dispatch window; actual per-carrier and
+           whole-frame byte admission still bound the outstanding uploads. */
+        while((q.hot.size||q.bulk.size)&&running.size<physical&&(q.hot.size?activeHot()<width():running.size<width())){
           const map=q.hot.size?q.hot:q.bulk;
           const idx=map===q.hot?Math.min(...map.keys()):map.keys().next().value;
           const item=map.get(idx);map.delete(idx);
@@ -1231,12 +1278,12 @@ async function queueServeChunks(m,remote){
             }
             running.delete(task);
           });
-          running.add(task)
+          running.set(task,{idx,hot:map===q.hot,sid:item.sid||'',epoch:Number(item.seekEpoch)||0})
         }
-        if(running.size)await Promise.race(running)
+        if(running.size){await Promise.race([...running.keys(),new Promise(resolve=>{q.wake=resolve})]);q.wake=null}
       }
     }finally{
-      q.pumping=false;
+      q.pumping=false;q.wake=null;
       if(serveQueues.get(key)===q)serveQueues.delete(key)
     }
   })().catch(e=>console.warn('priority serve queue',String(e?.message||e)));
@@ -1251,9 +1298,16 @@ async function serveChunksNow(m,remote){
     if(m.mode==='stream'&&focus?.sid===(m.sid||'')&&(focus.seekEpoch||0)===(Number(m.seekEpoch)||0)&&idx<(focus.decoderCursor||0))return false;
     if(m.mode==='stream'&&!m.decoderHead&&!m.frontierRescue&&focus?.focusCritical&&
        (idx<focus.focusCursor||idx>=focus.focusCursor+focus.focusChunks))return false;
-    const dupeKey=remote+'|'+cid+'|'+(m.sid||'')+'|'+(Number(m.seekEpoch)||0)+'|'+idx,now=performance.now();if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
+    const dupeKey=remote+'|'+cid+'|'+(m.sid||'')+'|'+(Number(m.seekEpoch)||0)+'|'+idx,now=performance.now();
+    /* Normal reservation churn must not resend a completed handoff. A broker
+       accepting bytes can precede the receiver's verification and append.
+       Only an explicit missing-head rescue may override that handoff; it has
+       independent capacity and remains available if the original was lost. */
+    if(!m.hardRescue&&!m.frontierRescue&&m.mode==='stream'&&serveRecentlySent.has(dupeKey))return true;
+    if(!m.hardRescue&&!m.decoderHead&&now-(serveRecentlySent.get(dupeKey)||-1e9)<(m.demandPush?8000:1200))return true;
+    const part=await readLocalChunk(cid,idx);if(!part){unreadable=true;await markUnreadableSeed(cid,remote);return false}let wirePart=part,seedSalt='';
     if(c.locked){seedSalt=seedSaltFor(cid);const sk=await seedEnvelopeKey(cid,actor,seedSalt),iv=randomBytes(12),ct=await aesEncryptKey(sk,part,iv,`seedwrap:${cid}:${idx}`);wirePart=concatBytes(iv,ct)}
-    const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seekEpoch:Number(m.seekEpoch)||0,seedSalt,mode:m.mode||'',decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge,supplyPressure:Math.max(1,Number(focus?.supplyPressure)||Number(m.supplyPressure)||1),mobileStartup:!!m.mobileStartup&&idx>=Number(m.decoderCursor||0)&&idx<Number(m.decoderCursor||0)+2};
+    const packet=await encryptBytes(wirePart,`chunk:${cid}:${idx}:${total}`),metadata={kind:'chunk',id:cid,idx,total,chunkSize,plainSize:c.size,sid:m.sid||'',seekEpoch:Number(m.seekEpoch)||0,seedSalt,mode:m.mode||'',relayBinary:Number(m.relayBinary)||0,decoderHead:!!m.decoderHead,hardRescue:!!m.hardRescue,hedge:!!m.hedge,supplyPressure:Math.max(1,Number(focus?.supplyPressure)||Number(m.supplyPressure)||1),mobileStartup:!!m.mobileStartup&&idx>=Number(m.decoderCursor||0)&&idx<Number(m.decoderCursor||0)+2};
     if(!streamRequestCurrent(m,remote))return false;
     const proven=pathHints.some(h=>h&&typeof h==='object'&&h.strong&&h.bps>0),frontierRescue=m.frontierRescue===true,bootstrap=!proven&&!frontierRescue&&(m.hardRescue===true||idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS),sent=await sendBinaryMultipathActor(remote,packet,{...metadata,frontierRescue},idx,pathHints,!frontierRescue&&!proven&&(aggressive||bootstrap));
     if(sent){serveRecentlySent.set(dupeKey,performance.now());if(serveRecentlySent.size>4096){const cut=performance.now()-2500;for(const[k,t]of serveRecentlySent)if(t<cut)serveRecentlySent.delete(k)}served+=part.length;noteFileTraffic(cid,part.length)}return sent
@@ -2188,10 +2242,12 @@ function streamSafeBand(s,p){
   const remaining=Math.max(0,mediaOriginalDuration(p)-(Number(p?.media?.currentTime)||0));
   const ceiling=Math.min(mp4SafeRamHorizon(p),remaining>0?remaining:Infinity);
   const low=Math.min(ceiling,rate*recovery+burst);
-  /* The lower band is the reserve to survive recovery. Keep another measured
-     response worth of runway above it: starting refill AT the lower band
-     necessarily spends that protected reserve before replacement can arrive. */
-  const high=Math.min(ceiling,low+Math.max(burst,rate*recovery,drain*recovery));
+  /* Store the measured production burst AND cover the drain while the next
+     response is in flight. Taking only their maximum left a thin upper band
+     just as shared relay supply became intermittent. Both terms follow the
+     plant, with the actual byte capacity as their ceiling. */
+  const replenishing=Math.max(rate,Number(s?.safeProductionRate)||0);
+  const high=Math.min(ceiling,low+burst+(replenishing+drain)*recovery);
   return{tier:streamLargeTier(s),low,high,recovery,burst,rate,bps};
 }
 function safeBufferCritical(p,s=p?.session){
@@ -2208,6 +2264,15 @@ function updateSafeRateController(p,s,ahead,band=streamSafeBand(s,p)){
   const dt=prevAt?Math.max(.001,(now-prevAt)/1000):0;
   const state=streamBufferedState(p),play=state.time,playDelta=play-(Number(s.safeCtlPlay)||0);
   const end=state.inRange?state.time+state.ahead:0;
+  /* The first native move into synchronized A/V can itself be a seeking event.
+     Observe startup before excluding seek deltas from steady production, or
+     metadata acquisition disappears from the learned recovery reserve. */
+  if(!s.safeStartupObserved&&Number.isFinite(s.started)&&state.inRange&&state.ahead>0){
+    s.safeStartupObserved=true;
+    const response=Math.max(SCHEDULER_TICK_MS/1000,(now-s.started)/1000);
+    (s.safeResponses=s.safeResponses||[]).push({response,produced:state.ahead});
+    s.safeResponseTail=Math.max(Number(s.safeResponseTail)||0,response);s.safeResponseWaitAt=0;
+  }
   const seek=!!p?.media?.seeking||playDelta<0||playDelta>dt*band.rate+band.burst;
   const slope=dt&&!seek?(ahead-(Number(s.safeCtlAhead)||0))/dt:0;
   const alpha=dt?1-Math.exp(-dt/band.recovery):1;
@@ -2223,12 +2288,13 @@ function updateSafeRateController(p,s,ahead,band=streamSafeBand(s,p)){
     if(growth>0&&s.safeResponseWaitAt){
       /* Measure the complete plant: acquisition, ordered decoding and BOTH
          appended tracks. Chunk receipt alone misses a stalled fragment chain.
-         Retain observations covering the playable reserve; healthy production
-         must replace that reserve before an old slow response is forgotten. */
+         Retain observations across the available playable buffer capacity.
+         Replacing a small current reserve with one quick burst must not erase
+         the slow response that made that reserve unsafe in the first place. */
       const samples=s.safeResponses=s.safeResponses||[];
       samples.push({response:Math.max(SCHEDULER_TICK_MS/1000,(now-s.safeResponseWaitAt)/1000),produced:growth});
       let produced=samples.reduce((n,x)=>n+x.produced,0);
-      const window=Math.max(band.high,ahead),limit=Math.max(2,Math.ceil(MP4_MSE_TARGET_BUDGET_BYTES/Math.max(1,s.chunkSize)));
+      const window=Math.max(band.high,ahead,mp4SafeRamHorizon(p)),limit=Math.max(2,Math.ceil(MP4_MSE_TARGET_BUDGET_BYTES/Math.max(1,s.chunkSize)));
       while(samples.length>1&&(produced-samples[0].produced>=window||samples.length>limit))produced-=samples.shift().produced;
       s.safeResponseTail=Math.max(...samples.map(x=>x.response));s.safeResponseWaitAt=0;
     }
@@ -2568,12 +2634,15 @@ async function consumePreviewChunk(s,idx,canonical){
   p.parts[idx]=plain;refreshPreviewStats();growStreamWindow(false);return true
 }
 async function startRemotePreview(entry,c){
-  wakeTransferTransports();let advertised=advertisedRemoteSeeders(c.id);if(!advertised.length){$('#previewState').textContent='DISCOVERING';$('#previewPeerStat').textContent='querying room planes';await broadcast(msg('seed-query',{ids:[c.id]}));const until=Date.now()+750;while(Date.now()<until&&!advertised.length){await sleep(75);advertised=advertisedRemoteSeeders(c.id)}}
-  if(!advertised.length){showPreviewError('No peer is currently advertising this file.');return}
+  wakeTransferTransports(true);const advertised=advertisedRemoteSeeders(c.id);
+  if(!advertised.length){$('#previewState').textContent='DISCOVERING';$('#previewPeerStat').textContent='querying room planes';broadcast(msg('seed-query',{ids:[c.id]})).catch(()=>{})}
+  /* Catalog delivery can precede availability, especially on mobile relays.
+     Create the live session now; its scheduler recruits sources as they appear.
+     A discovery deadline must not turn a recoverable startup into ERROR. */
   /* Promote discovery ingress while mobile kickoff opens relay alternatives
      in parallel; receiver byte evidence chooses the sustained payload path. */
   for(const a of advertised)promoteRelayActor(a).catch(()=>{});
-  const timed=['video','audio'].includes(activePreview.kind);if(timed)await initStreamingMedia();const total=contentTotal(c),sid=crypto.randomUUID(),rootState=await swarmInit(c.size,total,contentChunkSize(c)),initial=timed?Math.min(total,STREAM_INITIAL_CHUNKS):total,sess={sid,mode:'stream',cid:c.id,entryId:entry.id,name:visibleName(entry),total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set(advertised),inflight:new Map(),inflightByPeer:new Map(),retry:[],priority:[],cursor:0,streamRequestLimit:initial,providerBytes:new Map(),providerStarted:new Map(),providerLastAt:new Map(),providerPenalty:new Map(),binaryProven:new Set(),dataProven:new Set(),pathStats:new Map(),started:performance.now(),lastByteAt:0,lastRouteRecoveryAt:0,timer:null,state:'downloading',waitingForRoute:false,playbackStarted:false,sink:{kind:'preview'},receiving:new Set(),decoderFedBits:new Uint8Array(Math.ceil(total/8)),decoderUrgent:new Set(),decoderHot:new Map(),decoderFeedCursor:0,mp4NextChunk:0,mp4SequentialCursor:0,decoderAnchor:0,decoderLimit:initial,streamCached:new Set(),decoderFedCount:0,decoderRefillActive:true,rxPrefix:0,networkComplete:false,verifyCursor:0,verifyState:rootState,verifyPending:new Map(),verifyBusy:false,finishing:false};activePreview.session=sess;sessionBySid.set(sid,sess);if(IS_MOBILEISH)wakeTransferTransports(true);previewDebugEvent('STREAM SESSION',`${advertised.length} advertised sources · ${sess.total} chunks`,'info',sess);scheduleFileStatsRefresh(c.id);primeStreamSession(sess,activePreview);ensureStreamHorizon('startup',true);refreshPreviewStats();announceStreamDemand(sess).catch(()=>{});scheduleSession(sess,0);/* v63: rely on ordinary short reservation timeouts and targeted recovery. */
+  const timed=['video','audio'].includes(activePreview.kind);if(timed)await initStreamingMedia();const total=contentTotal(c),sid=crypto.randomUUID(),rootState=await swarmInit(c.size,total,contentChunkSize(c)),initial=timed?Math.min(total,STREAM_INITIAL_CHUNKS):total,sess={sid,mode:'stream',cid:c.id,entryId:entry.id,name:visibleName(entry),total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set(advertised),inflight:new Map(),inflightByPeer:new Map(),retry:[],priority:[],cursor:0,streamRequestLimit:initial,providerBytes:new Map(),providerStarted:new Map(),providerLastAt:new Map(),providerPenalty:new Map(),binaryProven:new Set(),dataProven:new Set(),pathStats:new Map(),started:performance.now(),lastByteAt:0,lastRouteRecoveryAt:0,timer:null,state:'downloading',waitingForRoute:false,playbackStarted:false,sink:{kind:'preview'},receiving:new Set(),decoderFedBits:new Uint8Array(Math.ceil(total/8)),decoderUrgent:new Set(),decoderHot:new Map(),decoderFeedCursor:0,mp4NextChunk:0,mp4SequentialCursor:0,decoderAnchor:0,decoderLimit:initial,streamCached:new Set(),decoderFedCount:0,decoderRefillActive:true,rxPrefix:0,networkComplete:false,verifyCursor:0,verifyState:rootState,verifyPending:new Map(),verifyBusy:false,finishing:false};sess.safeResponseWaitAt=sess.started;activePreview.session=sess;sessionBySid.set(sid,sess);if(IS_MOBILEISH)wakeTransferTransports(true);previewDebugEvent('STREAM SESSION',`${advertised.length} advertised sources · ${sess.total} chunks`,'info',sess);scheduleFileStatsRefresh(c.id);primeStreamSession(sess,activePreview);ensureStreamHorizon('startup',true);refreshPreviewStats();announceStreamDemand(sess).catch(()=>{});scheduleSession(sess,0);/* v63: rely on ordinary short reservation timeouts and targeted recovery. */
 }
 async function previewFromLocalChunks(entry,c){
   const timed=['video','audio'].includes(activePreview.kind);if(timed)await initStreamingMedia();const total=contentTotal(c),sid='local-'+crypto.randomUUID(),sess={sid,mode:'stream',cid:c.id,entryId:entry.id,total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set([actor]),inflight:new Map(),inflightByPeer:new Map(),retry:[],priority:[],cursor:0,streamRequestLimit:timed?Math.min(total,STREAM_INITIAL_CHUNKS):total,providerBytes:new Map(),providerStarted:new Map([[actor,performance.now()]]),providerLastAt:new Map([[actor,performance.now()]]),providerPenalty:new Map(),binaryProven:new Set([actor]),dataProven:new Set([actor]),pathStats:new Map(),started:performance.now(),lastByteAt:0,lastRouteRecoveryAt:0,timer:null,state:'downloading',waitingForRoute:false,playbackStarted:false,sink:{kind:'preview-local'},receiving:new Set(),decoderFedBits:new Uint8Array(Math.ceil(total/8)),decoderUrgent:new Set(),decoderHot:new Map(),decoderFeedCursor:0,mp4NextChunk:0,mp4SequentialCursor:0,decoderAnchor:0,decoderLimit:timed?Math.min(total,STREAM_INITIAL_CHUNKS):total,streamCached:new Set(),decoderFedCount:0,decoderRefillActive:true,rxPrefix:0,networkComplete:false,local:true};activePreview.session=sess;previewDebugEvent('LOCAL STREAM',`${sess.total} chunks`,'info',sess);primeStreamSession(sess,activePreview);ensureStreamHorizon('startup',true);$('#previewState').textContent=timed?'LOCAL STREAM':'LOCAL PREVIEW';const pump=async()=>{if(sess.localPumping||!activePreview||activePreview.session!==sess||sess.state!=='downloading')return;sess.localPumping=true;try{let n=0;while(n<STREAM_STARTUP_LANES*2){const i=nextChunkFor(sess);if(i==null)break;const canonical=await readLocalChunk(c.id,i);if(!canonical)throw Error('local preview chunk missing');await storeReceivedChunk(sess,i,canonical);bitSet(sess.receivedBits,i);sess.receivedCount++;sess.bytesReceived+=canonical.length;if(i===(sess.rxPrefix||0)){let rp=sess.rxPrefix||0;while(rp<sess.total&&bitHas(sess.receivedBits,rp))rp++;sess.rxPrefix=rp;}sess.providerLastAt=sess.providerLastAt||new Map();sess.providerLastAt.set(actor,performance.now());noteFileTraffic(c.id,canonical.length);n++;await new Promise(r=>setTimeout(r,0))}if(sess.receivedCount>=total){sess.networkComplete=true;if(activePreview.mode==='compat'){sess.state='complete';await finishPreviewSession(sess)}else if((sess.decoderFedCount||0)>=total){sess.state='complete';activePreview.allReceived=true;if(activePreview.mode==='mp4box'){try{activePreview.mp4box?.flush?.()}catch(_){}}else if(activePreview.mode==='mse')pumpMsePreview();else if(activePreview.mode==='compat')await pumpCompatMedia(true);else await renderPreviewBlob(new Blob(activePreview.parts,{type:activePreview.mime}))}else{sess.state='downloading';promoteStreamCacheToDecoder(sess).catch(()=>{})}refreshPreviewStats()}else{const ceiling=Math.min(total,sess.streamRequestLimit||STREAM_INITIAL_CHUNKS),more=sess.priority?.some(i=>!bitHas(sess.receivedBits,i))||sess.cursor<ceiling;if(more)setTimeout(()=>sess.localPump?.(),0)}}finally{sess.localPumping=false}};sess.localPump=()=>pump().catch(e=>showPreviewError(e.message||e));activePreview.localPump=sess.localPump;sess.localPump()

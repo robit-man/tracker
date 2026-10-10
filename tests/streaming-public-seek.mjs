@@ -18,7 +18,7 @@ async function snapshot(page){return page.evaluate(()=>{
  const ranges=v?Array.from({length:v.buffered.length},(_,i)=>[v.buffered.start(i),v.buffered.end(i)]):[],time=v?.currentTime||0;
  const range=ranges.find(([a,b])=>time>=a-.05&&time<=b+.05);
  const data=document.getElementById('previewDebugMetrics')?.dataset;
- return {at:new Date().toISOString(),time,safe:range?Math.max(0,range[1]-time):0,band:data&&{low:Number(data.safeLow),high:Number(data.safeHigh),recovery:Number(data.safeRecovery)},audit:window.__reserveAudit,paused:v?.paused,ready:v?.readyState,error:v?.error?.message,state:get('previewState'),metrics:get('previewDebugMetrics'),events:get('previewDebugEvents'),paths:get('previewDiagRoutes'),routes:PrivateTrackerMesh.routes(),nats:PrivateTrackerMesh.nats(),mqtt:PrivateTrackerMesh.mqtt(),mesh:PrivateTrackerMesh.status(),served:get('servedBytes'),writeBacklog:PrivateTrackerMesh.writeBacklog?.()};
+ return {at:new Date().toISOString(),time,safe:range?Math.max(0,range[1]-time):0,band:data&&{low:Number(data.safeLow),high:Number(data.safeHigh),recovery:Number(data.safeRecovery)},audit:window.__reserveAudit,paused:v?.paused,ready:v?.readyState,error:v?.error?.message,state:get('previewState'),stage:get('previewStage'),metrics:get('previewDebugMetrics'),events:get('previewDebugEvents'),paths:get('previewDiagRoutes'),routes:PrivateTrackerMesh.routes(),nats:PrivateTrackerMesh.nats(),mqtt:PrivateTrackerMesh.mqtt(),mesh:PrivateTrackerMesh.status(),served:get('servedBytes'),writeBacklog:PrivateTrackerMesh.writeBacklog?.()};
 })}
 try {
  const mobile=process.env.MOBILE_VIEWER==='1';
@@ -55,7 +55,9 @@ try {
  }
  assert.ok(started,'public relay playback starts');
  console.log('PLAYING',url);
- if(competitor){await competitor.goto(url,{waitUntil:'domcontentloaded'});await competitor.locator('.row').filter({hasText:path.basename(fixture)}).locator('[data-stream]').click({timeout:180000})}
+ if(competitor){await competitor.goto(url,{waitUntil:'domcontentloaded'});
+  if(legacyHtml)await competitor.waitForFunction(name=>[...document.querySelectorAll('.row')].some(row=>row.textContent.includes(name)&&Number(row.querySelector('[data-source-stat] > span:last-child')?.textContent)>0),path.basename(fixture),{timeout:180000});
+  await competitor.locator('.row').filter({hasText:path.basename(fixture)}).locator('[data-stream]').click({timeout:180000})}
  async function collect(label){const [a,b,c]=await Promise.all([snapshot(source),snapshot(viewer),competitor?snapshot(competitor):null]);const x={label,source:a,viewer:b,competitor:c};samples.push(x);fs.writeFileSync(resultPath,JSON.stringify({fixture,url,htmlOverride:!!html,relayOnly:process.env.RELAY_ONLY==='1',mobileViewer:mobile,extraViewer:!!competitor,errors,samples},null,2));console.log(JSON.stringify({label,time:b.time,safe:b.safe,paths:b.paths,metrics:b.metrics}));assert.ok(!b.error,'no media error');return x}
  for(const target of (process.env.SEEK_TARGETS?process.env.SEEK_TARGETS.split(',').map(Number):[6000,1200,9000])){
   await viewer.evaluate(t=>document.querySelector('#previewStage video').currentTime=t,target);

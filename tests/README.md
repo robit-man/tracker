@@ -121,6 +121,10 @@ this exercises shared relay capacity and duplicate frontier recovery traffic.
 extra viewer, checking that common-broker media does not recruit legacy peers
 into redundant forwarding while both receivers continue playing.
 
+Updated peers sharing NATS negotiate compact encrypted binary envelopes on a
+receiver-specific subject, avoiding nested base64 and unrelated media delivery.
+Older peers and cross-plane delivery retain the encrypted fragment format.
+
 Reproduce decoder-CDN failure and false whole-movie SAFE accounting with a real MP4:
 
 ```sh
