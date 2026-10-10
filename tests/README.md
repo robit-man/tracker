@@ -178,3 +178,62 @@ PNG contents, updated URLs on reopening, focus containment, Escape/backdrop clos
 and offline generation. Omit `TRACKER_HTML` to test the deployed Pages site;
 `RESULT` selects the JSON trace and screenshot prefix. The embedded QR encoder is
 Project Nayuki's MIT-licensed library, pinned to the commit recorded in the HTML.
+
+Live capture through the file-stream delivery pipeline:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" RELAY_ONLY=1 \
+  node tests/live-stream-routes-browser.mjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" DIRECT_HARNESS=1 \
+  FIXTURE=/path/to/movie.mp4 node tests/live-stream-routes-browser.mjs
+```
+
+The first command tests real virtual-desktop screen capture, synthetic camera
+video, and a known microphone tone in separate browser contexts through public
+brokers with direct ICE disabled. It drops a live chunk and requires frontier
+repair without restarting the encoder or MediaSource, then interrupts the screen
+receiver's network and checks recovery on the same stream generation. Audio must
+be decoded and measurable at the receiver. The second command establishes a real
+WebRTC **data channel**, starts file playback, and requires all three live modes
+to use that file-proven route while the file keeps playing. Neither modern live
+viewer nor publisher may open a separate media PeerConnection.
+
+For a test of the actual deployed page, omit `TRACKER_HTML` and `DIRECT_HARNESS`.
+That run uses normal public discovery, capture, delivery and disconnect recovery;
+it excludes the injected missing-chunk test. `MODES=screen,av,audio` selects
+capture modes and `RESULT` selects the JSON trace path. The harness needs Chromium
+and Xvfb, creates its own private display, and writes a generated microphone WAV
+next to the trace. It does not exercise physical cameras, phones or carrier NAT.
+
+Updated peers advertise compatible recorder/MSE formats and pull a growing,
+byte-bounded live chunk journal through the file queue, encrypted compact relay
+protocol, verified path hints, backpressure and independent frontier rescue.
+Confirmed SourceBuffer appends acknowledge and retire journal bytes. Only byte
+capacity exhaustion or a decoder error creates a fresh initialization; ordinary
+retries and network recovery preserve the current encoder. Live startup uses the
+existing measured SAFE upper band rather than a fixed reserve duration. Browser
+peers without compatible recorder/MSE support retain the older media connection
+path. Both ends need the updated page to negotiate chunk delivery.
+
+`PrivateTrackerMesh.live()` exposes live delivery diagnostics: selected byte
+paths, SAFE and its measured band, source/viewer frontiers, journal capacity,
+stream generation and whether a separate media connection exists.
+
+`FIREFOX_VIEWER=1` runs the receiver in Firefox instead of Chromium.
+`FIREFOX_SOURCE=1 MODES=av,audio` exercises Firefox capture/encoding with its
+synthetic media devices. `FIREFOX_BINARY` optionally selects an installed
+Playwright Firefox executable. Synthetic microphone tests disable audio
+processing so noise suppression cannot erase the calibration tone.
+
+The live WebM muxer preserves encoded frames and their timestamps, orders both
+tracks together, and opens a new cluster at a video keyframe. This avoids
+Firefox discarding dependent frames after overlapping A/V timeslice boundaries.
+The tests check payload/timestamp preservation, partial headers and blocks,
+late audio packets, browser playback and missing-chunk recovery.
+
+`MP4_ONLY=1 MODES=av,audio TRACKER_HTML="$PWD/index.html"` advertises only
+native MP4 recorder formats to verify fragmented MP4 delivery and recovery.
+Negotiation includes explicit H.264/AAC and H.264/Opus formats, filtered by the
+publisher's encoder and receiver's MSE support. ManagedMediaSource uses the same
+remote-playback setting as file playback. These checks do not replace Safari
+or physical iPhone validation.

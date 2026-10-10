@@ -79,3 +79,95 @@ test('a closed old peer cannot tear down its replacement',async()=>{
  c.RTCPeerConnection=class{constructor(){this.connectionState='new'}addTrack(){}async createOffer(){return {type:'offer'}}async setLocalDescription(sdp){this.localDescription=sdp}};
  vm.runInContext(source('handleLiveWatch'),c);await c.handleLiveWatch({id:'live',actor:'viewer'});const old=c.localLive.peers.get('viewer'),replacement={pc:{connectionState:'connected'}};c.localLive.peers.set('viewer',replacement);old.pc.connectionState='closed';old.pc.onconnectionstatechange();assert.equal(closed,1);assert.equal(c.localLive.peers.get('viewer'),replacement);
 });
+
+function chunkHarness(names){
+ let nextId=0;const sent=[],c=vm.createContext({console,Uint8Array,Map,Set,Date,performance:{now:()=>1000},actor:'source',window:{},localLive:null,activeLiveViewer:null,liveChunkSources:new Map(),verifiedMediaPaths:new Map(),CHUNK_SIZE:16,MP4_RAM_QUEUE_BUDGET_BYTES:64,SCHEDULER_TICK_MS:180,crypto:{randomUUID:()=>String(++nextId)},msg:(type,data)=>({type,relayBinary:2,...data}),sendActorIngress:async(a,m)=>sent.push({a,...m}),retireStreamServe:()=>{},sendLiveAnnouncement:async()=>{},$ :()=>({textContent:''}),liveRecorderMimes:()=>['video/webm'],closeLivePublisherPeer:()=>{},MediaRecorder:class{constructor(){this.state='inactive'}start(){this.state='recording'}stop(){this.state='inactive'}},setInterval:()=>1,streamPathHintsFor:()=>[],seedLivePathEvidence:()=>{},normalizeLiveWebm:(_,raw)=>raw,previewMediaSourceType:()=>({isTypeSupported:()=>true}),ensureLiveChunkPlayer:()=>{},retireLiveViewerSource:()=>{},resetLiveChunkPlayer:()=>{},tickLiveChunkViewer:()=>{}});
+ for(const name of names)vm.runInContext(source(name),c);return{c,sent};
+}
+test('modern viewers use a retained byte source and duplicate watches preserve its encoder',async()=>{
+ const{c,sent}=chunkHarness(['disposeLiveChunkSource','stopLiveRelayRecorder','liveJournalBudget','sendLiveChunkManifest','startLiveChunkRecorder','handleLiveChunkWatch']);
+ c.RTCPeerConnection=class{constructor(){throw Error('media negotiation must not run')}};
+ const live={id:'live',mode:'screen',stream:{},watchers:new Set(),peers:new Map()};c.localLive=live;const m={sid:'session',mime:'video/webm'};
+ await c.handleLiveChunkWatch(m,live,'viewer');const state=live.peers.get('viewer'),j=state.relay;await c.handleLiveChunkWatch(m,live,'viewer');assert.equal(state.relay,j);assert.equal(j.recorder.state,'recording');assert.equal(state.pc,null);assert.ok(sent.every(m=>m.relayChunks===2));
+ // Encoding must continue while a transport/control send remains pending.
+ c.sendActorIngress=()=>new Promise(()=>{});j.recorder.ondataavailable({data:{size:30,arrayBuffer:async()=>new Uint8Array(30).fill(7).buffer}});await j.encoding;assert.equal(j.seq,2);assert.equal(j.retainedBytes,30);
+});
+test('live acknowledgement prunes only confirmed appends, with owner/session/generation validation',()=>{
+ const{c}=chunkHarness(['liveChunkSourceFor']);const j={id:'bytes',viewer:'viewer',sid:'session',epoch:2,liveId:'live',seq:3,ack:0,retainedBytes:30,chunks:new Map([[0,new Uint8Array(10)],[1,new Uint8Array(10)],[2,new Uint8Array(10)]])};c.localLive={id:'live'};c.liveChunkSources.set('bytes',j);const m={id:'bytes',liveId:'live',sid:'session',seekEpoch:2,decoderCursor:2};
+ assert.equal(c.liveChunkSourceFor(m,'intruder'),null);assert.equal(j.retainedBytes,30);assert.equal(c.liveChunkSourceFor({...m,sid:'stale'},'viewer'),null);assert.equal(c.liveChunkSourceFor({...m,seekEpoch:1},'viewer'),null);assert.equal(c.liveChunkSourceFor({...m,decoderCursor:4},'viewer'),j);assert.equal(j.ack,0);
+ assert.equal(c.liveChunkSourceFor(m,'viewer'),j);assert.equal(j.ack,2);assert.equal(j.retainedBytes,10);assert.deepEqual([...j.chunks.keys()],[2]);c.liveChunkSourceFor({...m,decoderCursor:1},'viewer');assert.equal(j.ack,2,'late feedback cannot rewind the decoder frontier');
+});
+test('byte capacity overflow replaces only the lagging journal with a fresh initialization',async()=>{
+ const{c}=chunkHarness(['disposeLiveChunkSource','stopLiveRelayRecorder','liveJournalBudget','sendLiveChunkManifest','startLiveChunkRecorder']);const state={sid:'session',mime:'video/webm',epoch:0};c.localLive={id:'live',mode:'screen',stream:{},peers:new Map([['viewer',state]])};c.startLiveChunkRecorder(c.localLive,'viewer',state);const old=state.relay;old.retainedBytes=60;old.recorder.ondataavailable({data:{size:10}});
+ assert.equal(old.stopped,true);assert.equal(old.recorder.state,'inactive');assert.equal(old.chunks.size,0);assert.notEqual(state.relay.id,old.id);assert.equal(state.relay.epoch,2);assert.equal(c.liveChunkSources.size,1);assert.equal(state.sid,'session');
+});
+test('out-of-order manifests cannot reset a running decoder or advance its source generation',()=>{
+ const{c}=chunkHarness(['handleLiveChunkManifest']);let resets=0;c.resetLiveChunkPlayer=()=>resets++;
+ const v={chunked:true,id:'live',sid:'session',publisher:'publisher',requestedMime:'video/webm',relayEpoch:2,relayId:'live-bytes-2',relayNextSeq:3,head:5,session:{},preview:{}};c.activeLiveViewer=v;
+ const m={actor:'publisher',id:'live',sid:'session',mime:'video/webm',epoch:2,relayId:'live-bytes-2',head:6};c.handleLiveChunkManifest(m);assert.equal(v.head,6);c.handleLiveChunkManifest({...m,epoch:1,relayId:'live-bytes-1'});c.handleLiveChunkManifest({...m,relayId:'live-bytes-wrong'});c.handleLiveChunkManifest({...m,actor:'intruder',epoch:3});assert.equal(resets,0);assert.equal(v.relayId,'live-bytes-2');
+});
+test('quota rejection retains the exact missing append instead of advancing and losing it',()=>{
+ const{c}=chunkHarness(['pumpLiveChunkPlayer']);let trims=0,restarts=0;const part=new Uint8Array(10),v={relayNextSeq:4,relayPending:new Map([[4,part]]),preview:{},relaySourceBuffer:{updating:false,appendBuffer(){throw Object.assign(Error('quota'),{name:'QuotaExceededError'})}}};c.activeLiveViewer=v;c.trimPreviewBehind=()=>trims++;c.restartLiveChunkViewer=()=>restarts++;
+ c.pumpLiveChunkPlayer(v);assert.equal(v.relayNextSeq,4);assert.equal(v.relayPending.get(4),part);assert.equal(v.appendSeq,null);assert.equal(trims,1);assert.equal(restarts,0);
+});
+test('corrupt, stale and wrong-publisher bytes never earn path credit or enter the decoder',async()=>{
+ const{c}=chunkHarness(['handleLiveChunkBinary']);let rewarded=0,decoded=0;c.decryptBytes=async()=>{decoded++;return new Uint8Array(3).buffer};c.rewardProviderPath=()=>rewarded++;c.noteStreamDelivery=()=>{};c.pumpLiveChunkPlayer=()=>{};c.relayPlaneName=x=>x;
+ const v={chunked:true,id:'live',publisher:'publisher',sid:'session',relayId:'bytes',relayEpoch:1,relayNextSeq:0,relayPending:new Map(),receiving:new Set(),pendingBytes:0,session:{}};c.activeLiveViewer=v;
+ const metadata={liveId:'live',id:'bytes',sid:'session',seekEpoch:1,idx:0,plainSize:4,relayActor:'publisher',relayPlane:'nats'};
+ await c.handleLiveChunkBinary(null,{metadata:{...metadata,relayActor:'intruder'}});await c.handleLiveChunkBinary(null,{metadata:{...metadata,seekEpoch:0}});assert.equal(decoded,0);await c.handleLiveChunkBinary(null,{metadata});assert.equal(rewarded,0);assert.equal(v.relayPending.size,0);
+ await c.handleLiveChunkBinary(null,{metadata:{...metadata,plainSize:3}});assert.equal(rewarded,1);assert.equal(v.pendingBytes,3);await c.handleLiveChunkBinary(null,{metadata:{...metadata,plainSize:3}});assert.equal(rewarded,1,'duplicate payload cannot bias route selection');
+});
+test('a decrypt completing after a source replacement cannot append into the new generation',async()=>{
+ const{c}=chunkHarness(['handleLiveChunkBinary']);let finish;c.decryptBytes=()=>new Promise(r=>finish=r);const v={chunked:true,id:'live',publisher:'publisher',sid:'session',relayId:'bytes',relayEpoch:1,relayNextSeq:0,relayPending:new Map(),receiving:new Set(),pendingBytes:0};c.activeLiveViewer=v;
+ const task=c.handleLiveChunkBinary(null,{metadata:{liveId:'live',id:'bytes',sid:'session',seekEpoch:1,idx:0,plainSize:3,relayActor:'publisher'}});v.relayId='replacement';finish(new Uint8Array(3).buffer);await task;assert.equal(v.relayPending.size,0);assert.equal(v.pendingBytes,0);
+});
+test('live chunks use the file serve pipeline, compact relay metadata and received-path hints',async()=>{
+ const{c}=chunkHarness(['liveChunkSourceFor','serveChunksNow']);const hints=[{path:'relay:nats',bps:800000,score:900,strong:true,preferred:true}],part=new Uint8Array(8).fill(7),j={viewer:'viewer',sid:'session',epoch:2,liveId:'live',seq:1,ack:0,mime:'video/webm',retainedBytes:8,chunks:new Map([[0,part]])};c.localLive={id:'live'};c.liveChunkSources.set('bytes',j);let sent;
+ Object.assign(c,{contents:new Map(),serveQueues:new Map(),serveRecentlySent:new Map(),streamRequestCurrent:()=>true,seedEnabled:()=>{throw Error('ephemeral media must not enter the file catalog')},readLocalChunk:()=>{throw Error('ephemeral media must not use file storage')},encryptBytes:async(raw,aad)=>{assert.equal(aad,'live-chunk:bytes:0');return raw},sendBinaryMultipathActor:async(remote,packet,metadata,hint,pathHints,aggressive)=>{sent={remote,packet,metadata,pathHints,aggressive};return true},RELAY_BOOTSTRAP_HEDGE_CHUNKS:3,IS_MOBILEISH:false,STREAM_SERVE_CONCURRENCY:8,served:0,noteFileTraffic:()=>{throw Error('do not record live chunks as file content')},scheduleHeaderRender:()=>{}});
+ const ok=await c.serveChunksNow({id:'bytes',liveId:'live',sid:'session',seekEpoch:2,mode:'stream',indexes:[0],decoderCursor:0,decoderHead:true,relayBinary:2,pathHints:hints},'viewer');assert.equal(ok,true);assert.equal(sent.packet,part);assert.equal(sent.metadata.kind,'live-media');assert.equal(sent.metadata.relayChunks,2);assert.equal(sent.metadata.mode,'stream');assert.equal(sent.metadata.relayBinary,2);assert.equal(sent.metadata.plainSize,8);assert.equal(sent.pathHints,hints);assert.equal(sent.aggressive,false,'proven routes avoid broad racing');
+});
+test('a live missing-head request bypasses bulk dispatch through the same independent rescue lane',async()=>{
+ const{c}=chunkHarness(['liveChunkSourceFor','queueServeChunks']);c.localLive={id:'live'};c.liveChunkSources.set('bytes',{viewer:'viewer',sid:'session',liveId:'live',epoch:1,seq:7,ack:0,chunks:new Map(),retainedBytes:0});let sent;
+ Object.assign(c,{streamRequestCurrent:()=>true,serveQueues:new Map([['viewer|bytes',{sid:'session',seekEpoch:1,decoderCursor:5,active:new Set([5]),bulk:new Map([[6,{}]])}]]),seederFrontierAttempts:new Map(),SAFE_FRONTIER_RETRY_MS:550,serveChunksNow:async m=>{sent=m;return true}});
+ await c.queueServeChunks({id:'bytes',liveId:'live',sid:'session',seekEpoch:1,mode:'stream',decoderCursor:5,indexes:[5],decoderHead:true,frontierRescue:true},'viewer');assert.equal(sent.indexes[0],5);assert.equal(sent.frontierRescue,true);assert.equal(sent.aggressive,false);assert.equal(sent.hedge,false);
+});
+test('successful updateend is the acknowledgement boundary, and stale MSE callbacks are ignored',()=>{
+ const{c}=chunkHarness(['ensureLiveChunkPlayer','pumpLiveChunkPlayer']);let open,update,appends=0;const sb={mode:'',updating:false,appendBuffer(){appends++},addEventListener(name,fn){if(name==='updateend')update=fn}};
+ c.previewMediaSourceType=()=>class{static isTypeSupported(){return true}addEventListener(name,fn){open=fn}addSourceBuffer(){return sb}};c.URL={createObjectURL:()=> 'blob:live'};
+ const bytes=new Uint8Array(8),v={el:{srcObject:null},preview:{},session:{},relayPending:new Map([[0,bytes]]),pendingBytes:8,relayNextSeq:0};c.activeLiveViewer=v;c.ensureLiveChunkPlayer(v,'video/webm');open();assert.equal(appends,1);assert.equal(v.relayNextSeq,0);assert.equal(v.relayPending.size,1);assert.equal(sb.mode,'segments');update();assert.equal(v.relayNextSeq,1);assert.equal(v.pendingBytes,0);assert.equal(v.ackDirty,true);
+ v.relaySourceBuffer={};v.appendSeq=5;update();assert.equal(v.relayNextSeq,1,'a replaced SourceBuffer cannot acknowledge newer data');
+});
+
+const webmFunctions=['liveEbmlElement','liveEbmlUnsigned','liveWebmVideoTracks','liveWebmCluster','normalizeLiveWebm'];
+function webmFixture(){
+ const join=(...a)=>new Uint8Array(a.flatMap(x=>Array.from(x))),element=(id,data)=>join(id,[0x80|data.length],data),cluster=t=>join([0x1f,0x43,0xb6,0x75,0xff,0xe7,0x81,t]);
+ const tracks=element([0x16,0x54,0xae,0x6b],join(element([0xae],[0xd7,0x81,1,0x83,0x81,1]),element([0xae],[0xd7,0x81,2,0x83,0x81,2])));
+ const block=(track,time,key,payload)=>element([0xa3],[0x80|track,time>>8&255,time&255,key?128:0,...payload]);
+ return join(tracks,cluster(0),block(1,0,true,[10,11]),block(2,0,true,[20,21]),block(1,33,false,[12,13]),cluster(60),block(2,0,true,[22,23]),block(1,6,false,[14,15]),cluster(100),block(1,0,true,[16,17]),block(2,20,true,[24,25]));
+}
+function readWebmBlocks(c,bytes){let time=0;const blocks=[],clusters=[];for(let pos=0;pos<bytes.length;){const e=c.liveEbmlElement(bytes,pos);assert.ok(e);if(e.id===0x1f43b675){clusters.push(pos);pos=e.body;continue}assert.ok(e.end<=bytes.length);if(e.id===0xe7)time=c.liveEbmlUnsigned(bytes,e.body,e.end);if(e.id===0xa3){const at=e.body+1,rel=bytes[at]<<8|bytes[at+1];blocks.push({track:bytes[e.body]&127,time:time+(rel&32768?rel-65536:rel),key:!!(bytes[at+2]&128),payload:[...bytes.slice(at+3,e.end)]})}pos=e.end}return{blocks,clusters}}
+test('WebM framing preserves every encoded A/V byte and timestamp, and splits only at video random access',()=>{
+ const{c}=chunkHarness(webmFunctions),raw=webmFixture(),original=readWebmBlocks(c,raw),state={},normalized=c.normalizeLiveWebm(state,raw),result=readWebmBlocks(c,normalized);
+ assert.equal(original.clusters.length,3);assert.equal(result.clusters.length,2,'a recorder timeslice between delta frames cannot recreate the video demuxer');assert.deepEqual(result.blocks,original.blocks.slice(0,-1),'container changes must not retime A/V or alter encoded frames');assert.equal(result.blocks.at(-1).key,true);assert.equal(state.pending.length,1,'hold the last audio packet until the video watermark catches up');assert.equal(state.pending[0].absolute,120);assert.deepEqual([...state.pending[0].bytes.slice(state.pending[0].relativeOffset+3)],[24,25]);
+});
+test('WebM parsing survives every possible input boundary, including inside block payloads and headers',()=>{
+ const{c}=chunkHarness(webmFunctions),raw=webmFixture(),whole=c.normalizeLiveWebm({},raw),state={},pieces=[];
+ for(const byte of raw)pieces.push(c.normalizeLiveWebm(state,new Uint8Array([byte])));assert.deepEqual(Buffer.concat(pieces),Buffer.from(whole));assert.equal(state.carry.length,0);
+ assert.throws(()=>c.liveEbmlElement(new Uint8Array([0])),/Invalid/);assert.throws(()=>c.liveWebmCluster(-1),/Invalid/);
+});
+test('a late audio packet is muxed before a video keyframe without changing either timestamp',()=>{
+ const{c}=chunkHarness(webmFunctions),raw=webmFixture(),key=[...raw].findIndex((_,i,a)=>a[i]===0xe7&&a[i+1]===0x81&&a[i+2]===100),part=new Uint8Array([0xa3,0x86,0x82,0xff,0xf6,0x80,30,31]),input=new Uint8Array(raw.length+part.length);
+ // Insert an audio packet at timestamp 90 after the keyframe at timestamp 100,
+ // before the later audio at 120. The muxer must wait for both track clocks.
+ const at=key+3+8;input.set(raw.slice(0,at));input.set(part,at);input.set(raw.slice(at),at+part.length);const state={},result=readWebmBlocks(c,c.normalizeLiveWebm(state,input));assert.deepEqual(result.blocks.map(x=>x.time),[0,0,33,60,66,90,100]);assert.deepEqual(result.blocks.find(x=>x.time===90).payload,[30,31]);assert.equal(result.clusters.length,2);
+});
+test('late RTC media acknowledgements, ICE and old unwatch cannot tear down a chunk stream',()=>{
+ const{c}=chunkHarness(['handleLivePath','handleLiveIce','handleLiveUnwatch']);let stopped=0,closed=0;c.stopLiveRelayRecorder=()=>stopped++;c.closeLivePublisherPeer=()=>closed++;c.renderTree=()=>{};c.queueLiveIce=()=>{throw Error('no stale media ICE in byte delivery')};
+ const state={chunked:true,sid:'current',relay:{stopped:false}};c.localLive={id:'live',peers:new Map([['viewer',state]])};c.handleLivePath({id:'live',actor:'viewer',path:'webrtc-media-active'});c.handleLiveIce({id:'live',actor:'viewer',candidate:{}});c.handleLiveUnwatch({id:'live',actor:'viewer'});c.handleLiveUnwatch({id:'live',actor:'viewer',sid:'old'});assert.equal(stopped,0);assert.equal(closed,0);assert.equal(state.relay.stopped,false);c.handleLiveUnwatch({id:'live',actor:'viewer',sid:'current'});assert.equal(closed,1);
+});
+test('a growing live media duration cannot be mistaken for a completed file or cap its recovery reserve',()=>{
+ const{c}=chunkHarness(['mediaOriginalDuration']);assert.equal(c.mediaOriginalDuration({mode:'live',media:{duration:4}}),0);assert.equal(c.mediaOriginalDuration({mode:'mp4box',media:{duration:4}}),4);
+});
+test('ManagedMediaSource live playback disables remote playback before attaching its media URL',()=>{
+ const{c}=chunkHarness(['ensureLiveChunkPlayer']);const MS=class{static isTypeSupported(){return true}addEventListener(){}};c.window.ManagedMediaSource=MS;c.previewMediaSourceType=()=>MS;c.URL={createObjectURL:()=> 'blob:managed'};let attached=false;const el={set src(value){assert.equal(this.disableRemotePlayback,true);attached=value==='blob:managed'}};assert.equal(c.ensureLiveChunkPlayer({el},'video/mp4;codecs=avc1.42E01E'),true);assert.equal(attached,true);
+});
