@@ -424,6 +424,34 @@ function relayContext(){
   Object.assign(c,{relayWriteReservations:new WeakMap(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder(),setTimeout,clearTimeout});
   return c;
 }
+test('common-broker frames deliver to their recipient without recruiting legacy bridge peers', async () => {
+  const c=context(['relayBinaryFrames']);
+  Object.assign(c,{actor:'source',RELAY_DATA_FRAME_CHARS:21000,bytesToB64:()=> 'AAAA',privacyPublicNknAddr:()=>'',seal:async x=>x});
+  const direct=await c.relayBinaryFrames(new Uint8Array(3),{sid:'session'},'viewer','source',0,'rid',21000,true);
+  assert.equal(direct[0].target,'viewer');
+  assert.equal(direct[0].to,'','legacy clients consume ordinary room frames without entering their targeted-frame bridging path');
+  const bridge=await c.relayBinaryFrames(new Uint8Array(3),{},'viewer','source',0,'rid',21000,false);
+  assert.equal(bridge[0].to,'viewer','a cross-plane recipient retains bridge routing');
+});
+test('control fragments preserve their original targeted address', async () => {
+  const c=context(['relayFrames']);
+  Object.assign(c,{actor:'source',crypto:{randomUUID:()=> 'rid'},privacyPublicNknAddr:()=>'',seal:async x=>x});
+  const frames=await c.relayFrames('control packet','viewer');
+  assert.equal(frames[0].to,'viewer');assert.equal(frames[0].kind,'ctlfrag');
+});
+test('relay bridging is unnecessary for a shared carrier and preserves actual bridge provenance', async () => {
+  const c=context(['consumeRelayFrame']),published=[],noted=[];
+  const frame={v:9,kind:'binfrag',rid:'frame',from:'source',to:'viewer',i:0,n:1,d:'AAAA',ts:Date.now()};
+  Object.assign(c,{actor:'bridge',RELAY_DATA_FRAME_CHARS:21000,RELAY_DATA_MAX_HOPS:2,RELAY_PLANES:['nats','mqtt','nostr'],relayBridgeSeen:new Map(),openSeal:async()=>frame,noteRelayActor:(...x)=>noted.push(x),meshHasActiveTransfer:()=>false,relayPlaneName:x=>x,remoteRelayPlanes:()=>['nats','mqtt'],seal:async x=>x,publishRelayRawOnPlane:async(...x)=>published.push(x)});
+  await c.consumeRelayFrame('sealed','nats');assert.equal(published.length,0,'a second viewer cannot amplify media onto unused brokers');
+  c.remoteRelayPlanes=()=>['mqtt'];frame.rid='cross-plane';
+  await c.consumeRelayFrame('sealed','nats');assert.equal(published.length,1);assert.equal(published[0][0],'mqtt');
+  await c.consumeRelayFrame('sealed','nats');assert.equal(published.length,1,'a cross-plane fragment is forwarded once');
+  frame.hop=1;frame.via='actual-bridge';frame.target='another-viewer';frame.to='';noted.length=0;
+  await c.consumeRelayFrame('sealed','mqtt');
+  assert.ok(noted.some(x=>x[0]==='actual-bridge'&&x[2]==='mqtt'));
+  assert.ok(!noted.some(x=>x[0]==='source'&&x[2]==='mqtt'),'forwarding does not falsely advertise the original source on the bridge carrier');
+});
 test('relay admission retains actual pending writes and reserves room for the frontier', () => {
   const c=relayContext(),client={protocol:{transport:{socket:{bufferedAmount:0}}}},chunk=900000;
   const release=c.reserveRelayWrite(client,chunk);
@@ -596,7 +624,7 @@ test('decoder progress retires queued copies delivered by rescue and rejects lat
 
 test('normal decoder lookahead can use reserved relay capacity before it becomes a rescue', async () => {
   const c=context(['publishRelayBinaryPacket']),admissions=[];
-  Object.assign(c,{actor:'source',localRelayPlanes:()=>['nats'],relayBinaryFrameChars:()=>48000,relayBinaryFrames:async()=>['frame'],publishRelayBinaryFrames:async(plane,frames,critical)=>{admissions.push(critical);return true},firstSuccessfulSend:async jobs=>(await Promise.all(jobs)).some(Boolean)});
+  Object.assign(c,{actor:'source',localRelayPlanes:()=>['nats'],remoteRelayPlanes:()=>[],relayBinaryFrameChars:()=>48000,relayBinaryFrames:async()=>['frame'],publishRelayBinaryFrames:async(plane,frames,critical)=>{admissions.push(critical);return true},firstSuccessfulSend:async jobs=>(await Promise.all(jobs)).some(Boolean)});
   await c.publishRelayBinaryPacket(new Uint8Array(),{decoderHead:true},'viewer');
   await c.publishRelayBinaryPacket(new Uint8Array(),{},'viewer');
   assert.deepEqual(admissions,[true,false]);

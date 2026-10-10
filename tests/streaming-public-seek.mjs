@@ -10,6 +10,7 @@ const {chromium}=require('playwright');
 const fixture=process.argv[2];if(!fixture)throw Error('Pass a local MP4 path');
 const resultPath=process.env.RESULT||'/tmp/tracker-public-results.json';
 const html=process.env.TRACKER_HTML&&fs.readFileSync(process.env.TRACKER_HTML,'utf8');
+const legacyHtml=process.env.LEGACY_VIEWER_HTML&&fs.readFileSync(process.env.LEGACY_VIEWER_HTML,'utf8');
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-gpu','--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling','--disable-renderer-backgrounding',...(process.env.DEBUG_PORT?['--remote-debugging-port='+process.env.DEBUG_PORT]:[])]});
 const errors=[],samples=[];let url;
 async function snapshot(page){return page.evaluate(()=>{
@@ -26,7 +27,8 @@ try {
  for(const [i,c] of contexts.entries()){
   if(process.env.DECODER_PRIMARY_BLOCKED==='1')await c.route('https://cdn.jsdelivr.net/npm/mp4box@*/+esm',r=>r.abort('failed'));
   if(i>0&&process.env.MANAGED_API_ONLY==='1')await c.addInitScript(()=>{window.ManagedMediaSource=window.MediaSource;delete window.MediaSource});
-  if(html)await c.route('https://robit-man.github.io/tracker/',r=>r.fulfill({contentType:'text/html',body:html}));
+  const contextHtml=i===2&&legacyHtml?legacyHtml:html;
+  if(contextHtml)await c.route('https://robit-man.github.io/tracker/',r=>r.fulfill({contentType:'text/html',body:contextHtml}));
   if(process.env.RELAY_ONLY==='1')await c.addInitScript(()=>{
    // Force failed direct ICE without replacing any transport or application code.
    const Native=window.RTCPeerConnection;

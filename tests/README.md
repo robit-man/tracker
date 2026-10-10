@@ -117,6 +117,9 @@ It additionally audits the buffer ten times per second and rejects rebuffering
 events after buildup. Add `EXTRA_VIEWER=1` to keep a second mobile receiver
 streaming from the same source while the tested receiver seeks and refills;
 this exercises shared relay capacity and duplicate frontier recovery traffic.
+`LEGACY_VIEWER_HTML=/path/to/older-index.html` loads a saved older build in that
+extra viewer, checking that common-broker media does not recruit legacy peers
+into redundant forwarding while both receivers continue playing.
 
 Reproduce decoder-CDN failure and false whole-movie SAFE accounting with a real MP4:
 
