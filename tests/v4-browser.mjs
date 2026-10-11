@@ -17,7 +17,8 @@ try{
  await p.locator('#fileInput').setInputFiles({name:'folder-file.txt',mimeType:'text/plain',buffer:Buffer.from('direct link content')});
  await p.locator('.row[data-cid] [data-file-link]').waitFor();
  const cid=await p.locator('.row[data-cid]').getAttribute('data-cid'),baseline=await p.evaluate(()=>({hash:__v4.roomHash,db:__v4.dbName}));
- await p.locator('[data-file-link]').click();assert.equal(await p.evaluate(()=>navigator.clipboard.readText()),site+'#'+secret+'/f/'+cid.slice(2));
+ assert.equal(await p.evaluate(cid=>__v4.contents.get(cid)?.proof?.protocol,cid),4);assert.equal(await p.evaluate(()=>[...__v4.catalog.values()][0].proof.protocol),4);
+ await p.locator('[data-file-link]').click();await p.waitForFunction(async expected=>await navigator.clipboard.readText()===expected,site+'#'+secret+'/f/'+cid.slice(2));
  await p.goto(site+'#'+secret+'/f/'+cid.slice(2));await p.waitForFunction(()=>window.__v4?.selected);
  assert.deepEqual(await p.evaluate(()=>({hash:__v4.roomHash,db:__v4.dbName})),baseline);
  assert.equal(await p.locator('.row.selected').getAttribute('data-cid'),cid);results.checks.push('same room hash and DB; exact local file selection; copy file link');

@@ -288,6 +288,8 @@ let fileLocator=null,fileLinkError='',fileLinkStarted=0,fileLinkTimer=0,fileLink
 let nodeIdentity=null,identityStatus='starting';
 const actorKeys=new Map(),verifiedPublicKeys=new Map(),authenticatedReplay=new Map();
 let securityPinsWrite=Promise.resolve();
+const catalogOperations=new Map(),pendingCatalogOperations=new Map(),revisionSlots=new Map();
+let catalogPersistWrite=Promise.resolve();
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -486,6 +488,35 @@ async function verifyControlV4(m){
 }
 /* End V4 authentication. */
 
+/* Independently signed immutable manifests and catalog revisions survive forwarding. */
+function recordBodyV4(record){const body={...record};delete body.proof;return body}
+async function signRecordV4(record,domain){
+  if(!nodeIdentity)return record;
+  const proof={protocol:4,algorithm:'Ed25519',domain,roomHash,actor,nodeId:nodeIdentity.nodeId,publicKey:base64url(nodeIdentity.publicKeyRaw)};
+  proof.signature=base64url(new Uint8Array(await crypto.subtle.sign('Ed25519',nodeIdentity.privateKey,canonicalEncodeV4({...proof,body:recordBodyV4(record)}))));return{...record,proof};
+}
+async function verifyRecordV4(record,domain,author){
+  const p=record?.proof;if(p===undefined)return false;
+  if(!p||p.protocol!==4||p.algorithm!=='Ed25519'||p.domain!==domain||p.roomHash!==roomHash||p.actor!==author)throw Error('Invalid record context');
+  const header={...p};delete header.signature;
+  if(!await crypto.subtle.verify('Ed25519',await publicKeyV4(p.publicKey,p.nodeId),decodeBase64url(p.signature,64),canonicalEncodeV4({...header,body:recordBodyV4(record)})))throw Error('Record signature rejected');
+  await pinActorV4(author,p.nodeId);return true;
+}
+function catalogShapeV4(x){
+  return!!(x&&typeof x.id==='string'&&x.id.length<=128&&['file','folder'].includes(x.kind)&&typeof x.name==='string'&&x.name.length>0&&x.name.length<=240&&(x.parent==null||typeof x.parent==='string'&&x.parent.length<=128&&x.parent!==x.id)&&x.v&&Number.isSafeInteger(x.v.c)&&x.v.c>=0&&x.v.c<=1e12&&typeof x.v.a==='string'&&x.v.a.length<=128&&(x.kind==='folder'||/^f-[0-9a-f]{64}$/.test(x.contentId)));
+}
+async function signCatalogOperationV4(entry,previous=null){
+  if(!nodeIdentity)return entry;
+  const operation={...entry,operationId:crypto.randomUUID(),previousRevision:previous?.operationId||(previous?'legacy:'+previous.v.c+':'+previous.v.a:null),operationAt:Date.now()};
+  const signed=await signRecordV4(operation,'robit-tracker-catalog-v4');catalogOperations.set(signed.operationId,signed);revisionSlots.set(`${signed.id}|${signed.v.a}|${signed.v.c}`,signed.operationId);return signed;
+}
+function catalogParentSafeV4(entry){let parent=entry.parent;const visited=new Set([entry.id]);for(let depth=0;parent;depth++){if(depth>=128||visited.has(parent))return false;visited.add(parent);parent=catalog.get(parent)?.parent}return true}
+async function saveCatalogStateV4(){
+  const snapshot=[['catalog',[...catalog.values()]],['contents',[...contents.values()]],['catalogOperations',[...catalogOperations.values()]]];
+  const save=async()=>{const values=await Promise.all(snapshot.map(async([key,value])=>[key,await encryptBytes(enc.encode(JSON.stringify(value)),'local:'+key)]));await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite');for(const[key,value]of values)tx.objectStore('kv').put(value,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Catalog transaction aborted'))})};
+  catalogPersistWrite=catalogPersistWrite.catch(()=>{}).then(save);return catalogPersistWrite;
+}
+
 /* Origin-scoped identity; private CryptoKeys never leave this separate DB. */
 function openIdentityDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open('robit-node-identity-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('identity');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Identity database is blocked'))})}
 function identityRead(d){return new Promise((resolve,reject)=>{const tx=d.transaction('identity','readonly'),r=tx.objectStore('identity').get('node');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
@@ -524,7 +555,7 @@ function idbDeletePrefix(store,prefix){return new Promise((resolve,reject)=>{
 function idbClear(store){return new Promise((resolve,reject)=>{try{const r=db.transaction(store,'readwrite').objectStore(store).clear();r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)}catch(e){reject(e)}})}
 async function putKV(k,v){await idbPut('kv',k,await encryptBytes(enc.encode(JSON.stringify(v)),'local:'+k))}
 async function getKV(k,fallback){try{const p=await idbGet('kv',k);if(!p)return fallback;return JSON.parse(dec.decode(await decryptBytes(p,'local:'+k)))}catch(_){return fallback}}
-async function saveState(){await putKV('catalog',[...catalog.values()]);await putKV('contents',[...contents.values()]);await putKV('selectedSeeds',[...selectedSeeds]);await putKV('seedMode',seedMode);await putKV('cachedComplete',[...cachedComplete]);await putKV('seedSalts',[...seedSalts]);await putKV('sourceClaims',[...sourceClaims]);await putKV('sourceStamps',[...sourceStamps]);await putKV('downloadJobs',[...downloadJobs.values()])}
+async function saveState(){await saveCatalogStateV4();await putKV('selectedSeeds',[...selectedSeeds]);await putKV('seedMode',seedMode);await putKV('cachedComplete',[...cachedComplete]);await putKV('seedSalts',[...seedSalts]);await putKV('sourceClaims',[...sourceClaims]);await putKV('sourceStamps',[...sourceStamps]);await putKV('downloadJobs',[...downloadJobs.values()])}
 function sourceStamp(file){return file?{name:String(file.name||''),size:Number(file.size)||0,lastModified:Number(file.lastModified)||0}:null}
 function stampMatches(file,stamp){if(!file||!stamp)return false;return Number(file.size)===Number(stamp.size)&&(!stamp.lastModified||!file.lastModified||Number(file.lastModified)===Number(stamp.lastModified))}
 async function cacheHasCompleteContent(cid){const c=contents.get(cid);if(!c)return false;try{const total=contentTotal(c);if(total<1)return false;const count=await idbCountPrefix('chunks',cid+':');if(count!==total)return false;const first=await idbGet('chunks',chunkKey(cid,0));if(!first)return false;if(total>1&&!(await idbGet('chunks',chunkKey(cid,total-1))))return false;return true}catch(_){return false}}
@@ -554,8 +585,9 @@ async function loadLocal(){
   for(const [a,n]of await getKV('actorKeys',[]))actorKeys.set(a,n);
   if(nodeIdentity){if(actorKeys.has(actor)&&actorKeys.get(actor)!==nodeIdentity.nodeId){actor=crypto.randomUUID();await putKV('actor',actor);toast('A new node identity was created. Previous signatures retain their original author.','good')}await pinActorV4(actor,nodeIdentity.nodeId)}
   seedMode=await getKV('seedMode','selected');
-  for(const x of await getKV('catalog',[]))catalog.set(x.id,x);
+  for(const x of await getKV('catalog',[])){catalog.set(x.id,x);absorbV(x.v)}
   for(const x of await getKV('contents',[]))contents.set(x.id,x);
+  for(const x of await getKV('catalogOperations',[])){if(await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v?.a)){catalogOperations.set(x.operationId,x);revisionSlots.set(`${x.id}|${x.v.a}|${x.v.c}`,x.operationId)}}
   for(const x of await getKV('selectedSeeds',[]))selectedSeeds.add(x);
   for(const x of await getKV('cachedComplete',[]))cachedComplete.add(x);
   for(const [k,v] of await getKV('seedSalts',[]))seedSalts.set(k,v);
@@ -635,10 +667,10 @@ function renderDetails(){
   if(!x){d.innerHTML='<div class="sideHint">Select a file, folder, or live media entry to inspect it.</div>';return}
   if(x.kind==='folder'){const st=folderStats(x.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>files</dt><dd>${st.files}</dd><dt>size</dt><dd>${fmtBytes(st.size)}</dd><dt>available</dt><dd>${st.available}/${st.files}</dd></dl>`;return}
   const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||''),holders=seedActors(x.contentId),have=localHave.has(x.contentId),locked=!!c.locked,unlocked=!locked||unlockedMeta.has(c.id),m=unlockedMeta.get(c.id);
-  const svp=sourceVerifyProgress.get(c.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>display name</dt><dd>${esc(visibleName(x))}</dd><dt>size</dt><dd>${fmtBytes(visibleSize(x,c))}</dd><dt>type</dt><dd>${esc(unlocked?inferMime(visibleName(x),visibleType(x,c)):'encrypted / hidden')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>active</dt><dd>${activeStreamCount(c.id)}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd>${svp?`<dt>verification</dt><dd>${Math.round((svp.fraction||0)*100)}% · ${fmtBytes(svp.done||0)} / ${fmtBytes(svp.total||0)}${svp.rate?` · ${fmtRate(svp.rate)}`:''}</dd>`:''}${locked?`<dt>lock</dt><dd>${unlocked?'unlocked in this tab':'password locked'}</dd><dt>PBKDF2</dt><dd>${Number(c.lock?.iterations)||600000} iterations</dd><dt>seeder envelopes</dt><dd>${holders.length} independent salt${holders.length===1?'':'s'}</dd>`:''}</dl>${locked&&!unlocked?'<div class="sideHint">The real filename and MIME type are encrypted. Click the scrambled title to enter the password.</div>':''}${holders.length?`<div class="sideHint" style="margin-top:7px">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
+  const svp=sourceVerifyProgress.get(c.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>display name</dt><dd>${esc(visibleName(x))}</dd><dt>size</dt><dd>${fmtBytes(visibleSize(x,c))}</dd><dt>type</dt><dd>${esc(unlocked?inferMime(visibleName(x),visibleType(x,c)):'encrypted / hidden')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>provenance</dt><dd>${c.proof?'Signed publisher · '+esc(c.proof.nodeId):'Legacy · unverified publisher'}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>active</dt><dd>${activeStreamCount(c.id)}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd>${svp?`<dt>verification</dt><dd>${Math.round((svp.fraction||0)*100)}% · ${fmtBytes(svp.done||0)} / ${fmtBytes(svp.total||0)}${svp.rate?` · ${fmtRate(svp.rate)}`:''}</dd>`:''}${locked?`<dt>lock</dt><dd>${unlocked?'unlocked in this tab':'password locked'}</dd><dt>PBKDF2</dt><dd>${Number(c.lock?.iterations)||600000} iterations</dd><dt>seeder envelopes</dt><dd>${holders.length} independent salt${holders.length===1?'':'s'}</dd>`:''}</dl>${locked&&!unlocked?'<div class="sideHint">The real filename and MIME type are encrypted. Click the scrambled title to enter the password.</div>':''}${holders.length?`<div class="sideHint" style="margin-top:7px">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
 }
 
-async function ensureFolderPath(parts){let parent=null,path='';for(const raw of parts){const name=safeName(raw);path+=(path?'/':'')+name;const id='d-'+await shortHash('dir:'+path,28);let old=catalog.get(id);if(!old){old={id,kind:'folder',parent,name,created:Date.now(),createdBy:actor,v:nextV(),deleted:false};catalog.set(id,old);expanded.add(id);broadcast(msg('catalog',{entries:[old]}))}parent=id}return parent}
+async function ensureFolderPath(parts){let parent=null,path='';for(const raw of parts){const name=safeName(raw);path+=(path?'/':'')+name;const id='d-'+await shortHash('dir:'+path,28);let old=catalog.get(id);if(!old){old={id,kind:'folder',parent,name,created:Date.now(),createdBy:actor,v:nextV(),deleted:false};old=await signCatalogOperationV4(old);catalog.set(id,old);expanded.add(id);await saveState();broadcast(msg('catalog',{entries:[old]})).catch(()=>{})}parent=id}return parent}
 async function swarmInit(size,total,chunkSize=CHUNK_SIZE){return sha256Bytes(`robit-swarm-v2\0${size}\0${chunkSize}\0${total}`)}
 async function swarmStep(state,chunkHash){return sha256Bytes(concatBytes(state,chunkHash))}
 function verificationYield(){return new Promise(r=>setTimeout(r,0))}
@@ -694,12 +726,13 @@ async function addFiles(items,{password=null}={}){
     try{
       const rel=String(relativePath||file.name).replace(/^\/+/,''),parts=rel.split('/').filter(Boolean),realName=safeName(parts.pop()||file.name),parent=await ensureFolderPath(parts);let lastShown=-1,cid,content,entryName=realName,hashed;
       if(password){
-        toast(`<b>Encrypting + indexing</b> ${esc(realName)} · password locked`);const lockCtx=await makeFileLock(password,realName,file.type||inferMime(realName,''),file.size);hashed=await hashLockedFileStreaming(file,lockCtx.fileKey,lockCtx.lock,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('locked hash',realName,pct+'%')}});cid='f-'+hashed.root;entryName='locked-'+bytesToHex(randomBytes(7))+'.vault';content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:hashed.cipherSize,type:'application/octet-stream',chunkSize:hashed.chunkSize,plainChunkSize:hashed.plainChunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now(),locked:true,lock:lockCtx.lock};contents.set(cid,content);unlockedKeys.set(cid,lockCtx.fileKey);unlockedMeta.set(cid,{name:realName,type:file.type||inferMime(realName,''),plainSize:file.size})
+        toast(`<b>Encrypting + indexing</b> ${esc(realName)} · password locked`);const lockCtx=await makeFileLock(password,realName,file.type||inferMime(realName,''),file.size);hashed=await hashLockedFileStreaming(file,lockCtx.fileKey,lockCtx.lock,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('locked hash',realName,pct+'%')}});cid='f-'+hashed.root;entryName='locked-'+bytesToHex(randomBytes(7))+'.vault';content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:hashed.cipherSize,type:'application/octet-stream',chunkSize:hashed.chunkSize,plainChunkSize:hashed.plainChunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now(),locked:true,lock:lockCtx.lock};unlockedKeys.set(cid,lockCtx.fileKey);unlockedMeta.set(cid,{name:realName,type:file.type||inferMime(realName,''),plainSize:file.size})
       }else{
-        toast(`<b>Indexing</b> ${esc(realName)} · streaming hash, no size cap`);hashed=await hashFileStreaming(file,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('hash',realName,pct+'%')}});cid='f-'+hashed.root;content=contents.get(cid);if(!content){content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:file.size,type:file.type||inferMime(realName,''),chunkSize:hashed.chunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now()};contents.set(cid,content)}
+        toast(`<b>Indexing</b> ${esc(realName)} · streaming hash, no size cap`);hashed=await hashFileStreaming(file,p=>{const pct=Math.floor(p*100);if(pct>=lastShown+20){lastShown=pct;console.info('hash',realName,pct+'%')}});cid='f-'+hashed.root;content=contents.get(cid);if(!content){content={id:cid,root:hashed.root,sha:hashed.root,hashAlg:HASH_ALG,size:file.size,type:file.type||inferMime(realName,''),chunkSize:hashed.chunkSize,totalChunks:hashed.total,originActor:actor,originAlias:aliasFor(actor),originAt:Date.now()};}
       }
+      if(!contents.has(cid)){content=await signRecordV4(content,'robit-tracker-manifest-v4');contents.set(cid,content)}
       const pathKey=(parent||'root')+'/'+entryName.toLowerCase(),eid='r-'+await shortHash('entry:'+pathKey,28),old=catalog.get(eid),entry={id:eid,kind:'file',parent,name:entryName,contentId:cid,created:old?.created||Date.now(),v:nextV(),deleted:false,locked:!!password};
-      catalog.set(eid,entry);sourceFiles.set(cid,file);localHave.add(cid);selectedSeeds.add(cid);seedSaltFor(cid);await rememberLocalSource(cid,file,handle);changed.push(entry);await saveState();toast(`<b>Added</b> ${esc(password?entryName:realName)} · ${fmtBytes(file.size)}${password?' · locked':''}`,'good')
+      Object.assign(entry,await signCatalogOperationV4(entry,old));catalog.set(eid,entry);sourceFiles.set(cid,file);localHave.add(cid);selectedSeeds.add(cid);seedSaltFor(cid);await rememberLocalSource(cid,file,handle);changed.push(entry);await saveState();toast(`<b>Added</b> ${esc(password?entryName:realName)} · ${fmtBytes(file.size)}${password?' · locked':''}`,'good')
     }catch(e){toast(`<b>Add failed.</b> ${esc(e.message||e)}`,'bad')}
   }
   if(changed.length){await broadcast(msg('catalog',{entries:changed,contents:changed.map(x=>contents.get(x.contentId)).filter(Boolean)}));await broadcastAvailability();renderAll()}
@@ -1525,11 +1558,11 @@ async function handleControl(packet,meta={},w=null,origin='direct'){
   bridgePacket(packet,m,origin).catch(()=>{});if(m.to&&m.to!==actor)return;
   switch(m.type){
     case'hello':if(fileLocator)queryFileLocator(m.actor).catch(()=>{});if(!m.reply)sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()})).catch(()=>{});sendActor(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});if(localLive)sendLiveAnnouncement(m.actor).catch(()=>{});if(first)sendActor(m.actor,msg('state-req')).catch(()=>{});{const ss=activeStreamSession();if(ss)announceStreamDemand(ss,m.actor).catch(()=>{})}break;
-    case'state-req':sendActor(m.actor,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],availability:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break;
-    case'state':await mergeState(m.entries||[],m.contents||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.availability||[]);break;
-    case'catalog':await mergeState(m.entries||[],m.contents||[]);break;
-    case'content-query':{const c=contents.get(m.cid);if(validContentShape(c)){const entries=[...catalog.values()].filter(x=>!x.deleted&&x.contentId===m.cid).slice(0,32);sendActor(m.actor,msg('content-result',{cid:m.cid,entries,contents:[c]})).catch(()=>{})}break;}
-    case'content-result':if(fileLocator&&m.cid===fileLocator.cid&&Array.isArray(m.contents)&&m.contents.every(c=>c.id===m.cid&&validContentShape(c))){await mergeState((m.entries||[]).filter(x=>x.kind==='file'&&x.contentId===m.cid),m.contents)}break;
+    case'state-req':sendActor(m.actor,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],operations:[...catalogOperations.values()],availability:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break;
+    case'state':await mergeState(m.entries||[],m.contents||[],m,m.operations||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.availability||[]);break;
+    case'catalog':await mergeState(m.entries||[],m.contents||[],m,m.operations||[]);break;
+    case'content-query':{const c=contents.get(m.cid);if(validContentShape(c)){const entries=[...catalog.values()].filter(x=>!x.deleted&&x.contentId===m.cid).slice(0,32);sendActor(m.actor,msg('content-result',{cid:m.cid,entries,contents:[c],operations:[...catalogOperations.values()].filter(x=>entries.some(e=>e.id===x.id)).slice(-1024)})).catch(()=>{})}break;}
+    case'content-result':if(fileLocator&&m.cid===fileLocator.cid&&Array.isArray(m.contents)&&m.contents.every(c=>c.id===m.cid&&validContentShape(c))){await mergeState((m.entries||[]).filter(x=>x.kind==='file'&&x.contentId===m.cid),m.contents,m,m.operations||[])}break;
     case'availability':{const prev=peerSeeds.get(m.actor)||new Set(),next=new Set(m.ids||[]),changed=prev.size!==next.size||[...next].some(x=>!prev.has(x));peerSeeds.set(m.actor,next);peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.ids||[]);const ss=activeStreamSession();if(ss&&next.has(ss.cid)){ss.holders.add(m.actor);announceStreamDemand(ss,m.actor).catch(()=>{});scheduleSession(ss,0)}if(changed){renderAll();refreshTransfer(true);refreshPreviewStats(true)}break;}
     case'seed-query':{const requested=(m.ids||[]).filter(id=>seedEnabled(id));for(const id of requested){try{if(!(await readLocalChunk(id,0)))await markUnreadableSeed(id,m.actor)}catch(_){await markUnreadableSeed(id,m.actor)}}sendActorIngress(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break}
     case'route-promote':wakeSeederRecoveryTransports();if(m.nknAddr)ensureNknRoute(m.nknAddr,m.actor).catch(()=>{});if(natsState.nc&&!natsState.sessions.has(m.actor)&&actor<m.actor)makeNatsOffer(m.actor).catch(()=>{});sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr(),promoted:true})).catch(()=>{});break;
@@ -1554,7 +1587,7 @@ async function broadcastAvailability(){await broadcast(msg('availability',{ids:a
 
 /* A pending permalink is navigation state, never a persisted download or fake catalog row. */
 function validContentShape(c){
-  if(!c||typeof c.id!=='string'||!/^f-[0-9a-f]{64}$/.test(c.id)||typeof c.root!=='string'||c.id!=='f-'+c.root||c.hashAlg!==HASH_ALG)return false;
+  if(!c||typeof c.id!=='string'||!/^f-[0-9a-f]{64}$/.test(c.id)||typeof (c.root||c.sha)!=='string'||c.id!=='f-'+(c.root||c.sha)||(c.hashAlg!=null&&c.hashAlg!==HASH_ALG))return false;
   if(!Number.isSafeInteger(c.size)||c.size<0||!Number.isSafeInteger(c.chunkSize)||c.chunkSize<65536||c.chunkSize>16*1024*1024||!Number.isSafeInteger(c.totalChunks)||c.totalChunks<1||c.totalChunks!==Math.max(1,Math.ceil(c.size/c.chunkSize)))return false;
   if(typeof c.type!=='string'||c.type.length>240)return false;
   return !c.locked||!!(c.lock&&JSON.stringify(c.lock).length<16384);
@@ -1609,7 +1642,32 @@ function stopMesh(){meshStopped=true;clearInterval(meshSupervisorTimer);clearInt
 window.PrivateTrackerMesh={live:liveTransportStatus,endpointCount:SIGNALING_ENDPOINT_TOTAL,endpoints:SIGNALING_ENDPOINTS,writeBacklog:()=>({nats:relayWriteBacklog(natsState.nc),mqtt:Object.fromEntries([...mqttRelayState.clients].map(([url,c])=>[url,relayWriteBacklog(c)]))}),status:()=>Object.fromEntries(meshStatus),routes:()=>Object.fromEntries([...peerRoutes].map(([a,m])=>[a,[...m.values()].map(routeDescriptor)])),primaries:()=>Object.fromEntries([...peerPrimaryRoute].map(([a,id])=>[a,routeDescriptor(peerRoutes.get(a)?.get(id))])),relayActors:()=>Object.fromEntries(relayActors),endpointHealth:()=>Object.fromEntries(endpointHealth),nkn:()=>({connected:nknState.connected,address:nknState.addr,routes:nknState.routes.size,pending:nknState.pendingSends,dropped:nknState.droppedSends}),nats:()=>({connected:!!natsState.nc,sessions:natsState.sessions.size,servers:configuredNatsServers()}),setNatsServers:servers=>{const v=[...new Set((Array.isArray(servers)?servers:[]).map(String).filter(x=>/^wss:\/\//i.test(x)))];localStorage.setItem('private-tracker-nats-servers',JSON.stringify(v));stopNats();startNats().catch(()=>{});return configuredNatsServers()},mqtt:()=>({brokers:[...mqttRelayState.ready],topic:mqttRelayState.topic}),nostr:()=>({relays:nostrRelayState.relays,lastRx:nostrRelayState.lastRx}),turn:()=>({servers:storedTurnIce(),policy:rtcConfig().iceTransportPolicy}),setTurn:v=>{const x=normalizeIceServers(v);localStorage.setItem('private-tracker-turn-ice',JSON.stringify(x));runtimeTurnIce=x;return x},setTurnCredentialUrl:url=>{if(url)localStorage.setItem('private-tracker-turn-url',String(url));else localStorage.removeItem('private-tracker-turn-url');return refreshTurnIce()},forceRelayIce:(on=true)=>{localStorage.setItem('private-tracker-ice-policy',on?'relay':'all');return rtcConfig().iceTransportPolicy},handshake:()=>meshSupervisorTick(),probe:()=>probeAllPeerRoutes()};
 window.addEventListener('pagehide',()=>{try{stopMesh()}catch(_){}},{once:true});
 
-async function mergeState(entries,contentRows){for(const c of contentRows){if(!c?.id)continue;const old=contents.get(c.id);if(!old)contents.set(c.id,c)}for(const x of entries){if(!x?.id||!x.v)continue;absorbV(x.v);const old=catalog.get(x.id);if(!old||cmpV(x.v,old.v)>0)catalog.set(x.id,x)}await saveState();renderAll()}
+async function mergeState(entries,contentRows,context={},operations=[]){
+  if(!Array.isArray(entries)||!Array.isArray(contentRows)||!Array.isArray(operations)||Math.max(entries.length,contentRows.length,operations.length)>1024)return;
+  for(const c of contentRows){
+    try{if(!validContentShape(c))continue;const signed=await verifyRecordV4(c,'robit-tracker-manifest-v4',c.originActor),old=contents.get(c.id);
+      if(old){/* Content descriptors are immutable, including encryption and publisher metadata. */if(canonicalStringV4(recordBodyV4(old))!==canonicalStringV4(recordBodyV4(c)))continue;if(!old.proof&&signed)contents.set(c.id,c)}else contents.set(c.id,c);
+    }catch(_){/* A bad embedded record does not authenticate through its snapshot's signer. */}
+  }
+  for(const x of [...operations,...entries]){
+    try{if(!catalogShapeV4(x))continue;const old=catalog.get(x.id),signed=await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v.a);
+      if(!signed){if(old?.proof||actorKeys.has(x.v.a)||!catalogParentSafeV4(x))continue;if(!old||cmpV(x.v,old.v)>0){catalog.set(x.id,x);absorbV(x.v)}continue}
+      if(typeof x.operationId!=='string'||x.operationId.length>128||!Number.isSafeInteger(x.operationAt)||!(x.previousRevision===null||typeof x.previousRevision==='string'&&x.previousRevision.length<=256))continue;
+      const slot=`${x.id}|${x.v.a}|${x.v.c}`,slotId=revisionSlots.get(slot);if(slotId&&slotId!==x.operationId)continue;
+      const known=catalogOperations.get(x.operationId)||pendingCatalogOperations.get(x.operationId);if(known&&canonicalStringV4(known)!==canonicalStringV4(x))continue;
+      if(catalogOperations.size+pendingCatalogOperations.size>=100000&&!known)continue;
+      revisionSlots.set(slot,x.operationId);pendingCatalogOperations.set(x.operationId,x);
+    }catch(_){}
+  }
+  let progress=true;while(progress){progress=false;for(const[id,x]of pendingCatalogOperations){
+    const previous=x.previousRevision&&catalogOperations.get(x.previousRevision),old=catalog.get(x.id),legacy=typeof x.previousRevision==='string'&&x.previousRevision.startsWith('legacy:');
+    if(x.previousRevision&&!previous&&!legacy)continue;
+    if(previous&&(previous.id!==x.id||x.v.c<=previous.v.c||x.v.c>previous.v.c+1000000)||!previous&&x.v.c>1000000||legacy&&old?.proof||!catalogParentSafeV4(x)){pendingCatalogOperations.delete(id);continue}
+    catalogOperations.set(id,x);pendingCatalogOperations.delete(id);progress=true;
+    if(!old||!old.proof||cmpV(x.v,old.v)>0||cmpV(x.v,old.v)===0&&x.operationId>old.operationId){catalog.set(x.id,x);absorbV(x.v)}
+  }}
+  await saveState();renderAll();
+}
 function updateSessionSeeder(remote,ids){const set=new Set(ids);for(const s of sessions.values()){if(set.has(s.cid))s.holders.add(remote);else s.holders.delete(remote);scheduleSession(s,0)}const ps=activePreview?.session;if(ps?.mode==='stream'&&ps.state==='downloading'){if(set.has(ps.cid))ps.holders.add(remote);else ps.holders.delete(remote);scheduleSession(ps,0)}}
 function activeStreamSession(){const s=activePreview?.session;return s?.mode==='stream'&&s.state==='downloading'?s:null}
 function streamDemandWanted(s,max=STREAM_DEMAND_WANT){

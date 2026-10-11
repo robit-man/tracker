@@ -1,15 +1,6 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const test=require('node:test'),assert=require('node:assert/strict');
 const {webcrypto:crypto}=require('node:crypto');
-const html=fs.readFileSync(require('node:path').join(__dirname,'..','index.html'),'utf8');
-function source(name){const start=html.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.notEqual(start,-1);const next=html.slice(start+1).search(/^(?:async )?function /m);return html.slice(start,next<0?undefined:start+next+1)}
-async function fixture(actor='actor-a'){
- const c=vm.createContext({crypto,Uint8Array,TextEncoder,enc:new TextEncoder(),btoa,atob,Date,actor,roomHash:'a'.repeat(64),nodeIdentity:null,
-  actorKeys:new Map(),verifiedPublicKeys:new Map(),authenticatedReplay:new Map(),securityPinsWrite:Promise.resolve(),putKV:async()=>{}});
- for(const name of ['randomBytes','bytesToB64','b64ToBytes','bytesToHex','concatBytes','sha256Bytes','sha256Hex','nodeIdFor','validateNodeIdentity'])vm.runInContext(source(name),c);
- vm.runInContext(html.slice(html.indexOf('function canonicalStringV4('),html.indexOf('/* End V4 authentication. */')),c);
- const keys=await crypto.subtle.generateKey('Ed25519',false,['sign','verify']),raw=new Uint8Array(await crypto.subtle.exportKey('raw',keys.publicKey));
- c.nodeIdentity={version:1,algorithm:'Ed25519',privateKey:keys.privateKey,publicKeyRaw:raw,nodeId:await c.nodeIdFor(raw),createdAt:Date.now()};return c;
-}
+const {fixture}=require('./v4-helper.cjs');
 test('canonical byte vector has sorted UTF-16 keys, ECMAScript numbers and unchanged Unicode',async()=>{
  const c=await fixture(),value={z:[true,null,-0,1e30],a:{'é':'日本','😀':'x'},n:0.002};
  assert.equal(Buffer.from(c.canonicalEncodeV4(value)).toString(),''+ '{"a":{"é":"日本","😀":"x"},"n":0.002,"z":[true,null,0,1e+30]}');
@@ -43,4 +34,3 @@ test('only unknown legacy actors have the explicit unverified compatibility path
  const r=await fixture('receiver');assert.equal((await r.verifyControlV4({v:2,actor:'old-peer',type:'hello'})).status,'legacy-unverified');
  await assert.rejects(r.verifyControlV4({v:2,actor:'old-peer',type:'hello',auth:{protocol:4}}));
 });
-module.exports={fixture,source,html};
