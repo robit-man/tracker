@@ -290,6 +290,7 @@ const actorKeys=new Map(),verifiedPublicKeys=new Map(),authenticatedReplay=new M
 let securityPinsWrite=Promise.resolve();
 const catalogOperations=new Map(),pendingCatalogOperations=new Map(),revisionSlots=new Map();
 let catalogPersistWrite=Promise.resolve();
+let ownerAnchor='',roomPolicy=null;const policyHistory=new Map(),pendingPolicies=new Map();
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -412,14 +413,16 @@ function parseTrackerFragment(rawHash){
   try{decoded=decodeURIComponent(raw)}catch(_){const e=Error('Invalid file link: malformed URL encoding');e.secret=/^([0-9a-fA-F]{48})\/f(?:\/|$)/.exec(raw)?.[1]||null;throw e}
   const m=/^([0-9a-fA-F]{48})\/f\/([0-9a-fA-F]{64})$/.exec(decoded);
   if(m){const root=parseFileRoot(m[2]);return{secret:m[1],resource:{kind:'file',root,cid:'f-'+root}}}
-  if(/\/f(?:\/|$)/.test(decoded)){const e=Error('Invalid file link');e.secret=/^([0-9a-fA-F]{48})\//.exec(decoded)?.[1]||null;throw e}
+  const protectedLink=/^([0-9a-fA-F]{48})\/a\/(n-[0-9a-fA-F]{64})(?:\/f\/([0-9a-fA-F]{64}))?$/.exec(decoded);
+  if(protectedLink){const root=protectedLink[3]&&parseFileRoot(protectedLink[3]);return{secret:protectedLink[1],owner:protectedLink[2].toLowerCase(),resource:root?{kind:'file',root,cid:'f-'+root}:null}}
+  if(/\/(?:f|a)(?:\/|$)/.test(decoded)){const e=Error('Invalid file link');e.secret=/^([0-9a-fA-F]{48})\//.exec(decoded)?.[1]||null;throw e}
   return{secret:decoded||null,resource:null}
 }
-function buildRoomUrl(roomSecret,base=location.href){const url=new URL(base);url.hash=encodeURIComponent(String(roomSecret));return url.href}
-function buildFileUrl(roomSecret,root,base=location.href){if(!/^[0-9a-fA-F]{48}$/.test(roomSecret))throw Error('File links require a 48-character room secret');const url=new URL(buildRoomUrl(roomSecret,base));url.hash=roomSecret+'/f/'+parseFileRoot(root);return url.href}
+function buildRoomUrl(roomSecret,base=location.href,owner=''){const url=new URL(base);if(owner&&!/^n-[0-9a-f]{64}$/.test(owner))throw Error('Invalid owner anchor');url.hash=encodeURIComponent(String(roomSecret))+(owner?'/a/'+owner:'');return url.href}
+function buildFileUrl(roomSecret,root,base=location.href,owner=''){if(!/^[0-9a-fA-F]{48}$/.test(roomSecret))throw Error('File links require a 48-character room secret');const url=new URL(buildRoomUrl(roomSecret,base,owner));url.hash+='/f/'+parseFileRoot(root);return url.href}
 async function initSecret(){
   let parsed;try{parsed=parseTrackerFragment(location.hash)}catch(e){if(!e.secret)throw e;parsed={secret:e.secret,resource:null};fileLinkError=e.message}
-  secret=parsed.secret||'';fileLocator=parsed.resource;
+  secret=parsed.secret||'';fileLocator=parsed.resource;ownerAnchor=parsed.owner||'';
   if(!secret){secret=randSecret();location.hash=encodeURIComponent(secret)}
   roomHash=await sha256Hex('private-tracker-room|'+secret);
   const base=await crypto.subtle.importKey('raw',enc.encode(secret),'PBKDF2',false,['deriveKey']);
@@ -453,7 +456,7 @@ function controlSender(m){return m?.v===9?m.via||m.from:m?.actor||m?.from||''}
 function controlShapeV4(m){
   if(!m||typeof m!=='object'||Array.isArray(m)||![1,2,9,11].includes(m.v)||typeof controlSender(m)!=='string'||!controlSender(m)||controlSender(m).length>128)throw Error('Invalid control envelope');
   if(m.to!=null&&(typeof m.to!=='string'||m.to.length>128))throw Error('Invalid recipient');
-  for(const field of ['entries','contents','operations','availability','ids','indexes','pathHints'])if(m[field]!=null&&(!Array.isArray(m[field])||m[field].length>(field==='indexes'?512:1024)))throw Error('Control array exceeds limits');
+  for(const field of ['entries','contents','operations','policies','availability','ids','indexes','pathHints'])if(m[field]!=null&&(!Array.isArray(m[field])||m[field].length>(field==='indexes'?512:1024)))throw Error('Control array exceeds limits');
   canonicalEncodeV4(m);
 }
 async function publicKeyV4(key,nodeId){
@@ -467,14 +470,14 @@ async function pinActorV4(a,nodeId){
 }
 async function signControlV4(input){
   const m=JSON.parse(JSON.stringify(input));delete m.auth;
-  if(!nodeIdentity){if(actorKeys.has(actor))throw Error('Signing key unavailable for authenticated actor');return m}
+  if(!nodeIdentity){if(ownerAnchor||actorKeys.has(actor))throw Error('Signing key unavailable for authenticated actor');return m}
   if(controlSender(m)!==actor)throw Error('Cannot sign another actor');
   const now=Date.now(),auth={protocol:4,algorithm:'Ed25519',domain:'robit-tracker-control-v4',roomHash,actor,nodeId:nodeIdentity.nodeId,publicKey:base64url(nodeIdentity.publicKeyRaw),mid:m.mid||crypto.randomUUID(),ts:now,expiresAt:now+120000};
   controlShapeV4(m);auth.signature=base64url(new Uint8Array(await crypto.subtle.sign('Ed25519',nodeIdentity.privateKey,canonicalEncodeV4({...auth,body:m}))));return{...m,auth};
 }
 async function verifyControlV4(m){
   controlShapeV4(m);const auth=m.auth;
-  if(auth===undefined){if(actorKeys.has(controlSender(m)))throw Error('Unsigned downgrade rejected');return{status:'legacy-unverified'}}
+  if(auth===undefined){if(ownerAnchor||actorKeys.has(controlSender(m)))throw Error('Unsigned downgrade rejected');return{status:'legacy-unverified'}}
   if(!auth||auth.protocol!==4||auth.algorithm!=='Ed25519'||auth.domain!=='robit-tracker-control-v4'||auth.roomHash!==roomHash||auth.actor!==controlSender(m)||typeof auth.mid!=='string'||auth.mid.length>128)throw Error('Invalid signed context');
   const now=Date.now();if(!Number.isSafeInteger(auth.ts)||!Number.isSafeInteger(auth.expiresAt)||auth.ts>now+30000||auth.expiresAt<now-30000||auth.expiresAt<=auth.ts||auth.expiresAt-auth.ts>120000)throw Error('Expired control message');
   const body={...m};delete body.auth;const header={...auth};delete header.signature;
@@ -491,15 +494,17 @@ async function verifyControlV4(m){
 /* Independently signed immutable manifests and catalog revisions survive forwarding. */
 function recordBodyV4(record){const body={...record};delete body.proof;return body}
 async function signRecordV4(record,domain){
-  if(!nodeIdentity)return record;
-  const proof={protocol:4,algorithm:'Ed25519',domain,roomHash,actor,nodeId:nodeIdentity.nodeId,publicKey:base64url(nodeIdentity.publicKeyRaw)};
+  if(!nodeIdentity){if(ownerAnchor)throw Error('Protected room requires a signing identity');return record}
+  if(ownerAnchor&&domain!=='robit-tracker-policy-v4'&&!hasPermissionV4(nodeIdentity.nodeId,'write'))throw Error('This node has read-only access');
+  const proof={protocol:4,algorithm:'Ed25519',domain,roomHash,actor,nodeId:nodeIdentity.nodeId,publicKey:base64url(nodeIdentity.publicKeyRaw),policyEpoch:roomPolicy?.epoch||0};
   proof.signature=base64url(new Uint8Array(await crypto.subtle.sign('Ed25519',nodeIdentity.privateKey,canonicalEncodeV4({...proof,body:recordBodyV4(record)}))));return{...record,proof};
 }
-async function verifyRecordV4(record,domain,author){
+async function verifyRecordV4(record,domain,author,enforcePolicy=true){
   const p=record?.proof;if(p===undefined)return false;
   if(!p||p.protocol!==4||p.algorithm!=='Ed25519'||p.domain!==domain||p.roomHash!==roomHash||p.actor!==author)throw Error('Invalid record context');
   const header={...p};delete header.signature;
   if(!await crypto.subtle.verify('Ed25519',await publicKeyV4(p.publicKey,p.nodeId),decodeBase64url(p.signature,64),canonicalEncodeV4({...header,body:recordBodyV4(record)})))throw Error('Record signature rejected');
+  if(enforcePolicy&&ownerAnchor&&domain!=='robit-tracker-policy-v4'&&!hasPermissionV4(p.nodeId,'write'))throw Error('Record writer is not authorized');
   await pinActorV4(author,p.nodeId);return true;
 }
 function catalogShapeV4(x){
@@ -516,6 +521,30 @@ async function saveCatalogStateV4(){
   const save=async()=>{const values=await Promise.all(snapshot.map(async([key,value])=>[key,await encryptBytes(enc.encode(JSON.stringify(value)),'local:'+key)]));await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readwrite');for(const[key,value]of values)tx.objectStore('kv').put(value,key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Catalog transaction aborted'))})};
   catalogPersistWrite=catalogPersistWrite.catch(()=>{}).then(save);return catalogPersistWrite;
 }
+
+/* Optional protected policy. An independently provided owner anchor is mandatory. */
+function hasPermissionV4(nodeId,permission){if(!ownerAnchor)return true;if(nodeId===ownerAnchor)return true;if(permission==='read')return true;const grant=roomPolicy?.grants.find(g=>g.subjectNodeId===nodeId);return!!(grant&&grant.expiresAt>Date.now()&&grant.permissions.includes(permission))}
+async function acceptPolicyV4(policy){
+  if(!ownerAnchor||!policy||policy.ownerNodeId!==ownerAnchor||policy.roomHash!==roomHash||policy.proof?.nodeId!==ownerAnchor||!Number.isSafeInteger(policy.epoch)||policy.epoch<1||typeof policy.revisionId!=='string'||policy.revisionId.length>128||!Array.isArray(policy.grants)||policy.grants.length>1024)return false;
+  const subjects=new Set();for(const g of policy.grants){if(!/^n-[0-9a-f]{64}$/.test(g.subjectNodeId)||subjects.has(g.subjectNodeId)||!Array.isArray(g.permissions)||!g.permissions.every(p=>['read','write','moderate'].includes(p))||!Number.isSafeInteger(g.expiresAt)||typeof g.nonce!=='string')return false;subjects.add(g.subjectNodeId)}
+  try{if(!await verifyRecordV4(policy,'robit-tracker-policy-v4',policy.actor))return false}catch(_){return false}
+  const same=[...policyHistory.values()].find(x=>x.epoch===policy.epoch);if(same)return canonicalStringV4(same)===canonicalStringV4(policy);
+  if(policy.epoch===1){if(policy.previousRevision!==null)return false}else{const previous=policyHistory.get(policy.previousRevision);if(!previous||previous.epoch!==policy.epoch-1){if(pendingPolicies.size<256)pendingPolicies.set(policy.revisionId,policy);return false}}
+  policyHistory.set(policy.revisionId,policy);if(!roomPolicy||policy.epoch>roomPolicy.epoch)roomPolicy=policy;await putKV('policyHistory',[...policyHistory.values()]);
+  for(const[id,p]of [...pendingPolicies])if(policyHistory.has(p.previousRevision)){pendingPolicies.delete(id);await acceptPolicyV4(p)}return true;
+}
+async function publishPolicyV4(grants){
+  if(!nodeIdentity||ownerAnchor!==nodeIdentity.nodeId)throw Error('Only the pinned owner can change policy');
+  const change=async()=>{for(const p of await getKV('policyHistory',[]))await acceptPolicyV4(p);const policy={protocol:4,roomHash,ownerNodeId:ownerAnchor,actor,epoch:(roomPolicy?.epoch||0)+1,revisionId:crypto.randomUUID(),previousRevision:roomPolicy?.revisionId||null,createdAt:Date.now(),grants};const signed=await signRecordV4(policy,'robit-tracker-policy-v4');if(!await acceptPolicyV4(signed))throw Error('Policy revision rejected');await broadcast(msg('policy-result',{policies:[signed]}));return signed};
+  return navigator.locks?.request?navigator.locks.request('tracker-policy-'+roomHash,change):change();
+}
+async function protectRoomV4(){
+  if(!nodeIdentity)throw Error('Ed25519 identity is required');if(ownerAnchor&&ownerAnchor!==nodeIdentity.nodeId)throw Error('Another owner is already pinned');
+  ownerAnchor=nodeIdentity.nodeId;await putKV('ownerAnchor',ownerAnchor);if(!roomPolicy)await publishPolicyV4([]);const url=buildRoomUrl(secret,location.href,ownerAnchor);history.replaceState(null,'',url);return url;
+}
+async function grantRoomV4(subjectNodeId,permissions=['read','write'],expiresAt=Date.now()+30*86400000){const grants=(roomPolicy?.grants||[]).filter(g=>g.subjectNodeId!==subjectNodeId);grants.push({subjectNodeId,permissions,expiresAt,nonce:crypto.randomUUID()});return publishPolicyV4(grants)}
+async function revokeRoomV4(subjectNodeId){return publishPolicyV4((roomPolicy?.grants||[]).filter(g=>g.subjectNodeId!==subjectNodeId))}
+window.TrackerSecurity={get nodeId(){return nodeIdentity?.nodeId||null},get mode(){return ownerAnchor?'protected':'open-write-by-room-capability'},get owner(){return ownerAnchor||null},protect:protectRoomV4,grant:grantRoomV4,revoke:revokeRoomV4,peers:()=>[...actorKeys].map(([actor,nodeId])=>({actor,nodeId}))};
 
 /* Origin-scoped identity; private CryptoKeys never leave this separate DB. */
 function openIdentityDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open('robit-node-identity-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('identity');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Identity database is blocked'))})}
@@ -581,13 +610,15 @@ async function recoverPersistedSource(cid){
 }
 async function loadLocal(){
   db=await openDB();idbClear('streamChunks').catch(()=>{});
+  const storedOwner=await getKV('ownerAnchor','');if(storedOwner&&ownerAnchor&&storedOwner!==ownerAnchor)throw Error('Protected invite conflicts with the pinned owner');ownerAnchor=storedOwner||ownerAnchor;if(ownerAnchor)await putKV('ownerAnchor',ownerAnchor);
   actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();
   for(const [a,n]of await getKV('actorKeys',[]))actorKeys.set(a,n);
   if(nodeIdentity){if(actorKeys.has(actor)&&actorKeys.get(actor)!==nodeIdentity.nodeId){actor=crypto.randomUUID();await putKV('actor',actor);toast('A new node identity was created. Previous signatures retain their original author.','good')}await pinActorV4(actor,nodeIdentity.nodeId)}
+  for(const p of await getKV('policyHistory',[]))await acceptPolicyV4(p);
   seedMode=await getKV('seedMode','selected');
   for(const x of await getKV('catalog',[])){catalog.set(x.id,x);absorbV(x.v)}
   for(const x of await getKV('contents',[]))contents.set(x.id,x);
-  for(const x of await getKV('catalogOperations',[])){if(await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v?.a)){catalogOperations.set(x.operationId,x);revisionSlots.set(`${x.id}|${x.v.a}|${x.v.c}`,x.operationId)}}
+  for(const x of await getKV('catalogOperations',[])){if(await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v?.a,false)){catalogOperations.set(x.operationId,x);revisionSlots.set(`${x.id}|${x.v.a}|${x.v.c}`,x.operationId)}}
   for(const x of await getKV('selectedSeeds',[]))selectedSeeds.add(x);
   for(const x of await getKV('cachedComplete',[]))cachedComplete.add(x);
   for(const [k,v] of await getKV('seedSalts',[]))seedSalts.set(k,v);
@@ -719,6 +750,7 @@ async function hashLockedFileStreaming(file,key,lock,onProgress=null){return has
 async function persistHandle(cid,handle){if(!handle)return;sourceHandles.set(cid,handle);try{await idbPut('handles',cid,handle)}catch(e){console.warn('handle persistence unavailable',e)}}
 async function rememberLocalSource(cid,file,handle=null){sourceClaims.add(cid);if(file)sourceStamps.set(cid,sourceStamp(file));if(handle)await persistHandle(cid,handle);sourceNeedsAuth.delete(cid);sourceMissing.delete(cid);await saveState()}
 async function addFiles(items,{password=null}={}){
+  if(ownerAnchor&&!hasPermissionV4(nodeIdentity?.nodeId,'write')){toast('This node has read-only access to the room.','bad');return}
   const changed=[];
   for(const raw of [...items]){
     const file=raw?.file||raw,handle=raw?.handle||null,relativePath=raw?.relativePath||file.webkitRelativePath||file._relativePath||file.name;
@@ -1557,9 +1589,11 @@ async function handleControl(packet,meta={},w=null,origin='direct'){
   if(m.nknAddr)ensureNknRoute(m.nknAddr,m.actor).catch(()=>{});if(w&&meta.peerId)trackActor(m.actor,w,meta.peerId);const first=!peerProfiles.has(m.actor);if(m.profile)peerProfiles.set(m.actor,m.profile);noteRelayActor(m.actor,m.nknAddr,origin);
   bridgePacket(packet,m,origin).catch(()=>{});if(m.to&&m.to!==actor)return;
   switch(m.type){
-    case'hello':if(fileLocator)queryFileLocator(m.actor).catch(()=>{});if(!m.reply)sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()})).catch(()=>{});sendActor(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});if(localLive)sendLiveAnnouncement(m.actor).catch(()=>{});if(first)sendActor(m.actor,msg('state-req')).catch(()=>{});{const ss=activeStreamSession();if(ss)announceStreamDemand(ss,m.actor).catch(()=>{})}break;
+    case'hello':if(ownerAnchor)sendActor(m.actor,msg('policy-query')).catch(()=>{});if(fileLocator)queryFileLocator(m.actor).catch(()=>{});if(!m.reply)sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()})).catch(()=>{});sendActor(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});if(localLive)sendLiveAnnouncement(m.actor).catch(()=>{});if(first)sendActor(m.actor,msg('state-req')).catch(()=>{});{const ss=activeStreamSession();if(ss)announceStreamDemand(ss,m.actor).catch(()=>{})}break;
     case'state-req':sendActor(m.actor,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],operations:[...catalogOperations.values()],availability:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break;
     case'state':await mergeState(m.entries||[],m.contents||[],m,m.operations||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.availability||[]);break;
+    case'policy-query':if(ownerAnchor)sendActor(m.actor,msg('policy-result',{policies:[...policyHistory.values()].slice(-1024)})).catch(()=>{});break;
+    case'policy-result':if(Array.isArray(m.policies)&&m.policies.length<=1024){for(const policy of m.policies)await acceptPolicyV4(policy);if(fileLocator)queryFileLocator(m.actor).catch(()=>{});sendActor(m.actor,msg('state-req')).catch(()=>{})}break;
     case'catalog':await mergeState(m.entries||[],m.contents||[],m,m.operations||[]);break;
     case'content-query':{const c=contents.get(m.cid);if(validContentShape(c)){const entries=[...catalog.values()].filter(x=>!x.deleted&&x.contentId===m.cid).slice(0,32);sendActor(m.actor,msg('content-result',{cid:m.cid,entries,contents:[c],operations:[...catalogOperations.values()].filter(x=>entries.some(e=>e.id===x.id)).slice(-1024)})).catch(()=>{})}break;}
     case'content-result':if(fileLocator&&m.cid===fileLocator.cid&&Array.isArray(m.contents)&&m.contents.every(c=>c.id===m.cid&&validContentShape(c))){await mergeState((m.entries||[]).filter(x=>x.kind==='file'&&x.contentId===m.cid),m.contents,m,m.operations||[])}break;
@@ -1612,7 +1646,7 @@ function startFileLocator(){
 function backToRoom(){location.hash=encodeURIComponent(secret)}
 async function copyFileLink(entry,button=null){
   const c=contents.get(entry?.contentId);if(!c)return;
-  try{const url=buildFileUrl(secret,c.root||c.sha);await navigator.clipboard.writeText(url);toast('<b>File link copied.</b>','good')}
+  try{const url=buildFileUrl(secret,c.root||c.sha,location.href,ownerAnchor);await navigator.clipboard.writeText(url);toast('<b>File link copied.</b>','good')}
   catch(e){if(e.message==='File links require a 48-character room secret'){toast(esc(e.message),'bad');return}openRoomShare(c.root||c.sha,button)}
 }
 
@@ -1646,12 +1680,13 @@ async function mergeState(entries,contentRows,context={},operations=[]){
   if(!Array.isArray(entries)||!Array.isArray(contentRows)||!Array.isArray(operations)||Math.max(entries.length,contentRows.length,operations.length)>1024)return;
   for(const c of contentRows){
     try{if(!validContentShape(c))continue;const signed=await verifyRecordV4(c,'robit-tracker-manifest-v4',c.originActor),old=contents.get(c.id);
+      if(ownerAnchor&&!signed)continue;
       if(old){/* Content descriptors are immutable, including encryption and publisher metadata. */if(canonicalStringV4(recordBodyV4(old))!==canonicalStringV4(recordBodyV4(c)))continue;if(!old.proof&&signed)contents.set(c.id,c)}else contents.set(c.id,c);
     }catch(_){/* A bad embedded record does not authenticate through its snapshot's signer. */}
   }
   for(const x of [...operations,...entries]){
     try{if(!catalogShapeV4(x))continue;const old=catalog.get(x.id),signed=await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v.a);
-      if(!signed){if(old?.proof||actorKeys.has(x.v.a)||!catalogParentSafeV4(x))continue;if(!old||cmpV(x.v,old.v)>0){catalog.set(x.id,x);absorbV(x.v)}continue}
+      if(!signed){if(ownerAnchor||old?.proof||actorKeys.has(x.v.a)||!catalogParentSafeV4(x))continue;if(!old||cmpV(x.v,old.v)>0){catalog.set(x.id,x);absorbV(x.v)}continue}
       if(typeof x.operationId!=='string'||x.operationId.length>128||!Number.isSafeInteger(x.operationAt)||!(x.previousRevision===null||typeof x.previousRevision==='string'&&x.previousRevision.length<=256))continue;
       const slot=`${x.id}|${x.v.a}|${x.v.c}`,slotId=revisionSlots.get(slot);if(slotId&&slotId!==x.operationId)continue;
       const known=catalogOperations.get(x.operationId)||pendingCatalogOperations.get(x.operationId);if(known&&canonicalStringV4(known)!==canonicalStringV4(x))continue;
@@ -3436,7 +3471,7 @@ function roomQrDataUrl(url){
   return canvas.toDataURL('image/png');
 }
 function openRoomShare(root=null,button=null){
-  hideActionTooltip();shareKind=typeof root==='string'?'file':'room';shareReturnFocus=button||$('#shareBtn');$('#roomShareTitle').textContent=shareKind==='file'?'SHARE THIS FILE':'SHARE THIS ROOM';$('#roomShareHint').textContent=shareKind==='file'?'This link opens the file and grants access to the room.':'Scan to open this private room on another device.';const url=shareKind==='file'?buildFileUrl(secret,root):buildRoomUrl(secret),status=$('#roomShareStatus'),image=$('#roomQrImage');$('#roomShareUrl').value=url;status.textContent='';
+  hideActionTooltip();shareKind=typeof root==='string'?'file':'room';shareReturnFocus=button||$('#shareBtn');$('#roomShareTitle').textContent=shareKind==='file'?'SHARE THIS FILE':'SHARE THIS ROOM';$('#roomShareHint').textContent=shareKind==='file'?'This link opens the file and grants access to the room.':'Scan to open this private room on another device.';const url=shareKind==='file'?buildFileUrl(secret,root,location.href,ownerAnchor):buildRoomUrl(secret,location.href,ownerAnchor),status=$('#roomShareStatus'),image=$('#roomQrImage');$('#roomShareUrl').value=url;status.textContent='';
   try{image.src=roomQrDataUrl(url);$('#roomQrFrame').hidden=false;$('#roomShareDownload').disabled=false}
   catch(e){image.removeAttribute('src');$('#roomQrFrame').hidden=true;$('#roomShareDownload').disabled=true;status.textContent='Unable to create a QR image. You can still copy the room link.';console.warn('room QR',e)}
   $('#roomShareModal').classList.add('show');$('#shareBtn').setAttribute('aria-expanded','true');$('#roomShareCopy').focus();
@@ -3477,7 +3512,7 @@ $('#liveLatencySetup').onclick=toggleLiveLatency;$('#liveLatencyToggle').onclick
 $('#filesBtn').onclick=pickFiles;$('#folderBtn').onclick=pickFolder;$('#lockedBtn').onclick=openLockSetup;$('#fileInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('#folderInput').onchange=e=>{addFiles(e.target.files);e.target.value=''};$('#lockedInput').onchange=async e=>{const pw=pendingLockedPassword;pendingLockedPassword='';if(pw&&e.target.files.length)await addFiles(e.target.files,{password:pw});e.target.value=''};
 $('#lockSetupClose').onclick=()=>$('#lockSetupModal').classList.remove('show');$('#lockChooseBtn').onclick=submitLockSetup;$('#lockSetupModal').addEventListener('click',e=>{if(e.target===$('#lockSetupModal'))$('#lockSetupModal').classList.remove('show')});$('#lockPassword2').addEventListener('keydown',e=>{if(e.key==='Enter')submitLockSetup()});
 $('#fileLinkRetry').onclick=startFileLocator;$('#fileLinkBack').onclick=backToRoom;
-window.addEventListener('hashchange',()=>{let p;try{p=parseTrackerFragment(location.hash);fileLinkError=''}catch(e){if(!e.secret){fileLinkError=e.message;resolveFileLocator();return}p={secret:e.secret,resource:null};fileLinkError=e.message}if(p.secret!==secret){location.reload();return}fileLocator=p.resource;startFileLocator();renderAll()});
+window.addEventListener('hashchange',()=>{let p;try{p=parseTrackerFragment(location.hash);fileLinkError=''}catch(e){if(!e.secret){fileLinkError=e.message;resolveFileLocator();return}p={secret:e.secret,resource:null};fileLinkError=e.message}if(p.secret!==secret||p.owner&&p.owner!==ownerAnchor){location.reload();return}fileLocator=p.resource;startFileLocator();renderAll()});
 $('#shareBtn').onclick=()=>openRoomShare();$('#roomShareClose').onclick=closeRoomShare;$('#roomShareCopy').onclick=copyRoomShareLink;$('#roomShareDownload').onclick=downloadRoomQr;$('#roomShareUrl').onclick=e=>e.target.select();
 $('#roomShareModal').addEventListener('click',e=>{if(e.target===$('#roomShareModal'))closeRoomShare()});
 $('#roomShareModal').addEventListener('keydown',e=>{
