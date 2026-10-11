@@ -291,6 +291,7 @@ let securityPinsWrite=Promise.resolve();
 const catalogOperations=new Map(),pendingCatalogOperations=new Map(),revisionSlots=new Map();
 let catalogPersistWrite=Promise.resolve();
 let ownerAnchor='',roomPolicy=null;const policyHistory=new Map(),pendingPolicies=new Map();
+let binaryIdentity=null;const peerBinarySessions=new Map(),latestBinarySession=new Map();
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -470,13 +471,17 @@ async function pinActorV4(a,nodeId){
 }
 async function signControlV4(input){
   const m=JSON.parse(JSON.stringify(input));delete m.auth;
+  /* Binary fragment wrappers are framing; the complete packet has one session MAC. */
+  if(m.v===9&&m.kind==='binfrag')return m;
   if(!nodeIdentity){if(ownerAnchor||actorKeys.has(actor))throw Error('Signing key unavailable for authenticated actor');return m}
+  if(binaryIdentity&&m.v!==9)m.binarySession=binaryIdentity.descriptor;
   if(controlSender(m)!==actor)throw Error('Cannot sign another actor');
   const now=Date.now(),auth={protocol:4,algorithm:'Ed25519',domain:'robit-tracker-control-v4',roomHash,actor,nodeId:nodeIdentity.nodeId,publicKey:base64url(nodeIdentity.publicKeyRaw),mid:m.mid||crypto.randomUUID(),ts:now,expiresAt:now+120000};
   controlShapeV4(m);auth.signature=base64url(new Uint8Array(await crypto.subtle.sign('Ed25519',nodeIdentity.privateKey,canonicalEncodeV4({...auth,body:m}))));return{...m,auth};
 }
 async function verifyControlV4(m){
   controlShapeV4(m);const auth=m.auth;
+  if(m.v===9&&m.kind==='binfrag'&&auth===undefined)return{status:'binary-framing-only'};
   if(auth===undefined){if(ownerAnchor||actorKeys.has(controlSender(m)))throw Error('Unsigned downgrade rejected');return{status:'legacy-unverified'}}
   if(!auth||auth.protocol!==4||auth.algorithm!=='Ed25519'||auth.domain!=='robit-tracker-control-v4'||auth.roomHash!==roomHash||auth.actor!==controlSender(m)||typeof auth.mid!=='string'||auth.mid.length>128)throw Error('Invalid signed context');
   const now=Date.now();if(!Number.isSafeInteger(auth.ts)||!Number.isSafeInteger(auth.expiresAt)||auth.ts>now+30000||auth.expiresAt<now-30000||auth.expiresAt<=auth.ts||auth.expiresAt-auth.ts>120000)throw Error('Expired control message');
@@ -484,12 +489,51 @@ async function verifyControlV4(m){
   if(!await crypto.subtle.verify('Ed25519',await publicKeyV4(auth.publicKey,auth.nodeId),decodeBase64url(auth.signature,64),canonicalEncodeV4({...header,body})))throw Error('Control signature rejected');
   const replayKey=auth.nodeId+'|'+auth.mid;if(authenticatedReplay.has(replayKey))throw Error('Control replay rejected');
   await pinActorV4(auth.actor,auth.nodeId);
+  if(m.binarySession)await bindBinarySessionV4(auth,m.binarySession);
   /* Recheck after asynchronous pin persistence; concurrent transports may race. */
   if(authenticatedReplay.has(replayKey))throw Error('Control replay rejected');
-  authenticatedReplay.set(replayKey,auth.expiresAt);for(const[k,t]of authenticatedReplay)if(t<now-30000)authenticatedReplay.delete(k);while(authenticatedReplay.size>10000)authenticatedReplay.delete(authenticatedReplay.keys().next().value);
+  for(const[k,t]of authenticatedReplay)if(t<now-30000)authenticatedReplay.delete(k);if(authenticatedReplay.size>=10000)throw Error('Control replay capacity reached');authenticatedReplay.set(replayKey,auth.expiresAt);
   return{status:'verified',nodeId:auth.nodeId};
 }
 /* End V4 authentication. */
+
+/* Ephemeral authenticated key agreement; one lightweight HMAC per complete packet. */
+async function initBinaryIdentityV4(){
+  if(!nodeIdentity)return;const keys={},pairs={};
+  try{pairs.X25519=await crypto.subtle.generateKey('X25519',false,['deriveBits']);keys.X25519=base64url(new Uint8Array(await crypto.subtle.exportKey('raw',pairs.X25519.publicKey)))}catch(_){}
+  pairs['ECDH-P256']=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);keys['ECDH-P256']=base64url(new Uint8Array(await crypto.subtle.exportKey('raw',pairs['ECDH-P256'].publicKey)));
+  binaryIdentity={pairs,descriptor:{version:1,nonce:crypto.randomUUID(),keys}};
+}
+async function bindBinarySessionV4(auth,descriptor){
+  if(!binaryIdentity)return;
+  if(!descriptor||descriptor.version!==1||typeof descriptor.nonce!=='string'||descriptor.nonce.length>64||!descriptor.keys)throw Error('Invalid binary handshake');
+  const key=auth.actor+'|'+descriptor.nonce,cached=peerBinarySessions.get(key);if(cached){const session=await cached;if(canonicalStringV4(session.descriptor)!==canonicalStringV4(descriptor))throw Error('Binary session fork');latestBinarySession.set(auth.actor,key);return session}
+  const derive=async()=>{
+    const algorithm=binaryIdentity.pairs.X25519&&descriptor.keys.X25519?'X25519':'ECDH-P256',raw=decodeBase64url(descriptor.keys[algorithm],algorithm==='X25519'?32:65),publicKey=await crypto.subtle.importKey('raw',raw,algorithm==='X25519'?'X25519':{name:'ECDH',namedCurve:'P-256'},false,[]),bits=await crypto.subtle.deriveBits({name:algorithm==='X25519'?'X25519':'ECDH',public:publicKey},binaryIdentity.pairs[algorithm].privateKey,256),base=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
+    const endpoints=[{actor,nodeId:nodeIdentity.nodeId,descriptor:binaryIdentity.descriptor},{actor:auth.actor,nodeId:auth.nodeId,descriptor}].sort((a,b)=>{const x=canonicalStringV4(a),y=canonicalStringV4(b);return x<y?-1:x>y?1:0}),context={domain:'robit-tracker-binary-session-v4',roomHash,algorithm,endpoints},id=await sha256Hex(canonicalEncodeV4(context));
+    const deriveKey=(from,to)=>crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:enc.encode(roomHash),info:canonicalEncodeV4({...context,from,to})},base,{name:'HMAC',hash:'SHA-256',length:256},false,['sign','verify']);
+    return{id,remote:auth.actor,nodeId:auth.nodeId,descriptor,sendKey:await deriveKey(actor,auth.actor),receiveKey:await deriveKey(auth.actor,actor),sendSequence:0,highest:-1,received:new Set(),lastAt:Date.now()};
+  };
+  const pending=derive();peerBinarySessions.set(key,pending);try{const result=await pending;latestBinarySession.set(auth.actor,key);if(peerBinarySessions.size>1024){const first=peerBinarySessions.keys().next().value;peerBinarySessions.delete(first)}return result}catch(e){peerBinarySessions.delete(key);throw e}
+}
+function binaryMetadataV4(metadata){const m={...metadata};for(const key of ['nodeAuth','relayActor','relayPlane','txPath'])delete m[key];return m}
+function binaryAuthBytesV4(packet,metadata,header){return concatBytes(canonicalEncodeV4({domain:'robit-tracker-binary-v4',roomHash,...header,metadata:binaryMetadataV4(metadata)}),packet instanceof Uint8Array?packet:new Uint8Array(packet))}
+async function authenticateBinaryV4(remote,packet,metadata){
+  if(metadata.nodeAuth)return metadata;
+  if(!actorKeys.has(remote)){if(ownerAnchor)throw Error('Unauthenticated protected recipient');return metadata}
+  const session=await peerBinarySessions.get(latestBinarySession.get(remote));if(!session)throw Error('Authenticated binary session unavailable');
+  const header={version:4,session:session.id,from:actor,to:remote,senderSession:binaryIdentity.descriptor.nonce,recipientSession:session.descriptor.nonce,seq:++session.sendSequence};
+  const mac=base64url(new Uint8Array(await crypto.subtle.sign('HMAC',session.sendKey,binaryAuthBytesV4(packet,metadata,header))));return{...metadata,nodeAuth:{...header,mac}};
+}
+async function verifyBinaryV4(packet,metadata,remote){
+  const auth=metadata?.nodeAuth;if(!auth)return!ownerAnchor&&!actorKeys.has(remote);
+  if(!binaryIdentity||auth.version!==4||auth.from!==remote||auth.to!==actor||auth.recipientSession!==binaryIdentity.descriptor.nonce||!Number.isSafeInteger(auth.seq)||auth.seq<1)return false;
+  const session=await peerBinarySessions.get(remote+'|'+auth.senderSession);if(!session||session.id!==auth.session||session.nodeId!==actorKeys.get(remote))return false;
+  if(auth.seq<=session.highest-2048||session.received.has(auth.seq))return false;
+  const header={...auth};delete header.mac;let valid=false;try{valid=await crypto.subtle.verify('HMAC',session.receiveKey,decodeBase64url(auth.mac,32),binaryAuthBytesV4(packet,metadata,header))}catch(_){return false}
+  if(!valid||session.received.has(auth.seq)||auth.seq<=session.highest-2048)return false;
+  session.received.add(auth.seq);session.highest=Math.max(session.highest,auth.seq);for(const seq of session.received)if(seq<=session.highest-2048)session.received.delete(seq);session.lastAt=Date.now();return true;
+}
 
 /* Independently signed immutable manifests and catalog revisions survive forwarding. */
 function recordBodyV4(record){const body={...record};delete body.proof;return body}
@@ -611,7 +655,7 @@ async function recoverPersistedSource(cid){
 async function loadLocal(){
   db=await openDB();idbClear('streamChunks').catch(()=>{});
   const storedOwner=await getKV('ownerAnchor','');if(storedOwner&&ownerAnchor&&storedOwner!==ownerAnchor)throw Error('Protected invite conflicts with the pinned owner');ownerAnchor=storedOwner||ownerAnchor;if(ownerAnchor)await putKV('ownerAnchor',ownerAnchor);
-  actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();
+  actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();await initBinaryIdentityV4();
   for(const [a,n]of await getKV('actorKeys',[]))actorKeys.set(a,n);
   if(nodeIdentity){if(actorKeys.has(actor)&&actorKeys.get(actor)!==nodeIdentity.nodeId){actor=crypto.randomUUID();await putKV('actor',actor);toast('A new node identity was created. Previous signatures retain their original author.','good')}await pinActorV4(actor,nodeIdentity.nodeId)}
   for(const p of await getKV('policyHistory',[]))await acceptPolicyV4(p);
@@ -1170,9 +1214,9 @@ function dataReachable(a){return bulkRoutesFor(a).length>0||relayPathAvailable(a
 function markRouteFailure(r){if(!r)return;r.failures=(r.failures||0)+1;recomputePrimaryRoute(r.actor)}
 function firstSuccessfulSend(jobs){return new Promise(resolve=>{let pending=jobs.length;if(!pending){resolve(false);return}for(const job of jobs)Promise.resolve(job).then(ok=>{if(ok===true)resolve(true);if(!--pending)resolve(false)},()=>{if(!--pending)resolve(false)})})}
 async function sendPacketVia(w,packet,p=null){try{if(!w?.ctl?.send)return false;const sent=await w.ctl.send(packet,p?{target:p}:undefined);if(sent===false){const remote=p&&routeActors.get(routeKey(w,p));markRouteFailure(remote&&peerRoutes.get(remote)?.get(routeKey(w,p)));return false}return true}catch(e){const remote=p&&routeActors.get(routeKey(w,p)),r=remote&&peerRoutes.get(remote)?.get(routeKey(w,p));markRouteFailure(r);return false}}
-async function sendDirectBinaryActor(remote,packet,metadata={},hint=0){const routes=bulkRoutesFor(remote);if(!routes.length)return false;const direct=routes.filter(r=>r.strategy!=='nkn'),overlay=routes.filter(r=>r.strategy==='nkn'),pool=direct.length?direct:overlay,start=pool.length?Math.abs(Number(hint)||0)%pool.length:0,ordered=pool.length?[...pool.slice(start),...pool.slice(0,start)]:[];if(direct.length&&overlay.length)ordered.push(...overlay);const seenRoutes=new Set();for(const r of ordered){if(!r||seenRoutes.has(r.routeId))continue;seenRoutes.add(r.routeId);try{if(await r.wrapper.bin.send(packet,{target:r.peerId,metadata})===false){markRouteFailure(r);continue}r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}catch(_){markRouteFailure(r)}}return false}
-async function broadcastChannelBinary(remote,packet,metadata={}){if(!bc)return false;try{const b=packet instanceof Uint8Array?packet:new Uint8Array(packet);bc.postMessage({v:2,bin:true,packet:b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),metadata,to:remote,from:actor,ts:Date.now()});return true}catch(_){return false}}
-async function sendBinaryActor(remote,packet,metadata={},hint=0){const hasDirect=bulkRoutesFor(remote).length>0,streaming=metadata?.mode==='stream',relayNeeded=streaming||!hasDirect||relayPathAvailable(remote);const jobs=[sendDirectBinaryActor(remote,packet,metadata,hint)];if(relayNeeded)jobs.push(sendRelayBinaryActor(remote,packet,metadata,hint));if(bc)jobs.push(broadcastChannelBinary(remote,packet,metadata));const rs=await Promise.allSettled(jobs);return rs.some(x=>x.status==='fulfilled'&&x.value===true)}
+async function sendDirectBinaryActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);const routes=bulkRoutesFor(remote);if(!routes.length)return false;const direct=routes.filter(r=>r.strategy!=='nkn'),overlay=routes.filter(r=>r.strategy==='nkn'),pool=direct.length?direct:overlay,start=pool.length?Math.abs(Number(hint)||0)%pool.length:0,ordered=pool.length?[...pool.slice(start),...pool.slice(0,start)]:[];if(direct.length&&overlay.length)ordered.push(...overlay);const seenRoutes=new Set();for(const r of ordered){if(!r||seenRoutes.has(r.routeId))continue;seenRoutes.add(r.routeId);try{if(await r.wrapper.bin.send(packet,{target:r.peerId,metadata})===false){markRouteFailure(r);continue}r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}catch(_){markRouteFailure(r)}}return false}
+async function broadcastChannelBinary(remote,packet,metadata={}){metadata=await authenticateBinaryV4(remote,packet,metadata);if(!bc)return false;try{const b=packet instanceof Uint8Array?packet:new Uint8Array(packet);bc.postMessage({v:2,bin:true,packet:b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),metadata,to:remote,from:actor,ts:Date.now()});return true}catch(_){return false}}
+async function sendBinaryActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);const hasDirect=bulkRoutesFor(remote).length>0,streaming=metadata?.mode==='stream',relayNeeded=streaming||!hasDirect||relayPathAvailable(remote);const jobs=[sendDirectBinaryActor(remote,packet,metadata,hint)];if(relayNeeded)jobs.push(sendRelayBinaryActor(remote,packet,metadata,hint));if(bc)jobs.push(broadcastChannelBinary(remote,packet,metadata));const rs=await Promise.allSettled(jobs);return rs.some(x=>x.status==='fulfilled'&&x.value===true)}
 async function sendCtlVia(w,o,p=null){return sendPacketVia(w,await seal(o),p)}
 async function routeControlSend(r,obj){if(!r)return false;const packet=await seal(msg('_route',{to:r.actor,route:{...obj,ts:Date.now()}}));return sendPacketVia(r.wrapper,packet,r.peerId)}
 function routePending(token,kind,r,bytes=0){return new Promise(resolve=>{const timer=setTimeout(()=>{routeBenchPending.delete(token);r.failures=(r.failures||0)+1;recomputePrimaryRoute(r.actor);resolve(false)},5000);routeBenchPending.set(token,{kind,r,t0:performance.now(),bytes,resolve,timer})})}
@@ -1299,11 +1343,11 @@ async function consumeBinaryRelayEnvelope(raw,plane){
     if(length>65536||length+4>=body.length)return;
     const header=JSON.parse(dec.decode(body.subarray(4,4+length)));
     if(header.v!==2||!header.from||header.from===actor||header.to!==actor||Math.abs(Date.now()-Number(header.ts||0))>180000)return;
-    noteRelayActor(header.from,header.nknAddr,plane);
+    /* Authenticated sender discovery occurs in control messages, not binary wrappers. */
     await handleBinary(body.subarray(4+length),{peerId:`relay:${plane}:${header.from}`,metadata:{...(header.m||{}),relayActor:header.from,relayPlane:plane}},null);
   }catch(_){}
 }
-async function publishRelayBinaryPacket(packet,metadata,to,{except='',sourceActor=actor,hop=0,relayId='',planes=null}={}){
+async function publishRelayBinaryPacket(packet,metadata,to,{except='',sourceActor=actor,hop=0,relayId='',planes=null}={}){if(sourceActor===actor)metadata=await authenticateBinaryV4(to,packet,metadata);
   const use=(planes||localRelayPlanes()).filter(p=>p!==except);if(!use.length)return false;
   const critical=!!(metadata?.decoderHead||metadata?.frontierRescue||metadata?.hardRescue),jobs=[];
   for(const plane of use){
@@ -1318,7 +1362,7 @@ async function publishRelayBinaryPacket(packet,metadata,to,{except='',sourceActo
 }
 async function sendRelayBinaryActor(remote,packet,metadata={},hint=0){const local=localRelayPlanes();if(!local.length)return false;const seenRemote=remoteRelayPlanes(remote).filter(p=>RELAY_PLANES.includes(p)),common=local.filter(p=>seenRemote.includes(p)),idx=Math.max(0,Number(metadata?.idx)||0),key=`${remote}|${metadata?.id||''}|${idx}`,attempt=relaySendAttempts.get(key)||0;relaySendAttempts.set(key,attempt+1);if(relaySendAttempts.size>6000)relaySendAttempts.clear();const hedge=metadata?.mode==='stream'&&idx<RELAY_BOOTSTRAP_HEDGE_CHUNKS&&attempt===0;let planes;if(hedge)planes=local;else{const pool=common.length?common:local;planes=pool.length?[pool[(Math.abs(Number(hint)||0)+attempt)%pool.length]]:[]}return publishRelayBinaryPacket(packet,metadata,remote,{planes})}
 async function sendRelayBinaryIngress(remote,packet,metadata={},hint=0){const x=peerIngress.get(remote),plane=relayPlaneName(x?.relay||'');if(RELAY_PLANES.includes(plane)&&localRelayPlanes().includes(plane))return publishRelayBinaryPacket(packet,metadata,remote,{planes:[plane]});if(x?.bc&&bc)return broadcastChannelBinary(remote,packet,metadata);return sendRelayBinaryActor(remote,packet,metadata,hint)}
-async function sendBinaryBootstrapActor(remote,packet,metadata={},hint=0){
+async function sendBinaryBootstrapActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);
   const jobs=[],seen=new Set(),x=peerIngress.get(remote);
   const addDirect=r=>{if(!r?.wrapper?.bin?.send||!r.wrapper.peers?.has(r.peerId)||seen.has(r.routeId))return;seen.add(r.routeId);jobs.push(Promise.resolve(r.wrapper.bin.send(packet,{target:r.peerId,metadata})).then(()=>{r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}).catch(()=>{markRouteFailure(r);return false}))};
   for(const r of bulkRoutesFor(remote))addDirect(r);
@@ -1426,7 +1470,7 @@ async function boundedStreamPathSend(remote,path,packet,metadata,critical=false,
     return false;
   }finally{clearTimeout(tid)}
 }
-async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHints=[],aggressive=false){
+async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHints=[],aggressive=false){metadata=await authenticateBinaryV4(remote,packet,metadata);
   const paths=streamDataCandidates(remote,pathHints,aggressive);
   if(!paths.length)return sendBinaryActor(remote,packet,metadata,hint);
   const critical=!!(metadata?.decoderHead||metadata?.frontierRescue||metadata?.hardRescue);
@@ -1460,7 +1504,7 @@ async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHin
   for(const x of ordered)if(!selected.includes(x)&&await send(x))return true;
   return false;
 }
-async function consumeRelayFrame(raw,plane){if(typeof raw!=='string'){const bytes=raw instanceof Uint8Array?raw:new Uint8Array(raw);if(bytes[0]===80&&bytes[1]===82&&bytes[2]===66&&bytes[3]===2)return consumeBinaryRelayEnvelope(bytes,plane)}let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;if(Number(e.hop)>0&&e.via&&e.via!==e.from){noteRelayActor(e.from,e.nknAddr,'');noteRelayActor(e.via,'',plane)}else noteRelayActor(e.from,e.nknAddr,plane);if(e.target&&e.target!==actor)return;/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
+async function consumeRelayFrame(raw,plane){if(typeof raw!=='string'){const bytes=raw instanceof Uint8Array?raw:new Uint8Array(raw);if(bytes[0]===80&&bytes[1]===82&&bytes[2]===66&&bytes[3]===2)return consumeBinaryRelayEnvelope(bytes,plane)}let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;if(e.kind==='ctlfrag')noteRelayActor(e.via||e.from,e.nknAddr,plane);if(e.target&&e.target!==actor)return;/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
   if(e.kind==='binfrag'&&e.to&&e.to!==actor){const hop=Math.max(0,Number(e.hop)||0),bridgeKey=`${e.from}|${e.to}|${e.rid}|${i}|${hop}`;if(hop<RELAY_DATA_MAX_HOPS&&!relayBridgeSeen.has(bridgeKey)){relayBridgeSeen.set(bridgeKey,Date.now());const reachable=remoteRelayPlanes(e.to);if(reachable.includes(relayPlaneName(plane)))return;const targetPlanes=reachable.filter(p=>RELAY_PLANES.includes(p)&&p!==relayPlaneName(plane));if(targetPlanes.length){const bridged=await seal({...e,via:actor,hop:hop+1,ts:Date.now()});for(const p of targetPlanes)publishRelayRawOnPlane(p,bridged).catch(()=>{})}}return}
   const key=`${e.kind}|${plane}|${e.from}|${e.rid}`;let x=relayRx.get(key);if(!x){x={kind:e.kind,parts:new Array(n),count:0,chars:0,ts:Date.now(),to:e.to||'',from:e.from,nknAddr:e.nknAddr||'',m:e.m||null,hop:Number(e.hop)||0,rid:e.rid};relayRx.set(key,x)}if(x.parts[i]===undefined){x.parts[i]=String(e.d||'');x.count++;x.chars+=x.parts[i].length;if(x.chars>12_000_000){relayRx.delete(key);return}}if(relayRx.size>RELAY_RX_MAX_SESSIONS||[...relayRx.values()].reduce((z,v)=>z+(v.chars||0),0)>RELAY_RX_MAX_BYTES){
     for(const [oldKey,old] of [...relayRx].sort((a,b)=>(a[1].ts||0)-(b[1].ts||0))){
@@ -1489,7 +1533,7 @@ async function sendActorIngress(a,o){
   return firstSuccessfulSend(jobs)
 }
 function controlTunnelFrameChars(remote){const x=peerIngress.get(remote);if(x?.relay==='nats')return 180000;if(x?.relay==='mqtt')return 48000;if(x?.relay==='nostr')return 18000;if(x?.direct)return 64000;return CONTROL_TUNNEL_FRAME_CHARS}
-async function sendControlChunkTunnel(remote,packet,metadata={}){const data=bytesToB64(packet instanceof Uint8Array?packet:new Uint8Array(packet)),frameChars=controlTunnelFrameChars(remote),n=Math.max(1,Math.ceil(data.length/frameChars));if(n>CONTROL_TUNNEL_MAX_FRAMES)return false;const rid=crypto.randomUUID();let ok=false,batchSize=IS_MOBILEISH?3:6;for(let base=0;base<n;base+=batchSize){const batch=[];for(let i=base;i<Math.min(n,base+batchSize);i++)batch.push(sendActorIngress(remote,msg('chunk-tunnel',{rid,fi:i,fn:n,d:data.slice(i*frameChars,(i+1)*frameChars),fc:frameChars,meta:metadata})));const r=await Promise.allSettled(batch);if(r.some(x=>x.status==='fulfilled'&&x.value===true))ok=true;if(IS_MOBILEISH&&base+batchSize<n)await sleep(0)}return ok}
+async function sendControlChunkTunnel(remote,packet,metadata={}){metadata=await authenticateBinaryV4(remote,packet,metadata);const data=bytesToB64(packet instanceof Uint8Array?packet:new Uint8Array(packet)),frameChars=controlTunnelFrameChars(remote),n=Math.max(1,Math.ceil(data.length/frameChars));if(n>CONTROL_TUNNEL_MAX_FRAMES)return false;const rid=crypto.randomUUID();let ok=false,batchSize=IS_MOBILEISH?3:6;for(let base=0;base<n;base+=batchSize){const batch=[];for(let i=base;i<Math.min(n,base+batchSize);i++)batch.push(sendActorIngress(remote,msg('chunk-tunnel',{rid,fi:i,fn:n,d:data.slice(i*frameChars,(i+1)*frameChars),fc:frameChars,meta:metadata})));const r=await Promise.allSettled(batch);if(r.some(x=>x.status==='fulfilled'&&x.value===true))ok=true;if(IS_MOBILEISH&&base+batchSize<n)await sleep(0)}return ok}
 async function receiveControlChunkTunnel(m,w,meta,origin){const rid=String(m.rid||''),fi=Number(m.fi),fn=Number(m.fn);const fc=Math.max(CONTROL_TUNNEL_FRAME_CHARS,Math.min(200000,Number(m.fc)||CONTROL_TUNNEL_FRAME_CHARS));if(!rid||!Number.isInteger(fn)||fn<1||fn>CONTROL_TUNNEL_MAX_FRAMES||!Number.isInteger(fi)||fi<0||fi>=fn||String(m.d||'').length>fc+64)return;const key=`${m.actor}|${rid}`,now=Date.now();let x=controlChunkRx.get(key);if(!x){x={parts:new Array(fn),count:0,chars:0,ts:now,meta:m.meta||{},origin};controlChunkRx.set(key,x)}if(x.parts[fi]===undefined){x.parts[fi]=String(m.d||'');x.count++;x.chars+=x.parts[fi].length;if(x.chars>2_000_000){controlChunkRx.delete(key);return}}if(controlChunkRx.size>256){const cut=now-60000;for(const[k,v]of controlChunkRx)if(v.ts<cut)controlChunkRx.delete(k)}if(x.count===fn){controlChunkRx.delete(key);await handleBinary(b64ToBytes(x.parts.join('')),{peerId:`ctl:${m.actor}`,metadata:{...(x.meta||{}),relayActor:m.actor,relayPlane:origin||'control'}},w)}}
 async function bridgePacket(packet,m,origin){if(m.type==='_route')return;if(origin==='bc'){await publishRelayPacket(packet,m.to||'','',m.actor,m.nknAddr||'');return}await Promise.allSettled([publishRelayPacket(packet,m.to||'',origin||'',m.actor,m.nknAddr||''),broadcastChannelPacket(packet,m.to||'')])}
 async function sendActor(a,o){const targeted=o.to?o:{...o,to:a},packet=await seal(targeted),jobs=[];for(const r of controlRoutesFor(a))jobs.push(sendPacketVia(r.wrapper,packet,r.peerId));jobs.push(publishRelayPacket(packet,a));if(bc)jobs.push(broadcastChannelPacket(packet,a));return firstSuccessfulSend(jobs)}
@@ -2719,6 +2763,7 @@ async function storeReceivedChunk(s,idx,part){
 async function queueVerification(s,idx,part){if(s.mode==='download'){if(s.receivedCount===s.total)await finishDownload(s);return}const leaf=await sha256Bytes(part);s.verifyPending.set(idx,leaf);if(s.verifyBusy)return;s.verifyBusy=true;try{while(s.verifyPending.has(s.verifyCursor)){const h=s.verifyPending.get(s.verifyCursor);s.verifyPending.delete(s.verifyCursor);s.verifyState=await swarmStep(s.verifyState,h);s.verifyCursor++}}finally{s.verifyBusy=false}if(s.receivedCount===s.total&&s.verifyCursor===s.total)await finishDownload(s)}
 async function verifyCachedDownloadRoot(s){const c=contents.get(s.cid);let state=await swarmInit(c.size,s.total,s.chunkSize);for(let i=0;i<s.total;i++){const p=await idbGet('chunks',chunkKey(s.cid,i));if(!p)throw Error(`cached chunk ${i} missing during final verification`);const canonical=new Uint8Array(await decryptBytes(p,`cache:${s.cid}:${i}`));state=await swarmStep(state,await sha256Bytes(canonical));if(i%32===0)await new Promise(r=>setTimeout(r,0))}return bytesToHex(state)}
 async function handleBinary(packet,{peerId,metadata},w){
+  const sender=metadata?.relayActor||(w&&routeActors.get(routeKey(w,peerId||'')))||metadata?.nodeAuth?.from||'';if(!await verifyBinaryV4(packet,metadata,sender))return;
   if(metadata?.kind==='live-media'){await handleLiveBinary(packet,{peerId,metadata},w);return}
   if(metadata?.kind!=='chunk')return;const cid=String(metadata.id||''),s=metadata.sid?sessionBySid.get(metadata.sid):(sessions.get(cid)||(activePreview?.session?.cid===cid?activePreview.session:null));if(!s||s.state!=='downloading'||(metadata.seekEpoch!=null&&Number(metadata.seekEpoch)<Number(s.seekEpoch||0)))return;const idx=Number(metadata.idx);if(!Number.isInteger(idx)||idx<0||idx>=s.total||(bitHas(s.receivedBits,idx)&&!s.decoderRepairNeeded?.has(idx)))return;s.receiving=s.receiving||new Set;if(s.receiving.has(idx))return;s.receiving.add(idx);s.receivingSince=s.receivingSince||new Map();s.receivingSince.set(idx,performance.now());
   try{

@@ -20,6 +20,8 @@ function context(names) {
     MP4_QUEUE_HIGH_BYTES: 48 * 1024 * 1024, MP4_QUEUE_HIGH_SEGMENTS: 48,
     STREAM_STARTUP_LANES: 12, STREAM_MIN_PER_SOURCE: 8, IS_MOBILEISH: false,
     activePreview: null,
+    authenticateBinaryV4:async(remote,packet,metadata)=>metadata,
+    verifyBinaryV4:async()=>true,
     SAFE_HOT_BATCH_CHUNKS: 24, SAFE_CRITICAL_WINDOW: 32, DECODER_HEAD_HEDGE_WIDTH: 3,
     streamLargeTier: () => 0,
     mp4ProgressiveCursor: s => s.head || 0,
@@ -523,7 +525,7 @@ test('control fragments preserve their original targeted address', async () => {
   const frames=await c.relayFrames('control packet','viewer');
   assert.equal(frames[0].to,'viewer');assert.equal(frames[0].kind,'ctlfrag');
 });
-test('relay bridging is unnecessary for a shared carrier and preserves actual bridge provenance', async () => {
+test('relay bridging is unnecessary for a shared carrier and binary framing cannot claim actor provenance', async () => {
   const c=context(['consumeRelayFrame']),published=[],noted=[];
   const frame={v:9,kind:'binfrag',rid:'frame',from:'source',to:'viewer',i:0,n:1,d:'AAAA',ts:Date.now()};
   Object.assign(c,{actor:'bridge',RELAY_DATA_FRAME_CHARS:21000,RELAY_DATA_MAX_HOPS:2,RELAY_PLANES:['nats','mqtt','nostr'],relayBridgeSeen:new Map(),openSeal:async()=>frame,noteRelayActor:(...x)=>noted.push(x),meshHasActiveTransfer:()=>false,relayPlaneName:x=>x,remoteRelayPlanes:()=>['nats','mqtt'],seal:async x=>x,publishRelayRawOnPlane:async(...x)=>published.push(x)});
@@ -533,8 +535,7 @@ test('relay bridging is unnecessary for a shared carrier and preserves actual br
   await c.consumeRelayFrame('sealed','nats');assert.equal(published.length,1,'a cross-plane fragment is forwarded once');
   frame.hop=1;frame.via='actual-bridge';frame.target='another-viewer';frame.to='';noted.length=0;
   await c.consumeRelayFrame('sealed','mqtt');
-  assert.ok(noted.some(x=>x[0]==='actual-bridge'&&x[2]==='mqtt'));
-  assert.ok(!noted.some(x=>x[0]==='source'&&x[2]==='mqtt'),'forwarding does not falsely advertise the original source on the bridge carrier');
+  assert.equal(noted.length,0,'binary fragments are framing only; actor discovery requires verified controls');
 });
 test('relay admission retains actual pending writes and reserves room for the frontier', () => {
   const c=relayContext(),client={protocol:{transport:{socket:{bufferedAmount:0}}}},chunk=900000;
