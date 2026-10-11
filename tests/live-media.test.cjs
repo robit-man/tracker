@@ -9,6 +9,7 @@ function stream(...tracks){return {getTracks:()=>tracks,getVideoTracks:()=>track
 function harness(){
  const nodes=new Map(),sent=[],toasts=[];let nextId=0;
  const c=vm.createContext({localLive:null,liveCaptureRequest:0,liveLowLatency:false,actor:'source',liveMedia:new Map(),navigator:{mediaDevices:{}},crypto:{randomUUID:()=>String(++nextId)},Date,console,
+  privacyRtcAvailable:()=>true,privacyPcAllowed:()=>true,privacyCandidateIsRelay:()=>true,
   LIVE_HEARTBEAT_MS:4000,setInterval:()=>1,clearInterval:()=>{},
   $:q=>{if(!nodes.has(q))nodes.set(q,{textContent:'',dataset:{},classList:{add(){},remove(){}}});return nodes.get(q)},
   liveCaptureConstraints:mode=>({audio:mode!=='video',video:mode!=='audio'}),liveRecorderMime:()=> 'video/webm',

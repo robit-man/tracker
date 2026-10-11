@@ -4,6 +4,30 @@ Run the controller and MP4 fetch-planning regressions with Node:
 node --test tests/streaming.test.cjs
 ```
 
+Privacy and resumable media previews:
+
+```sh
+node --test tests/*.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  FIXTURE=/path/to/ETV.mp4 node tests/privacy-resume-browser.mjs
+```
+
+This uses two separate browser contexts and real public brokers. It toggles
+privacy through the button, verifies persistence and closure of existing direct
+connections and relay-only configuration of idle connection pools, and downloads fresh byte-identical
+data through encrypted relays. X must stop playback, chunk receipt, and source
+traffic after queued work retires. Play must reuse the retained media element,
+position, and encrypted cache with a new request session. A subsequent reload
+must restore the bookmark and fetch the saved MP4 range. With ETV, the test seeks
+to 100 minutes and rejects downloading the preceding file prefix. The default
+fixture is `/tmp/tracker-stream-test/faststart.mp4`; for other files set `SEEK_TIME`
+to a valid position. `RESULT` selects the JSON trace, `BROWSER=firefox` and
+`BROWSER_EXECUTABLE` select Firefox, and omitting `TRACKER_HTML` tests deployment.
+
+Add `PRIVACY_MODE=1` to `live-stream-routes-browser.mjs` to enable privacy using
+both actual buttons before publishing screen, camera/microphone, and audio.
+This checks that these live modes also work with direct ICE unavailable.
+
 Run the browser harness with a local MP4. Install its dependencies outside the
 repository so the application remains a single HTML file:
 

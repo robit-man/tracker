@@ -6,12 +6,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const require=createRequire(path.join(process.env.TRACKER_TEST_DEPS||process.cwd(),'package.json')),{chromium,firefox}=require('playwright');
-const site='https://robit-man.github.io/tracker/',resultPath=process.env.RESULT||'/tmp/live-stream-routes.json',result={lowLatency:process.env.LOW_LATENCY==='1',htmlOverride:!!process.env.TRACKER_HTML,relayOnly:process.env.RELAY_ONLY==='1',directHarness:process.env.DIRECT_HARNESS==='1',nativeDirect:process.env.NATIVE_DIRECT==='1',firefoxViewer:process.env.FIREFOX_VIEWER==='1',firefoxSource:process.env.FIREFOX_SOURCE==='1',mp4Only:process.env.MP4_ONLY==='1',errors:[],modes:[]};
+const site='https://robit-man.github.io/tracker/',resultPath=process.env.RESULT||'/tmp/live-stream-routes.json',result={lowLatency:process.env.LOW_LATENCY==='1',htmlOverride:!!process.env.TRACKER_HTML,relayOnly:process.env.RELAY_ONLY==='1',privacyMode:process.env.PRIVACY_MODE==='1',directHarness:process.env.DIRECT_HARNESS==='1',nativeDirect:process.env.NATIVE_DIRECT==='1',firefoxViewer:process.env.FIREFOX_VIEWER==='1',firefoxSource:process.env.FIREFOX_SOURCE==='1',mp4Only:process.env.MP4_ONLY==='1',errors:[],modes:[]};
 let html=process.env.TRACKER_HTML&&fs.readFileSync(process.env.TRACKER_HTML,'utf8');
 if(html)html=html.replace('const trackerMaintenanceTimer=',`
 window.__liveFault={drop:null,blocked:false,rescues:0};
 const originalLiveReceive=handleLiveChunkBinary,originalLiveRequest=liveChunkRequest;
-handleLiveChunkBinary=async function(packet,context,w){const f=window.__liveFault;if(context.metadata.idx===f.drop&&!f.rescues){f.blocked=true;return}return originalLiveReceive(packet,context,w)};
+handleLiveChunkBinary=async function(packet,context,w){const f=window.__liveFault;if(context.metadata.idx===f.drop&&(!f.blocked||!f.rescues)){if(!f.blocked){f.blocked=true;f.rescues=0}return}return originalLiveReceive(packet,context,w)};
 liveChunkRequest=function(v,indexes,rescue){if(rescue&&indexes.includes(window.__liveFault.drop))window.__liveFault.rescues++;return originalLiveRequest(v,indexes,rescue)};
 const trackerMaintenanceTimer=`);
 if(result.mp4Only){assert.ok(html,'codec negotiation test requires TRACKER_HTML');html=html.replace('relayMimes:liveRecorderMimes(localLive.mode,localLive.stream)','relayMimes:liveRecorderMimes(localLive.mode,localLive.stream).filter(m=>m.includes("/mp4"))')}
@@ -32,6 +32,7 @@ try{
  for(const c of contexts){if(html)await c.route(site,r=>r.fulfill({contentType:'text/html',body:html}));if(result.relayOnly)await c.addInitScript(()=>{const Native=window.RTCPeerConnection;window.RTCPeerConnection=new Proxy(Native,{construct(target,args){return new target({...args[0],iceTransportPolicy:'relay',iceServers:[]})}})})}
  [source,viewer]=await Promise.all(contexts.map(c=>c.newPage()));for(const[role,p]of[['source',source],['viewer',viewer]])p.on('pageerror',e=>result.errors.push({role,message:e.message}));
  await source.goto(site,{waitUntil:'domcontentloaded'});await source.waitForFunction(()=>document.querySelector('#sideActor')?.textContent!=='—');result.url=source.url();await viewer.goto(result.url,{waitUntil:'domcontentloaded'});
+ if(result.privacyMode){await viewer.waitForFunction(()=>document.querySelector('#sideActor')?.textContent!=='—');for(const p of [source,viewer]){await p.locator('#privacyBtn').click();assert.equal(await p.locator('#privacyBtn').getAttribute('aria-pressed'),'true');assert.equal(await p.evaluate(()=>PrivateTrackerMesh.privacy().rtc),false)}}
  if(result.directHarness){
   await Promise.all([source,viewer].map(p=>p.waitForFunction(()=>window.__ready)));
   const actors=await Promise.all([source,viewer].map(p=>p.evaluate(()=>__tracker.actor)));
@@ -45,7 +46,7 @@ try{
  for(const mode of (process.env.MODES||'screen,av,audio').split(',')){
   const report={mode,samples:[]};result.modes.push(report);console.log('START',mode);
   if(mode==='screen')await source.locator('#screenShareBtn').click();else{await source.locator('#liveMediaBtn').click();await source.locator(`[data-live-mode="${mode}"]`).click()}
-  await source.locator('#liveViewerModal.show').waitFor({timeout:20000});if(result.lowLatency&&await source.locator('#liveLatencyToggle').getAttribute('aria-pressed')!=='true')await source.locator('#liveLatencyToggle').click();report.capture=await source.locator('#liveViewerStage video,audio').evaluate(v=>v.srcObject.getTracks().map(t=>({kind:t.kind,settings:t.getSettings()})));if(mode==='screen')assert.equal(report.capture[0].settings.displaySurface,'monitor');await source.locator('#liveViewerClose').click();
+  await source.locator('#liveViewerModal.show').waitFor({timeout:20000});if(result.lowLatency&&await source.locator('#liveLatencyToggle').getAttribute('aria-pressed')!=='true')await source.locator('#liveLatencyToggle').click();report.capture=await source.locator('#liveViewerStage video,audio').evaluate(v=>v.srcObject.getTracks().map(t=>({kind:t.kind,settings:t.getSettings()})));if(mode==='screen')assert.equal(report.capture.find(t=>t.kind==='video')?.settings.displaySurface,'monitor');await source.locator('#liveViewerClose').click();
   await viewer.locator('[data-live-watch]').waitFor({timeout:90000});if(result.directHarness)await viewer.locator('[data-live-watch]').evaluate(b=>b.click());else await viewer.locator('[data-live-watch]').click();await viewer.waitForFunction(()=>{const e=document.querySelector('#liveViewerStage video,audio');return e?.currentTime>1&&!e.paused},null,{timeout:90000});report.start=await snapshot(viewer);assert.equal(report.start.live.viewer.chunked,true);if(result.lowLatency)assert.equal(report.start.live.viewer.lowLatency,true);assert.equal(report.start.live.viewer.mediaPc,false);let relayId=report.start.live.viewer.relayId;
   await delay(4500);
   if(html){if(result.lowLatency)relayId=(await snapshot(viewer)).live.viewer.relayId;await viewer.evaluate(()=>{__liveFault.drop=PrivateTrackerMesh.live().viewer.head+1;__liveFault.rescues=0;__liveFault.blocked=false});await viewer.waitForFunction(()=>__liveFault.blocked&&__liveFault.rescues>0&&PrivateTrackerMesh.live().viewer.next>__liveFault.drop,null,{timeout:30000});report.repair=await snapshot(viewer);assert.equal(report.repair.live.viewer.relayId,relayId,'missing chunk is repaired without encoder/MSE restart');}
