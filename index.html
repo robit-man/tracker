@@ -282,6 +282,7 @@ if(SIGNALING_ENDPOINT_TOTAL<8)console.warn('signaling candidate pool unexpectedl
 const PRIVACY_MODE_KEY='private-tracker-deep-privacy-v1';
 let privacyMode=localStorage.getItem(PRIVACY_MODE_KEY)==='1';
 let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
+let fileLocator=null,fileLinkError='';
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -397,8 +398,21 @@ function previewable(entry,c){return previewKind(entry,c)!=='unknown'}
 function svgIcon(kind){const paths={folder:'<path d="M3 6h7l2 2h9v11H3z"/>',locked:'<rect x="5" y="10" width="14" height="11" rx="1"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',video:'<rect x="3" y="5" width="18" height="14" rx="1"/><path d="m10 9 5 3-5 3z"/>',audio:'<path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/>',image:'<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="9" cy="9" r="2"/><path d="m4 17 5-5 4 4 3-3 4 4"/>',model:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',pdf:'<path d="M6 3h8l4 4v14H6zM14 3v5h5"/><path d="M8 15h8M8 18h6"/>',archive:'<path d="M6 3h12v18H6zM9 3v3h3V3m-3 6h3m-3 3h3m-3 3h3"/>',code:'<path d="m9 8-4 4 4 4m6-8 4 4-4 4m-3-10-2 12"/>',text:'<path d="M6 3h8l4 4v14H6zM14 3v5h5M8 12h8M8 15h8M8 18h5"/>',file:'<path d="M6 3h8l4 4v14H6zM14 3v5h5"/>'};return`<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]||paths.file}</svg>`}
 function iconKind(entry,c){if(entry?.kind==='folder')return'folder';if(c?.locked&&!unlockedMeta.has(c.id))return'locked';const name=visibleName(entry),type=inferMime(name,visibleType(entry,c)),e=extOf(name);if(type.startsWith('video/'))return'video';if(type.startsWith('audio/'))return'audio';if(type.startsWith('image/'))return'image';if(type==='application/pdf')return'pdf';if(type.startsWith('model/')||['glb','gltf','obj','stl','ply','3mf','step','stp'].includes(e))return'model';if(['zip','rar','7z','tar','gz','bz2','xz'].includes(e))return'archive';if(['js','ts','jsx','tsx','py','c','cpp','h','hpp','rs','go','java','sh','css','html','xml','json','yaml','yml'].includes(e))return'code';if(type.startsWith('text/'))return'text';return'file'}
 
+/* V4 URL grammar. These pure functions never derive keys or touch storage. */
+function parseFileRoot(root){if(typeof root!=='string'||! /^[0-9a-fA-F]{64}$/.test(root))throw Error('Invalid file link');return root.toLowerCase()}
+function parseTrackerFragment(rawHash){
+  const raw=String(rawHash||'').replace(/^#/,'').trim();let decoded;
+  try{decoded=decodeURIComponent(raw)}catch(_){const e=Error('Invalid file link: malformed URL encoding');e.secret=/^([0-9a-fA-F]{48})\/f(?:\/|$)/.exec(raw)?.[1]||null;throw e}
+  const m=/^([0-9a-fA-F]{48})\/f\/([0-9a-fA-F]{64})$/.exec(decoded);
+  if(m){const root=parseFileRoot(m[2]);return{secret:m[1],resource:{kind:'file',root,cid:'f-'+root}}}
+  if(/\/f(?:\/|$)/.test(decoded)){const e=Error('Invalid file link');e.secret=/^([0-9a-fA-F]{48})\//.exec(decoded)?.[1]||null;throw e}
+  return{secret:decoded||null,resource:null}
+}
+function buildRoomUrl(roomSecret,base=location.href){const url=new URL(base);url.hash=encodeURIComponent(String(roomSecret));return url.href}
+function buildFileUrl(roomSecret,root,base=location.href){if(!/^[0-9a-fA-F]{48}$/.test(roomSecret))throw Error('File links require a 48-character room secret');const url=new URL(buildRoomUrl(roomSecret,base));url.hash=roomSecret+'/f/'+parseFileRoot(root);return url.href}
 async function initSecret(){
-  secret=decodeURIComponent(location.hash.slice(1).trim());
+  let parsed;try{parsed=parseTrackerFragment(location.hash)}catch(e){if(!e.secret)throw e;parsed={secret:e.secret,resource:null};fileLinkError=e.message}
+  secret=parsed.secret||'';fileLocator=parsed.resource;
   if(!secret){secret=randSecret();location.hash=encodeURIComponent(secret)}
   roomHash=await sha256Hex('private-tracker-room|'+secret);
   const base=await crypto.subtle.importKey('raw',enc.encode(secret),'PBKDF2',false,['deriveKey']);
@@ -3248,7 +3262,7 @@ function roomQrDataUrl(url){
   return canvas.toDataURL('image/png');
 }
 function openRoomShare(){
-  hideActionTooltip();const url=location.href,status=$('#roomShareStatus'),image=$('#roomQrImage');$('#roomShareUrl').value=url;status.textContent='';
+  hideActionTooltip();const url=buildRoomUrl(secret),status=$('#roomShareStatus'),image=$('#roomQrImage');$('#roomShareUrl').value=url;status.textContent='';
   try{image.src=roomQrDataUrl(url);$('#roomQrFrame').hidden=false;$('#roomShareDownload').disabled=false}
   catch(e){image.removeAttribute('src');$('#roomQrFrame').hidden=true;$('#roomShareDownload').disabled=true;status.textContent='Unable to create a QR image. You can still copy the room link.';console.warn('room QR',e)}
   $('#roomShareModal').classList.add('show');$('#shareBtn').setAttribute('aria-expanded','true');$('#roomShareCopy').focus();
