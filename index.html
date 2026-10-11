@@ -118,7 +118,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
     <div class="sideBody">
       <section class="card">
         <div class="cardHead">Your anonymous identity</div>
-        <div class="cardBody"><dl class="kv"><dt>alias</dt><dd id="sideAlias">—</dd><dt>actor</dt><dd class="hash" id="sideActor">—</dd></dl><div class="sideHint">Your anonymous room identity persists locally in this browser. It is used for immutable file provenance and current seeder attribution.</div></div>
+        <div class="cardBody"><dl class="kv"><dt>alias</dt><dd id="sideAlias">—</dd><dt>actor</dt><dd class="hash" id="sideActor">—</dd><dt>node</dt><dd class="hash" id="sideNode">starting</dd></dl><div class="sideHint">Your anonymous room identity persists locally in this browser. It is used for immutable file provenance and current seeder attribution.</div></div>
       </section>
       <section class="card">
         <div class="cardHead">Contribute bandwidth</div>
@@ -285,6 +285,7 @@ const PRIVACY_MODE_KEY='private-tracker-deep-privacy-v1';
 let privacyMode=localStorage.getItem(PRIVACY_MODE_KEY)==='1';
 let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
 let fileLocator=null,fileLinkError='',fileLinkStarted=0,fileLinkTimer=0,fileLinkSelected='',shareKind='room',shareReturnFocus=null;
+let nodeIdentity=null,identityStatus='starting';
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -426,6 +427,24 @@ async function decryptBytes(packet,aad=''){const b=packet instanceof Uint8Array?
 async function seal(o){return bytesToB64(new Uint8Array(await encryptBytes(enc.encode(JSON.stringify(o)),'ctl')))}
 async function openSeal(s){return JSON.parse(dec.decode(await decryptBytes(b64ToBytes(s),'ctl')))}
 
+/* Origin-scoped identity; private CryptoKeys never leave this separate DB. */
+function openIdentityDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open('robit-node-identity-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('identity');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Identity database is blocked'))})}
+function identityRead(d){return new Promise((resolve,reject)=>{const tx=d.transaction('identity','readonly'),r=tx.objectStore('identity').get('node');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function identityInstall(d,candidate){return new Promise((resolve,reject)=>{const tx=d.transaction('identity','readwrite'),store=tx.objectStore('identity'),r=store.get('node');let result;r.onsuccess=()=>{result=r.result||candidate;if(!r.result)store.add(candidate,'node')};tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Identity transaction aborted'))})}
+async function nodeIdFor(publicKeyRaw){return'n-'+await sha256Hex(concatBytes(enc.encode('robit-node-v1'),publicKeyRaw))}
+async function validateNodeIdentity(identity){
+  if(identity?.version!==1||identity.algorithm!=='Ed25519'||identity.privateKey?.extractable!==false||identity.privateKey?.type!=='private'||identity.privateKey?.algorithm?.name!=='Ed25519'||!(identity.publicKeyRaw instanceof Uint8Array)||identity.publicKeyRaw.length!==32||identity.nodeId!==await nodeIdFor(identity.publicKeyRaw))throw Error('Stored signing identity is invalid');
+  const publicKey=await crypto.subtle.importKey('raw',identity.publicKeyRaw,'Ed25519',false,['verify']),challenge=randomBytes(32),signature=await crypto.subtle.sign('Ed25519',identity.privateKey,challenge);
+  if(!await crypto.subtle.verify('Ed25519',publicKey,signature,challenge))throw Error('Stored signing identity self-test failed');return identity;
+}
+async function getOrCreateNodeIdentity(){
+  const d=await openIdentityDB();try{let identity=await identityRead(d);if(!identity){const keys=await crypto.subtle.generateKey('Ed25519',false,['sign','verify']),publicKeyRaw=new Uint8Array(await crypto.subtle.exportKey('raw',keys.publicKey)),candidate={version:1,algorithm:'Ed25519',nodeId:await nodeIdFor(publicKeyRaw),publicKeyRaw,privateKey:keys.privateKey,createdAt:Date.now()};identity=await identityInstall(d,candidate)}return await validateNodeIdentity(identity)}finally{d.close()}
+}
+async function initNodeIdentity(){
+  try{nodeIdentity=await(navigator.locks?.request?navigator.locks.request('robit-node-identity-v1',getOrCreateNodeIdentity):getOrCreateNodeIdentity());identityStatus='verified'}
+  catch(e){nodeIdentity=null;identityStatus=e.name==='NotSupportedError'?'legacy-only: Ed25519 unavailable':'signing unavailable';console.warn('signing identity unavailable',e.name||'Error')}
+}
+
 function openDB(){return new Promise((resolve,reject)=>{
   const r=indexedDB.open('robit-private-tracker-'+roomHash,4);
   r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv');if(!d.objectStoreNames.contains('files'))d.createObjectStore('files');if(!d.objectStoreNames.contains('chunks'))d.createObjectStore('chunks');if(!d.objectStoreNames.contains('handles'))d.createObjectStore('handles');if(!d.objectStoreNames.contains('downloadHandles'))d.createObjectStore('downloadHandles');if(!d.objectStoreNames.contains('streamChunks'))d.createObjectStore('streamChunks')};
@@ -472,7 +491,7 @@ async function recoverPersistedSource(cid){
 }
 async function loadLocal(){
   db=await openDB();idbClear('streamChunks').catch(()=>{});
-  actor=String(await getKV('actor',actor));await putKV('actor',actor);
+  actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();
   seedMode=await getKV('seedMode','selected');
   for(const x of await getKV('catalog',[]))catalog.set(x.id,x);
   for(const x of await getKV('contents',[]))contents.set(x.id,x);
@@ -518,7 +537,7 @@ function renderHeader(){
   pruneLiveMedia();const liveCount=[...liveMedia.values()].filter(x=>Date.now()-(x.lastSeen||0)<LIVE_EXPIRE_MS).length;$('#filePill').textContent=files.length+' FILE'+(files.length===1?'':'S')+(liveCount?` · ${liveCount} LIVE`:'');$('#sizePill').textContent=fmtBytes(size);const lb=$('#liveMediaBtn');if(lb){setActionIcon(lb,'camera',localLive?'Live media settings · on air':'Share camera or microphone');lb.classList.toggle('liveOn',!!localLive&&localLive.mode!=='screen');lb.setAttribute('aria-pressed',String(!!localLive&&localLive.mode!=='screen'))}const screen=$('#screenShareBtn'),screenOn=localLive?.mode==='screen';setActionIcon(screen,'screen',screenOn?'Preview shared screen':navigator.mediaDevices?.getDisplayMedia?'Share screen':'Screen sharing unavailable in this browser');screen?.classList.toggle('liveOn',screenOn);screen?.setAttribute('aria-pressed',String(screenOn));
   const peerIds=new Set([...actorRoutes.keys(),...(typeof relayActors!=='undefined'?[...relayActors.keys()]:[])]),peers=peerIds.size,routes=[...actorRoutes.values()].reduce((n,m)=>n+m.size,0),planes=(typeof meshStatus!=='undefined'?[...meshStatus.values()].filter(x=>['on','ready','degraded','connecting'].includes(x)).length:0);$('#peerPill').textContent=peers+' PEER'+(peers===1?'':'S');$('#peerPill').className='pill '+(peers?'good':'');
   $('#netDot').className='dot '+(networkReady?'good':'');$('#netText').textContent=networkReady?(peers?`room live · ${peers} peer${peers===1?'':'s'} · ${routes} route${routes===1?'':'s'} · ${planes} planes`:`mesh ${planes} planes · seeking peers`):'starting room';
-  const alias=aliasFor(actor);$('#meText').textContent='YOU · '+alias.toUpperCase();$('#sideAlias').textContent=alias;$('#sideActor').textContent=actor;
+  const alias=aliasFor(actor);$('#meText').textContent='YOU · '+alias.toUpperCase();$('#sideAlias').textContent=alias;$('#sideActor').textContent=actor;$('#sideNode').textContent=nodeIdentity?nodeIdentity.nodeId:identityStatus;
   const seeds=advertisedSeeds().length;$('#seedStatus').textContent=`SEEDING ${seeds} FILE${seeds===1?'':'S'}`;$('#seedCount').textContent=seeds;$('#servedBytes').textContent=fmtBytes(served)
 }
 function renderModes(){const labels={off:'Disable seeding',selected:'Seed selected files',all:'Seed all local files'},icons={off:'seedOff',selected:'seedSelected',all:'seedAll'};document.querySelectorAll('.mode').forEach(b=>{const on=b.dataset.mode===seedMode;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));setActionIcon(b,icons[b.dataset.mode],labels[b.dataset.mode])});$('#seedModeDescription').textContent=seedMode==='off'?'Seeding off':seedMode==='all'?'Seeding all local files':'Seeding selected files'}

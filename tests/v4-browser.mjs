@@ -6,14 +6,14 @@ const require=createRequire(path.join(process.env.TRACKER_TEST_DEPS||'/tmp/track
 const {chromium}=require('playwright');
 const html=fs.readFileSync('index.html','utf8'),site='http://localhost:4179/tracker/';
 const marker="(async()=>{try{if(!crypto?.subtle||!indexedDB)";
-const instrument=html.replace(marker,`startMesh=async()=>{};window.__v4={catalog,contents,addFiles,get actor(){return actor},get roomHash(){return roomHash},get dbName(){return db?.name},get selected(){return selectedId},get locator(){return fileLocator}};${marker}`);
+const instrument=html.replace(marker,`startMesh=async()=>{};window.__v4={catalog,contents,addFiles,get actor(){return actor},get roomHash(){return roomHash},get dbName(){return db?.name},get selected(){return selectedId},get locator(){return fileLocator},get identity(){return nodeIdentity},get identityStatus(){return identityStatus}};${marker}`);
 const browser=await chromium.launch({args:['--no-sandbox']});
 const results={checks:[],errors:[]};
 try{
  const ctx=await browser.newContext({permissions:['clipboard-read','clipboard-write']});
  await ctx.route(site,r=>r.fulfill({contentType:'text/html',body:instrument}));
  const p=await ctx.newPage();p.on('pageerror',e=>results.errors.push(e.message));
- const secret='0123456789abcdef'.repeat(3);await p.goto(site+'#'+secret);await p.waitForFunction(()=>window.__v4?.dbName);
+ const secret='0123456789abcdef'.repeat(3);await p.goto(site+'#'+secret);await p.waitForFunction(()=>window.__v4?.identity);const originalNode=await p.evaluate(()=>__v4.identity.nodeId);assert.equal(await p.evaluate(()=>__v4.identity.privateKey.extractable),false);
  await p.locator('#fileInput').setInputFiles({name:'folder-file.txt',mimeType:'text/plain',buffer:Buffer.from('direct link content')});
  await p.locator('.row[data-cid] [data-file-link]').waitFor();
  const cid=await p.locator('.row[data-cid]').getAttribute('data-cid'),baseline=await p.evaluate(()=>({hash:__v4.roomHash,db:__v4.dbName}));
@@ -28,5 +28,7 @@ try{
  await p.goto(site+'#'+secret+'/f/not-a-hash');await p.waitForFunction(()=>document.querySelector('#fileLinkText').textContent==='Invalid file link');assert.equal(await p.evaluate(()=>__v4.dbName),baseline.db);
  results.checks.push('invalid locator never creates a different room');
  await p.setViewportSize({width:390,height:844});await p.screenshot({path:'/tmp/tracker-v4-mobile.png'});results.checks.push('narrow viewport screenshot');
+ await p.reload();await p.waitForFunction(()=>__v4.identity);assert.equal(await p.evaluate(()=>__v4.identity.nodeId),originalNode);
+ const tabs=await Promise.all([ctx.newPage(),ctx.newPage()]);await Promise.all(tabs.map((t,i)=>t.goto(site+'#'+String(i+1).repeat(48))));await Promise.all(tabs.map(t=>t.waitForFunction(()=>__v4.identity)));for(const t of tabs)assert.equal(await t.evaluate(()=>__v4.identity.nodeId),originalNode);results.checks.push('non-extractable Ed25519 key persists across reload and concurrent rooms');
  assert.deepEqual(results.errors,[]);results.passed=true;
 }finally{await browser.close();fs.writeFileSync('/tmp/tracker-v4-browser.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2))}
