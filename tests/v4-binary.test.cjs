@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
 const {fixture,source}=require('./v4-helper.cjs');
-async function node(actor){const c=await fixture(actor);Object.assign(c,{peerBinarySessions:new Map(),latestBinarySession:new Map()});for(const name of ['initBinaryIdentityV4','bindBinarySessionV4','binaryMetadataV4','binaryAuthBytesV4','authenticateBinaryV4','verifyBinaryV4'])vm.runInContext(source(name),c);await c.initBinaryIdentityV4();return c}
+async function node(actor){const c=await fixture(actor);Object.assign(c,{peerBinarySessions:new Map(),latestBinarySession:new Map(),binaryTransferRecipientsV4:new Map(),binaryRouteSessionsV4:new Map()});for(const name of ['initBinaryIdentityV4','bindBinarySessionV4','binaryMetadataV4','binaryAuthBytesV4','authenticateBinaryV4','verifyBinaryV4'])vm.runInContext(source(name),c);await c.initBinaryIdentityV4();return c}
 async function pair(fallback=false){const a=await node('sender'),b=await node('recipient');if(fallback){delete a.binaryIdentity.pairs.X25519;delete a.binaryIdentity.descriptor.keys.X25519}for(const [x,y]of [[a,b],[b,a]])await y.verifyControlV4(await x.signControlV4({v:2,actor:x.actor,type:'hello',mid:x.actor}));return[a,b]}
 const packet=new Uint8Array([1,2,3,4]),meta={kind:'chunk',id:'f-'+ '0'.repeat(64),sid:'transfer',idx:2,total:10,mode:'stream'};
 test('signed ephemeral key agreement yields directional binary authentication with native P-256 fallback',async()=>{
@@ -24,4 +24,17 @@ test('binary legacy compatibility cannot downgrade a pinned actor or enter a pro
 test('a replaced runtime cannot reuse an old recipient session; signed handshake forks are rejected',async()=>{
  const[a,b]=await pair(),old=await a.authenticateBinaryV4(b.actor,packet,meta);await b.initBinaryIdentityV4();assert.equal(await b.verifyBinaryV4(packet,old,a.actor),false);
  const session=await a.peerBinarySessions.get(a.latestBinarySession.get(b.actor)),fork=JSON.parse(JSON.stringify(session.descriptor));fork.keys['ECDH-P256']='A'.repeat(87);await assert.rejects(a.bindBinarySessionV4({actor:b.actor,nodeId:b.nodeIdentity.nodeId},fork),/fork/);
+});
+test('an authenticated direct route cannot select the legacy path through a forged relay annotation',async()=>{
+ const c=await node('recipient');Object.assign(c,{routeActors:new Map([['route|peer','pinned-source']]),routeKey:()=> 'route|peer'});let observed;
+ c.verifyBinaryV4=async(_packet,_metadata,remote)=>{observed=remote;return false};vm.runInContext(source('handleBinary'),c);
+ await c.handleBinary(packet,{peerId:'peer',metadata:{...meta,relayActor:'unverified-legacy'}},{key:'route'});assert.equal(observed,'pinned-source');
+});
+test('two tabs sharing an actor and key retain independent transfer recipients and routes',async()=>{
+ const[a,b]=await pair(),tab=await node(b.actor);tab.nodeIdentity=b.nodeIdentity;
+ await tab.verifyControlV4(await a.signControlV4({v:2,actor:a.actor,type:'hello',mid:'tab-source'}));await a.verifyControlV4(await tab.signControlV4({v:2,actor:tab.actor,type:'hello',mid:'second-tab'}));
+ a.binaryTransferRecipientsV4.set(b.actor+'|transfer',b.binaryIdentity.descriptor.nonce);
+ const oldTab=await a.authenticateBinaryV4(b.actor,packet,meta);assert.equal(await b.verifyBinaryV4(packet,oldTab,a.actor),true);assert.equal(await tab.verifyBinaryV4(packet,oldTab,a.actor),false);
+ const next=await a.authenticateBinaryV4(tab.actor,packet,{...meta,sid:'other-transfer'});assert.equal(await tab.verifyBinaryV4(packet,next,a.actor),true);assert.equal(await b.verifyBinaryV4(packet,next,a.actor),false);
+ vm.runInContext(source('binaryRouteAllowedV4'),a);a.binaryRouteSessionsV4.set('first',b.binaryIdentity.descriptor.nonce);a.binaryRouteSessionsV4.set('second',tab.binaryIdentity.descriptor.nonce);assert.equal(a.binaryRouteAllowedV4({routeId:'first'},oldTab),true);assert.equal(a.binaryRouteAllowedV4({routeId:'second'},oldTab),false);
 });

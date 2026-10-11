@@ -20,7 +20,7 @@ function context(names) {
     MP4_QUEUE_HIGH_BYTES: 48 * 1024 * 1024, MP4_QUEUE_HIGH_SEGMENTS: 48,
     STREAM_STARTUP_LANES: 12, STREAM_MIN_PER_SOURCE: 8, IS_MOBILEISH: false,
     activePreview: null,
-    authenticateBinaryV4:async(remote,packet,metadata)=>metadata,
+    binaryRouteAllowedV4:()=>true,authenticateBinaryV4:async(remote,packet,metadata)=>metadata,
     verifyBinaryV4:async()=>true,
     SAFE_HOT_BATCH_CHUNKS: 24, SAFE_CRITICAL_WINDOW: 32, DECODER_HEAD_HEDGE_WIDTH: 3,
     streamLargeTier: () => 0,

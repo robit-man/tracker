@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "delayed remote permalink resolves exact hash and ancestor folders over real WebRTC",
+    "v4 to v4 authenticated multi-chunk download and final root verification",
+    "bidirectional open-room writes and downloads",
+    "locked content permalink preserves ciphertext CID and requires correct password",
+    "v3 to v4 legacy catalog and binary download accepted as unverified",
+    "v4 to v3 additive signed records and legacy binary compatibility",
+    "v3 room database upgrade retains legacy catalog, verified cache and original IDs",
+    "authenticated malicious seeder bytes fail final verification and never become complete",
+    "interrupted cached download survives reload and resumes to verified completion",
+    "anchored protected invite, owner policy chain, read-only guest, grant and revoke over WebRTC",
+    "protected owner refuses unsigned v3 publication without downgrade"
+  ],
+  "errors": [],
+  "passed": true
+}

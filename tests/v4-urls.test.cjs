@@ -26,3 +26,8 @@ test('canonical builders preserve deployment path and strip a previous file loca
  assert.equal(c.buildFileUrl(secret,root,base),'https://robit-man.github.io/tracker/#'+secret+'/f/'+root.toLowerCase());
  assert.throws(()=>c.buildFileUrl(secret,'filename/#日本',base),/Invalid file link/);
 });
+test('protected room and file builders preserve owner independently of the room derivation input',()=>{
+ const owner='n-'+ 'a'.repeat(64),base='https://robit-man.github.io/tracker/';
+ for(const url of [c.buildRoomUrl(secret,base,owner),c.buildFileUrl(secret,root,base,owner)]){const p=c.parseTrackerFragment(new URL(url).hash);assert.equal(p.secret,secret);assert.equal(p.owner,owner)}
+ assert.equal(c.parseTrackerFragment('#'+secret+'/a/'+owner+'/f/'+root).resource.cid,'f-'+root.toLowerCase());assert.throws(()=>c.parseTrackerFragment('#'+secret+'/a/rogue/f/'+root),/Invalid file link/);
+});

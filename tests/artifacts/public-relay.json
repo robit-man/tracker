@@ -1,0 +1,19 @@
+{
+  "htmlOverride": true,
+  "browser": "chromium",
+  "relayOnly": true,
+  "checks": [
+    "unrelated room member has link action",
+    "same-size wrong content rejected by full hash",
+    "matching renamed copy seeds the original listing without changing publisher",
+    "returning browser can relink its orphaned listing",
+    "third peer receives identical bytes over encrypted relays with original uploader closed",
+    "native file handle persists and restores seeding after reload"
+  ],
+  "errors": [],
+  "cid": "f-8c9863e82530cf82d7f1b73a1db2470d2239c1e0a670de717a12a94d5ddb8a38",
+  "sha256": "2cb2f76ccaa7bc2ab7217ac15d5d82cf49eba9072e9611fab19b931bc0c8be24",
+  "receivedBytes": 1100000,
+  "served": "1.55 MB",
+  "passed": true
+}

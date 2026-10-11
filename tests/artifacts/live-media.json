@@ -1,0 +1,1035 @@
+{
+  "lowLatency": false,
+  "htmlOverride": true,
+  "relayOnly": false,
+  "directHarness": true,
+  "nativeDirect": false,
+  "firefoxViewer": false,
+  "firefoxSource": false,
+  "mp4Only": false,
+  "errors": [],
+  "modes": [
+    {
+      "mode": "av",
+      "samples": [],
+      "capture": [
+        {
+          "kind": "audio",
+          "settings": {
+            "autoGainControl": false,
+            "channelCount": 2,
+            "deviceId": "default",
+            "echoCancellation": false,
+            "groupId": "b5a7e3fdd0660f85e55662305aa4e22b12f392f0ccc9702f37a8ef869231ea48",
+            "latency": 0.01,
+            "noiseSuppression": false,
+            "sampleRate": 44100,
+            "sampleSize": 16,
+            "voiceIsolation": false
+          }
+        },
+        {
+          "kind": "video",
+          "settings": {
+            "aspectRatio": 1.7777777777777777,
+            "deviceId": "82c9d404ac139dc4376f6ba1c880ec0fdca0776b130b664140987676fda983bd",
+            "exposureMode": "manual",
+            "exposureTime": 50,
+            "focusDistance": 50,
+            "focusMode": "manual",
+            "frameRate": 20,
+            "groupId": "256fec475595ac7a75ab158af07bb3c52b10383adff386c040de3976b142fb04",
+            "height": 720,
+            "resizeMode": "none",
+            "width": 1280
+          }
+        }
+      ],
+      "start": {
+        "setup": "",
+        "toasts": "",
+        "live": {
+          "publisher": null,
+          "viewer": {
+            "chunked": true,
+            "lowLatency": false,
+            "latencyTarget": 0,
+            "videoBitrate": 1800000,
+            "publishedSeconds": 14.222,
+            "playbackRate": 1,
+            "liveJumps": 0,
+            "mediaPc": false,
+            "mime": "video/webm;codecs=vp8,opus",
+            "relayId": "live-bytes-225fa518-e8c6-4350-8e05-d884fc07b078",
+            "epoch": 1,
+            "next": 33,
+            "head": 37,
+            "pendingBytes": 0,
+            "pendingChunks": 0,
+            "started": true,
+            "safe": 11.484638,
+            "band": {
+              "tier": 0,
+              "low": 4.850993352774076,
+              "high": 9.80191239177257,
+              "recovery": 4.278055158444714,
+              "burst": 0.5729381943293613,
+              "rate": 1,
+              "bps": 72834.8333567712
+            },
+            "paths": [
+              {
+                "path": "direct:harness-rtc",
+                "bps": 81679,
+                "chunks": 102,
+                "lastAt": 64637.199999999255,
+                "score": 799,
+                "credit": "22.00",
+                "streak": 102,
+                "strong": true,
+                "preferred": true
+              }
+            ]
+          }
+        },
+        "route": "direct:harness-rtc \u00b7 11.57s buffered \u00b7 33/37 chunks",
+        "time": 1.014362,
+        "paused": false,
+        "ready": 4,
+        "width": 1280,
+        "fault": {
+          "drop": null,
+          "blocked": false,
+          "rescues": 0
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": [
+          [
+            0,
+            12.499
+          ]
+        ]
+      },
+      "repair": {
+        "setup": "",
+        "toasts": "",
+        "live": {
+          "publisher": null,
+          "viewer": {
+            "chunked": true,
+            "lowLatency": false,
+            "latencyTarget": 0,
+            "videoBitrate": 1800000,
+            "publishedSeconds": 22.50189999999851,
+            "playbackRate": 1,
+            "liveJumps": 0,
+            "mediaPc": false,
+            "mime": "video/webm;codecs=vp8,opus",
+            "relayId": "live-bytes-225fa518-e8c6-4350-8e05-d884fc07b078",
+            "epoch": 1,
+            "next": 58,
+            "head": 58,
+            "pendingBytes": 0,
+            "pendingChunks": 0,
+            "started": true,
+            "safe": 13.045905999999999,
+            "band": {
+              "tier": 0,
+              "low": 5.996495763640721,
+              "high": 13.868046843989283,
+              "recovery": 5.3094507646813796,
+              "burst": 0.6870449989593415,
+              "rate": 1,
+              "bps": 73335.67387643307
+            },
+            "paths": [
+              {
+                "path": "direct:harness-rtc",
+                "bps": 99960,
+                "chunks": 127,
+                "lastAt": 73119.5,
+                "score": 827,
+                "credit": "22.00",
+                "streak": 127,
+                "strong": true,
+                "preferred": true
+              }
+            ]
+          }
+        },
+        "route": "direct:harness-rtc \u00b7 13.08s buffered \u00b7 58/58 chunks",
+        "time": 9.253094,
+        "paused": false,
+        "ready": 4,
+        "width": 1280,
+        "fault": {
+          "drop": 49,
+          "blocked": true,
+          "rescues": 1
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": [
+          [
+            0,
+            22.299
+          ]
+        ]
+      },
+      "steady": {
+        "before": {
+          "setup": "",
+          "toasts": "",
+          "live": {
+            "publisher": null,
+            "viewer": {
+              "chunked": true,
+              "lowLatency": false,
+              "latencyTarget": 0,
+              "videoBitrate": 1800000,
+              "publishedSeconds": 22.50189999999851,
+              "playbackRate": 1,
+              "liveJumps": 0,
+              "mediaPc": false,
+              "mime": "video/webm;codecs=vp8,opus",
+              "relayId": "live-bytes-225fa518-e8c6-4350-8e05-d884fc07b078",
+              "epoch": 1,
+              "next": 58,
+              "head": 58,
+              "pendingBytes": 0,
+              "pendingChunks": 0,
+              "started": true,
+              "safe": 13.042216,
+              "band": {
+                "tier": 0,
+                "low": 5.996495763640721,
+                "high": 13.868046843989283,
+                "recovery": 5.3094507646813796,
+                "burst": 0.6870449989593415,
+                "rate": 1,
+                "bps": 73335.67387643307
+              },
+              "paths": [
+                {
+                  "path": "direct:harness-rtc",
+                  "bps": 99902,
+                  "chunks": 127,
+                  "lastAt": 73119.5,
+                  "score": 827,
+                  "credit": "22.00",
+                  "streak": 127,
+                  "strong": true,
+                  "preferred": true
+                }
+              ]
+            }
+          },
+          "route": "direct:harness-rtc \u00b7 13.08s buffered \u00b7 58/58 chunks",
+          "time": 9.256784,
+          "paused": false,
+          "ready": 4,
+          "width": 1280,
+          "fault": {
+            "drop": 49,
+            "blocked": true,
+            "rescues": 1
+          },
+          "backlog": {
+            "nats": 0,
+            "mqtt": {}
+          },
+          "buffered": [
+            [
+              0,
+              22.299
+            ]
+          ]
+        },
+        "after": {
+          "setup": "",
+          "toasts": "",
+          "live": {
+            "publisher": null,
+            "viewer": {
+              "chunked": true,
+              "lowLatency": false,
+              "latencyTarget": 0,
+              "videoBitrate": 1800000,
+              "publishedSeconds": 27.242099999999628,
+              "playbackRate": 1,
+              "liveJumps": 0,
+              "mediaPc": false,
+              "mime": "video/webm;codecs=vp8,opus",
+              "relayId": "live-bytes-225fa518-e8c6-4350-8e05-d884fc07b078",
+              "epoch": 1,
+              "next": 70,
+              "head": 70,
+              "pendingBytes": 0,
+              "pendingChunks": 0,
+              "started": true,
+              "safe": 12.787766999999999,
+              "band": {
+                "tier": 0,
+                "low": 3.428712370542483,
+                "high": 6.948944557177588,
+                "recovery": 2.8774000000003723,
+                "burst": 0.5513123705421104,
+                "rate": 1,
+                "bps": 72878.19220985266
+              },
+              "paths": [
+                {
+                  "path": "direct:harness-rtc",
+                  "bps": 91356,
+                  "chunks": 139,
+                  "lastAt": 77855.90000000037,
+                  "score": 807,
+                  "credit": "22.00",
+                  "streak": 139,
+                  "strong": true,
+                  "preferred": true
+                }
+              ]
+            }
+          },
+          "route": "direct:harness-rtc \u00b7 12.81s buffered \u00b7 70/70 chunks",
+          "time": 14.261233,
+          "paused": false,
+          "ready": 4,
+          "width": 1280,
+          "fault": {
+            "drop": 49,
+            "blocked": true,
+            "rescues": 1
+          },
+          "backlog": {
+            "nats": 0,
+            "mqtt": {}
+          },
+          "buffered": [
+            [
+              0,
+              27.049
+            ]
+          ]
+        }
+      },
+      "audio": {
+        "peak": 0.2765946686267853
+      },
+      "publisher": {
+        "setup": "REQUESTING DEVICE ACCESS\u2026",
+        "toasts": "",
+        "live": {
+          "publisher": {
+            "id": "live-78843240-b124692f-0e20-42fa-b4e9-634eff0286e1",
+            "mode": "av",
+            "lowLatency": false,
+            "captureSettings": {
+              "aspectRatio": 1.7777777777777777,
+              "deviceId": "82c9d404ac139dc4376f6ba1c880ec0fdca0776b130b664140987676fda983bd",
+              "exposureMode": "manual",
+              "exposureTime": 50,
+              "focusDistance": 50,
+              "focusMode": "manual",
+              "frameRate": 20,
+              "groupId": "256fec475595ac7a75ab158af07bb3c52b10383adff386c040de3976b142fb04",
+              "height": 720,
+              "resizeMode": "none",
+              "width": 1280
+            },
+            "viewers": [
+              {
+                "chunked": true,
+                "mediaPc": false,
+                "mime": "video/webm;codecs=vp8,opus",
+                "sid": "f149ad7d-6c04-4c88-9e28-7a75f033abe2",
+                "epoch": 1,
+                "relayId": "live-bytes-225fa518-e8c6-4350-8e05-d884fc07b078",
+                "head": 73,
+                "videoBitrate": 1800000,
+                "batchSeconds": 0.36,
+                "ack": 73,
+                "retainedBytes": 0,
+                "queuedBytes": 3284
+              }
+            ]
+          },
+          "viewer": null
+        },
+        "route": "local capture preview",
+        "time": 0,
+        "paused": true,
+        "ready": 0,
+        "width": 0,
+        "fault": {
+          "drop": null,
+          "blocked": false,
+          "rescues": 0
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": []
+      },
+      "end": {
+        "setup": "",
+        "toasts": "",
+        "live": {
+          "publisher": null,
+          "viewer": {
+            "chunked": true,
+            "lowLatency": false,
+            "latencyTarget": 0,
+            "videoBitrate": 1800000,
+            "publishedSeconds": 28.44179999999888,
+            "playbackRate": 1,
+            "liveJumps": 0,
+            "mediaPc": false,
+            "mime": "video/webm;codecs=vp8,opus",
+            "relayId": "live-bytes-225fa518-e8c6-4350-8e05-d884fc07b078",
+            "epoch": 1,
+            "next": 73,
+            "head": 73,
+            "pendingBytes": 0,
+            "pendingChunks": 0,
+            "started": true,
+            "safe": 12.910333,
+            "band": {
+              "tier": 0,
+              "low": 3.390011301743762,
+              "high": 6.866606049411964,
+              "recovery": 2.8774000000003723,
+              "burst": 0.5126113017433894,
+              "rate": 1,
+              "bps": 72467.21374878105
+            },
+            "paths": [
+              {
+                "path": "direct:harness-rtc",
+                "bps": 77657,
+                "chunks": 142,
+                "lastAt": 79054,
+                "score": 815,
+                "credit": "22.00",
+                "streak": 142,
+                "strong": true,
+                "preferred": true
+              }
+            ]
+          }
+        },
+        "route": "direct:harness-rtc \u00b7 13.04s buffered \u00b7 73/73 chunks",
+        "time": 15.338667,
+        "paused": false,
+        "ready": 4,
+        "width": 1280,
+        "fault": {
+          "drop": 49,
+          "blocked": true,
+          "rescues": 1
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": [
+          [
+            0,
+            28.249
+          ]
+        ]
+      },
+      "passed": true
+    },
+    {
+      "mode": "audio",
+      "samples": [],
+      "capture": [
+        {
+          "kind": "audio",
+          "settings": {
+            "autoGainControl": false,
+            "channelCount": 2,
+            "deviceId": "default",
+            "echoCancellation": false,
+            "groupId": "b5a7e3fdd0660f85e55662305aa4e22b12f392f0ccc9702f37a8ef869231ea48",
+            "latency": 0.01,
+            "noiseSuppression": false,
+            "sampleRate": 44100,
+            "sampleSize": 16,
+            "voiceIsolation": false
+          }
+        }
+      ],
+      "start": {
+        "setup": "",
+        "toasts": "Live media ended. Publisher stopped live media",
+        "live": {
+          "publisher": null,
+          "viewer": {
+            "chunked": true,
+            "lowLatency": false,
+            "latencyTarget": 0,
+            "videoBitrate": 0,
+            "publishedSeconds": 3.541300000000745,
+            "playbackRate": 1,
+            "liveJumps": 0,
+            "mediaPc": false,
+            "mime": "audio/webm;codecs=opus",
+            "relayId": "live-bytes-2188f0f7-e220-4851-88b5-257bb7e05d82",
+            "epoch": 1,
+            "next": 9,
+            "head": 9,
+            "pendingBytes": 0,
+            "pendingChunks": 0,
+            "started": true,
+            "safe": 2.355994,
+            "band": {
+              "tier": 0,
+              "low": 1.070877777778233,
+              "high": 2.3161050656276356,
+              "recovery": 0.6774000000003725,
+              "burst": 0.3934777777778605,
+              "rate": 1,
+              "bps": 15907.717504867747
+            },
+            "paths": [
+              {
+                "path": "direct:harness-rtc",
+                "bps": 28445,
+                "chunks": 151,
+                "lastAt": 83733.59999999963,
+                "score": 789,
+                "credit": "22.00",
+                "streak": 151,
+                "strong": true,
+                "preferred": true
+              }
+            ]
+          }
+        },
+        "route": "direct:harness-rtc \u00b7 2.41s buffered \u00b7 9/9 chunks",
+        "time": 1.124006,
+        "paused": false,
+        "ready": 4,
+        "fault": {
+          "drop": 49,
+          "blocked": true,
+          "rescues": 1
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": [
+          [
+            0,
+            3.48
+          ]
+        ]
+      },
+      "repair": {
+        "setup": "",
+        "toasts": "",
+        "live": {
+          "publisher": null,
+          "viewer": {
+            "chunked": true,
+            "lowLatency": false,
+            "latencyTarget": 0,
+            "videoBitrate": 0,
+            "publishedSeconds": 8.786599999999627,
+            "playbackRate": 1,
+            "liveJumps": 0,
+            "mediaPc": false,
+            "mime": "audio/webm;codecs=opus",
+            "relayId": "live-bytes-2188f0f7-e220-4851-88b5-257bb7e05d82",
+            "epoch": 1,
+            "next": 22,
+            "head": 22,
+            "pendingBytes": 0,
+            "pendingChunks": 0,
+            "started": true,
+            "safe": 2.130453000000001,
+            "band": {
+              "tier": 0,
+              "low": 1.0767909090912646,
+              "high": 2.4404276422049733,
+              "recovery": 0.6774000000003725,
+              "burst": 0.3993909090908921,
+              "rate": 1,
+              "bps": 15561.878314707146
+            },
+            "paths": [
+              {
+                "path": "direct:harness-rtc",
+                "bps": 16309,
+                "chunks": 164,
+                "lastAt": 88970.19999999925,
+                "score": 776,
+                "credit": "22.00",
+                "streak": 164,
+                "strong": true,
+                "preferred": true
+              }
+            ]
+          }
+        },
+        "route": "direct:harness-rtc \u00b7 2.17s buffered \u00b7 22/22 chunks",
+        "time": 6.329547,
+        "paused": false,
+        "ready": 4,
+        "fault": {
+          "drop": 21,
+          "blocked": true,
+          "rescues": 1
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": [
+          [
+            0,
+            8.46
+          ]
+        ]
+      },
+      "steady": {
+        "before": {
+          "setup": "",
+          "toasts": "",
+          "live": {
+            "publisher": null,
+            "viewer": {
+              "chunked": true,
+              "lowLatency": false,
+              "latencyTarget": 0,
+              "videoBitrate": 0,
+              "publishedSeconds": 8.786599999999627,
+              "playbackRate": 1,
+              "liveJumps": 0,
+              "mediaPc": false,
+              "mime": "audio/webm;codecs=opus",
+              "relayId": "live-bytes-2188f0f7-e220-4851-88b5-257bb7e05d82",
+              "epoch": 1,
+              "next": 22,
+              "head": 22,
+              "pendingBytes": 0,
+              "pendingChunks": 0,
+              "started": true,
+              "safe": 2.1260730000000008,
+              "band": {
+                "tier": 0,
+                "low": 1.0767909090912646,
+                "high": 2.4404276422049733,
+                "recovery": 0.6774000000003725,
+                "burst": 0.3993909090908921,
+                "rate": 1,
+                "bps": 15561.878314707146
+              },
+              "paths": [
+                {
+                  "path": "direct:harness-rtc",
+                  "bps": 16298,
+                  "chunks": 164,
+                  "lastAt": 88970.19999999925,
+                  "score": 776,
+                  "credit": "22.00",
+                  "streak": 164,
+                  "strong": true,
+                  "preferred": true
+                }
+              ]
+            }
+          },
+          "route": "direct:harness-rtc \u00b7 2.17s buffered \u00b7 22/22 chunks",
+          "time": 6.333927,
+          "paused": false,
+          "ready": 4,
+          "fault": {
+            "drop": 21,
+            "blocked": true,
+            "rescues": 1
+          },
+          "backlog": {
+            "nats": 0,
+            "mqtt": {}
+          },
+          "buffered": [
+            [
+              0,
+              8.46
+            ]
+          ]
+        },
+        "after": {
+          "setup": "",
+          "toasts": "",
+          "live": {
+            "publisher": null,
+            "viewer": {
+              "chunked": true,
+              "lowLatency": false,
+              "latencyTarget": 0,
+              "videoBitrate": 0,
+              "publishedSeconds": 13.824699999999256,
+              "playbackRate": 1,
+              "liveJumps": 0,
+              "mediaPc": false,
+              "mime": "audio/webm;codecs=opus",
+              "relayId": "live-bytes-2188f0f7-e220-4851-88b5-257bb7e05d82",
+              "epoch": 1,
+              "next": 35,
+              "head": 35,
+              "pendingBytes": 0,
+              "pendingChunks": 0,
+              "started": true,
+              "safe": 2.092592999999999,
+              "band": {
+                "tier": 0,
+                "low": 1.0723914285717797,
+                "high": 2.2050048542088434,
+                "recovery": 0.6774000000003725,
+                "burst": 0.3949914285714073,
+                "rate": 1,
+                "bps": 15706.525277222052
+              },
+              "paths": [
+                {
+                  "path": "direct:harness-rtc",
+                  "bps": 16376,
+                  "chunks": 177,
+                  "lastAt": 93690.59999999963,
+                  "score": 758,
+                  "credit": "22.00",
+                  "streak": 177,
+                  "strong": true,
+                  "preferred": true
+                }
+              ]
+            }
+          },
+          "route": "direct:harness-rtc \u00b7 2.10s buffered \u00b7 35/35 chunks",
+          "time": 11.347407,
+          "paused": false,
+          "ready": 4,
+          "fault": {
+            "drop": 21,
+            "blocked": true,
+            "rescues": 1
+          },
+          "backlog": {
+            "nats": 0,
+            "mqtt": {}
+          },
+          "buffered": [
+            [
+              0,
+              13.44
+            ]
+          ]
+        }
+      },
+      "audio": {
+        "peak": 0.2826760709285736
+      },
+      "publisher": {
+        "setup": "REQUESTING DEVICE ACCESS\u2026",
+        "toasts": "",
+        "live": {
+          "publisher": {
+            "id": "live-78843240-8a16dbd3-d4e4-419f-92e2-60251625db12",
+            "mode": "audio",
+            "lowLatency": false,
+            "viewers": [
+              {
+                "chunked": true,
+                "mediaPc": false,
+                "mime": "audio/webm;codecs=opus",
+                "sid": "70476b5e-1b19-4f18-b638-6663e1f51412",
+                "epoch": 1,
+                "relayId": "live-bytes-2188f0f7-e220-4851-88b5-257bb7e05d82",
+                "head": 38,
+                "videoBitrate": 0,
+                "batchSeconds": 0.36,
+                "ack": 38,
+                "retainedBytes": 0,
+                "queuedBytes": 0
+              }
+            ]
+          },
+          "viewer": null
+        },
+        "route": "local capture preview",
+        "time": 0,
+        "paused": true,
+        "ready": 0,
+        "fault": {
+          "drop": null,
+          "blocked": false,
+          "rescues": 0
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": []
+      },
+      "end": {
+        "setup": "",
+        "toasts": "",
+        "live": {
+          "publisher": null,
+          "viewer": {
+            "chunked": true,
+            "lowLatency": false,
+            "latencyTarget": 0,
+            "videoBitrate": 0,
+            "publishedSeconds": 14.642199999999255,
+            "playbackRate": 1,
+            "liveJumps": 0,
+            "mediaPc": false,
+            "mime": "audio/webm;codecs=opus",
+            "relayId": "live-bytes-2188f0f7-e220-4851-88b5-257bb7e05d82",
+            "epoch": 1,
+            "next": 38,
+            "head": 38,
+            "pendingBytes": 0,
+            "pendingChunks": 0,
+            "started": true,
+            "safe": 2.1639999999999997,
+            "band": {
+              "tier": 0,
+              "low": 1.062721052631932,
+              "high": 2.270820502359758,
+              "recovery": 0.6774000000003725,
+              "burst": 0.38532105263155936,
+              "rate": 1,
+              "bps": 16086.380461953258
+            },
+            "paths": [
+              {
+                "path": "direct:harness-rtc",
+                "bps": 17237,
+                "chunks": 180,
+                "lastAt": 94831.5,
+                "score": 769,
+                "credit": "22.00",
+                "streak": 180,
+                "strong": true,
+                "preferred": true
+              }
+            ]
+          }
+        },
+        "route": "direct:harness-rtc \u00b7 2.29s buffered \u00b7 38/38 chunks",
+        "time": 12.416,
+        "paused": false,
+        "ready": 4,
+        "fault": {
+          "drop": 21,
+          "blocked": true,
+          "rescues": 1
+        },
+        "backlog": {
+          "nats": 0,
+          "mqtt": {}
+        },
+        "buffered": [
+          [
+            0,
+            14.58
+          ]
+        ]
+      },
+      "passed": true
+    }
+  ],
+  "fileBefore": {
+    "mode": "mp4box",
+    "ready": true,
+    "safe": 13.823860000000002,
+    "band": {
+      "tier": 0,
+      "low": 5.872606359863205,
+      "high": 14.853942913385518,
+      "recovery": 1.8565,
+      "burst": 4.016106359863206,
+      "rate": 1,
+      "bps": 284845.79761904763
+    },
+    "time": 3.050806,
+    "paused": false,
+    "state": "downloading",
+    "rx": 23,
+    "total": 229,
+    "fed": 10,
+    "head": 10,
+    "netBytes": 12058624,
+    "segBytes": 5017558,
+    "mseBytes": 4087255,
+    "latency": 0.2683554687502637,
+    "jitter": 0.1259097656247377,
+    "slope": 1.6983542297087446,
+    "supply": 1,
+    "target": 14.584601236466426,
+    "pressure": 1,
+    "requestChunks": 2,
+    "inflight": 8,
+    "q": {
+      "segments": 0,
+      "bytes": 0
+    },
+    "seekEpoch": 0,
+    "anchor": 1,
+    "prefix": 10,
+    "ranges": [
+      [
+        0,
+        16.874666
+      ]
+    ],
+    "events": [
+      {
+        "t": 42591.40000000037,
+        "clock": "09:41:01.967",
+        "type": "DECODER FRONTIER",
+        "detail": "133 \u2192 134 \u00b7 cursor 6 \u00b7 safe-feedback",
+        "level": "info"
+      },
+      {
+        "t": 42596,
+        "clock": "09:41:01.972",
+        "type": "DECODER FRONTIER",
+        "detail": "134 \u2192 135 \u00b7 cursor 7 \u00b7 safe-feedback",
+        "level": "info"
+      },
+      {
+        "t": 42600.59999999963,
+        "clock": "09:41:01.976",
+        "type": "DECODER FRONTIER",
+        "detail": "135 \u2192 136 \u00b7 cursor 8 \u00b7 safe-feedback",
+        "level": "info"
+      },
+      {
+        "t": 42605.09999999963,
+        "clock": "09:41:01.981",
+        "type": "DECODER FRONTIER",
+        "detail": "136 \u2192 137 \u00b7 cursor 9 \u00b7 safe-feedback",
+        "level": "info"
+      },
+      {
+        "t": 42608.09999999963,
+        "clock": "09:41:01.984",
+        "type": "FRONTIER RESCUE",
+        "detail": "chunk 10 \u00b7 1 independent seeder lanes \u00b7 SAFE 6.8s \u00b7 urgent-miss",
+        "level": "warn"
+      },
+      {
+        "t": 42608.300000000745,
+        "clock": "09:41:01.984",
+        "type": "DECODER FRONTIER",
+        "detail": "137 \u2192 138 \u00b7 cursor 10 \u00b7 safe-feedback",
+        "level": "info"
+      }
+    ]
+  },
+  "fileAfter": {
+    "mode": "mp4box",
+    "ready": true,
+    "safe": 365.728933,
+    "band": {
+      "tier": 0,
+      "low": 34.579510895508264,
+      "high": 365.728934,
+      "recovery": 23.260200000001117,
+      "burst": 11.319310895507149,
+      "rate": 1,
+      "bps": 284845.79761904763
+    },
+    "time": 54.271066,
+    "paused": false,
+    "state": "complete",
+    "rx": 229,
+    "total": 229,
+    "fed": 229,
+    "head": 228,
+    "netBytes": 119635235,
+    "segBytes": 120012401,
+    "mseBytes": 96393809,
+    "latency": 1.1754634326669555,
+    "jitter": 0.8107838269048244,
+    "slope": 22.52178938491936,
+    "supply": 1,
+    "target": 130.9908623469331,
+    "pressure": 1,
+    "requestChunks": 3,
+    "inflight": 0,
+    "q": {
+      "segments": 0,
+      "bytes": 0
+    },
+    "seekEpoch": 0,
+    "anchor": 16,
+    "prefix": 229,
+    "ranges": [
+      [
+        0,
+        419.999999
+      ]
+    ],
+    "events": [
+      {
+        "t": 72396.59999999963,
+        "clock": "09:41:31.772",
+        "type": "DECODER FRONTIER",
+        "detail": "223 \u2192 224 \u00b7 cursor 221 \u00b7 promote",
+        "level": "info"
+      },
+      {
+        "t": 72406.59999999963,
+        "clock": "09:41:31.782",
+        "type": "DECODER FRONTIER",
+        "detail": "224 \u2192 225 \u00b7 cursor 222 \u00b7 promote",
+        "level": "info"
+      },
+      {
+        "t": 72426.80000000075,
+        "clock": "09:41:31.802",
+        "type": "DECODER FRONTIER",
+        "detail": "225 \u2192 226 \u00b7 cursor 223 \u00b7 promote",
+        "level": "info"
+      },
+      {
+        "t": 72439.5,
+        "clock": "09:41:31.815",
+        "type": "DECODER FRONTIER",
+        "detail": "226 \u2192 227 \u00b7 cursor 224 \u00b7 promote",
+        "level": "info"
+      },
+      {
+        "t": 72448.40000000037,
+        "clock": "09:41:31.824",
+        "type": "DECODER FRONTIER",
+        "detail": "227 \u2192 228 \u00b7 cursor 225 \u00b7 promote",
+        "level": "info"
+      },
+      {
+        "t": 72455.40000000037,
+        "clock": "09:41:31.831",
+        "type": "DECODER FRONTIER",
+        "detail": "228 \u2192 229 \u00b7 cursor 226 \u00b7 promote",
+        "level": "info"
+      }
+    ]
+  },
+  "passed": true
+}

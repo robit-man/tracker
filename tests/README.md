@@ -309,3 +309,25 @@ It also checks that the listing and original publisher stay unchanged.
 `RESULT` selects the JSON evidence path. Unit tests additionally cover locked
 content hashes, permission reauthorization, stale handles, picker cancellation,
 and respecting the global seeding-off setting.
+
+V4 identity, signature, policy, URL and binary tests run with the ordinary suite:
+
+```sh
+node --test tests/*.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-v4-test-deps node tests/v4-browser.mjs
+TRACKER_TEST_DEPS=/tmp/tracker-v4-test-deps node tests/v4-interop-browser.mjs
+```
+
+The first browser harness checks navigation, clipboard, global nonextractable key
+persistence, simultaneous initial tabs without Web Locks, sibling-origin paths,
+manifest-only navigation, unsupported crypto and corrupt-key recovery. The second
+uses real local WebRTC between separate profiles for bidirectional v4/v3 transfers,
+locked links, final-root corruption rejection, persistent download resume and
+protected grant/revocation policy. Public broker coverage uses the existing
+`source-link-browser.mjs` with `TRACKER_HTML=index.html`.
+
+`HEADLESS=1 MODES=av,audio` runs the live route harness on Chromium's full headless
+binary without Xvfb; capture devices are synthetic browser inputs, while actual
+capture, encoding, data channels and playback are used. Display capture still
+requires the existing display/Xvfb workflow. Actual coverage and limitations,
+including the baseline media fixture size, are recorded in `tests/results.md`.

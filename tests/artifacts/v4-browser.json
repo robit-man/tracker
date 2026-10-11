@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "same room hash and DB; exact local file selection; copy file link",
+    "room-only share URL and keyboard close",
+    "pending link and Back to room preserve stored files",
+    "invalid locator never creates a different room",
+    "narrow viewport screenshot",
+    "non-extractable Ed25519 key persists across reload and concurrent rooms",
+    "first-run simultaneous tabs converge without Web Locks",
+    "same-origin sibling paths reuse the identity DB",
+    "manifest-only resource view never persists a fake catalog row",
+    "unsupported Ed25519 remains explicit compatibility mode without setup dialog",
+    "corrupted identity is retained and local room data stays accessible"
+  ],
+  "errors": [],
+  "passed": true
+}

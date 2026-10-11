@@ -1,0 +1,41 @@
+{
+  "v3": {
+    "fixtureBytes": 547374290,
+    "sampleCount": 100,
+    "errors": [],
+    "firstPlaybackTick": 0,
+    "firstRecoveredHeadTick": 2,
+    "finalPlaybackSeconds": 260.402165,
+    "finalReceivedBytes": 362807296,
+    "finalReceivedChunks": 692,
+    "minimumSafeSeconds": 0,
+    "restoredPlaybackAdvanceSeconds": 56.30493899999999,
+    "postSeekPlaybackAdvanceSeconds": 52.283480000000026
+  },
+  "v4-initial": {
+    "fixtureBytes": 547374290,
+    "sampleCount": 100,
+    "errors": [],
+    "firstPlaybackTick": 0,
+    "firstRecoveredHeadTick": 1,
+    "finalPlaybackSeconds": 267.166301,
+    "finalReceivedBytes": 360710144,
+    "finalReceivedChunks": 688,
+    "minimumSafeSeconds": 0.20088799999999196,
+    "restoredPlaybackAdvanceSeconds": 56.414143000000024,
+    "postSeekPlaybackAdvanceSeconds": 52.341838999999965
+  },
+  "v4-final": {
+    "fixtureBytes": 547374290,
+    "sampleCount": 100,
+    "errors": [],
+    "firstPlaybackTick": 0,
+    "firstRecoveredHeadTick": 1,
+    "finalPlaybackSeconds": 260.469658,
+    "finalReceivedBytes": 353894400,
+    "finalReceivedChunks": 675,
+    "minimumSafeSeconds": 0.3965610000000055,
+    "restoredPlaybackAdvanceSeconds": 56.461929000000026,
+    "postSeekPlaybackAdvanceSeconds": 52.32467999999997
+  }
+}

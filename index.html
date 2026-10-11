@@ -252,7 +252,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-10-source-link-v95';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-11-crypto-v4-v96';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -284,14 +284,18 @@ if(SIGNALING_ENDPOINT_TOTAL<8)console.warn('signaling candidate pool unexpectedl
 const PRIVACY_MODE_KEY='private-tracker-deep-privacy-v1';
 let privacyMode=localStorage.getItem(PRIVACY_MODE_KEY)==='1';
 let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
+let directFileEntry=null;
 let fileLocator=null,fileLinkError='',fileLinkStarted=0,fileLinkTimer=0,fileLinkSelected='',shareKind='room',shareReturnFocus=null;
 let nodeIdentity=null,identityStatus='starting';
 const actorKeys=new Map(),verifiedPublicKeys=new Map(),authenticatedReplay=new Map();
+const controlBudgetsV4=new Map();
 let securityPinsWrite=Promise.resolve();
 const catalogOperations=new Map(),pendingCatalogOperations=new Map(),revisionSlots=new Map();
+const invalidRecordProofs=new Set();
 let catalogPersistWrite=Promise.resolve();
 let ownerAnchor='',roomPolicy=null;const policyHistory=new Map(),pendingPolicies=new Map();
 let binaryIdentity=null;const peerBinarySessions=new Map(),latestBinarySession=new Map();
+const binaryTransferRecipientsV4=new Map(),binaryRouteSessionsV4=new Map();
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -454,10 +458,19 @@ function canonicalEncodeV4(value){return enc.encode(canonicalStringV4(value))}
 function base64url(bytes){return bytesToB64(bytes).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function decodeBase64url(s,length){if(typeof s!=='string'||! /^[A-Za-z0-9_-]+$/.test(s)||s.length!==Math.ceil(length*8/6))throw Error('Invalid key or signature encoding');const bytes=b64ToBytes(s.replace(/-/g,'+').replace(/_/g,'/'));if(bytes.length!==length||base64url(bytes)!==s)throw Error('Invalid key or signature encoding');return bytes}
 function controlSender(m){return m?.v===9?m.via||m.from:m?.actor||m?.from||''}
+function controlAdmissionV4(m){
+  if(m.v===9&&m.kind==='binfrag')return true;const sender=controlSender(m),now=Date.now();let budget=controlBudgetsV4.get(sender);
+  if(!budget){if(controlBudgetsV4.size>=4096){for(const[a,b]of controlBudgetsV4)if(now-b.at>300000)controlBudgetsV4.delete(a);if(controlBudgetsV4.size>=4096)return false}budget={tokens:256,at:now};controlBudgetsV4.set(sender,budget)}
+  budget.tokens=Math.min(256,budget.tokens+Math.max(0,now-budget.at)*.064);budget.at=now;if(budget.tokens<1)return false;budget.tokens--;return true;
+}
 function controlShapeV4(m){
   if(!m||typeof m!=='object'||Array.isArray(m)||![1,2,9,11].includes(m.v)||typeof controlSender(m)!=='string'||!controlSender(m)||controlSender(m).length>128)throw Error('Invalid control envelope');
   if(m.to!=null&&(typeof m.to!=='string'||m.to.length>128))throw Error('Invalid recipient');
   for(const field of ['entries','contents','operations','policies','availability','ids','indexes','pathHints'])if(m[field]!=null&&(!Array.isArray(m[field])||m[field].length>(field==='indexes'?512:1024)))throw Error('Control array exceeds limits');
+  if(m.profile&&(typeof m.profile.alias!=='string'||m.profile.alias.length>80||typeof m.profile.color!=='string'||!/^#[0-9a-fA-F]{6}$/.test(m.profile.color)))throw Error('Invalid peer profile');
+  for(const field of ['sid','rid','id','cid','nknAddr'])if(m[field]!=null&&(typeof m[field]!=='string'||m[field].length>256))throw Error('Invalid control identifier');
+  if(m.expires!=null&&(!Number.isSafeInteger(m.expires)||m.expires>Date.now()+300000))throw Error('Invalid lease');
+  if(m.type==='content-query'&&!/^f-[0-9a-f]{64}$/.test(m.cid))throw Error('Invalid content query');
   canonicalEncodeV4(m);
 }
 async function publicKeyV4(key,nodeId){
@@ -481,6 +494,7 @@ async function signControlV4(input){
 }
 async function verifyControlV4(m){
   controlShapeV4(m);const auth=m.auth;
+  if(!controlAdmissionV4(m))throw Error('Control rate limit reached');
   if(m.v===9&&m.kind==='binfrag'&&auth===undefined)return{status:'binary-framing-only'};
   if(auth===undefined){if(ownerAnchor||actorKeys.has(controlSender(m)))throw Error('Unsigned downgrade rejected');return{status:'legacy-unverified'}}
   if(!auth||auth.protocol!==4||auth.algorithm!=='Ed25519'||auth.domain!=='robit-tracker-control-v4'||auth.roomHash!==roomHash||auth.actor!==controlSender(m)||typeof auth.mid!=='string'||auth.mid.length>128)throw Error('Invalid signed context');
@@ -506,7 +520,7 @@ async function initBinaryIdentityV4(){
 }
 async function bindBinarySessionV4(auth,descriptor){
   if(!binaryIdentity)return;
-  if(!descriptor||descriptor.version!==1||typeof descriptor.nonce!=='string'||descriptor.nonce.length>64||!descriptor.keys)throw Error('Invalid binary handshake');
+  if(!descriptor||descriptor.version!==1||typeof descriptor.nonce!=='string'||!descriptor.nonce||descriptor.nonce.length>64||!descriptor.keys)throw Error('Invalid binary handshake');
   const key=auth.actor+'|'+descriptor.nonce,cached=peerBinarySessions.get(key);if(cached){const session=await cached;if(canonicalStringV4(session.descriptor)!==canonicalStringV4(descriptor))throw Error('Binary session fork');latestBinarySession.set(auth.actor,key);return session}
   const derive=async()=>{
     const algorithm=binaryIdentity.pairs.X25519&&descriptor.keys.X25519?'X25519':'ECDH-P256',raw=decodeBase64url(descriptor.keys[algorithm],algorithm==='X25519'?32:65),publicKey=await crypto.subtle.importKey('raw',raw,algorithm==='X25519'?'X25519':{name:'ECDH',namedCurve:'P-256'},false,[]),bits=await crypto.subtle.deriveBits({name:algorithm==='X25519'?'X25519':'ECDH',public:publicKey},binaryIdentity.pairs[algorithm].privateKey,256),base=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
@@ -521,10 +535,11 @@ function binaryAuthBytesV4(packet,metadata,header){return concatBytes(canonicalE
 async function authenticateBinaryV4(remote,packet,metadata){
   if(metadata.nodeAuth)return metadata;
   if(!actorKeys.has(remote)){if(ownerAnchor)throw Error('Unauthenticated protected recipient');return metadata}
-  const session=await peerBinarySessions.get(latestBinarySession.get(remote));if(!session)throw Error('Authenticated binary session unavailable');
+  const nonce=metadata.sid&&binaryTransferRecipientsV4.get(remote+'|'+metadata.sid),session=await peerBinarySessions.get(nonce?remote+'|'+nonce:latestBinarySession.get(remote));if(!session)throw Error('Authenticated binary session unavailable');
   const header={version:4,session:session.id,from:actor,to:remote,senderSession:binaryIdentity.descriptor.nonce,recipientSession:session.descriptor.nonce,seq:++session.sendSequence};
   const mac=base64url(new Uint8Array(await crypto.subtle.sign('HMAC',session.sendKey,binaryAuthBytesV4(packet,metadata,header))));return{...metadata,nodeAuth:{...header,mac}};
 }
+function binaryRouteAllowedV4(route,metadata){const wanted=metadata.nodeAuth?.recipientSession,known=binaryRouteSessionsV4.get(route.routeId);return!wanted||!known||wanted===known}
 async function verifyBinaryV4(packet,metadata,remote){
   const auth=metadata?.nodeAuth;if(!auth)return!ownerAnchor&&!actorKeys.has(remote);
   if(!binaryIdentity||auth.version!==4||auth.from!==remote||auth.to!==actor||auth.recipientSession!==binaryIdentity.descriptor.nonce||!Number.isSafeInteger(auth.seq)||auth.seq<1)return false;
@@ -545,14 +560,14 @@ async function signRecordV4(record,domain){
 }
 async function verifyRecordV4(record,domain,author,enforcePolicy=true){
   const p=record?.proof;if(p===undefined)return false;
-  if(!p||p.protocol!==4||p.algorithm!=='Ed25519'||p.domain!==domain||p.roomHash!==roomHash||p.actor!==author)throw Error('Invalid record context');
+  if(!p||p.protocol!==4||p.algorithm!=='Ed25519'||p.domain!==domain||p.roomHash!==roomHash||p.actor!==author||typeof p.actor!=='string'||!p.actor||p.actor.length>128)throw Error('Invalid record context');
   const header={...p};delete header.signature;
   if(!await crypto.subtle.verify('Ed25519',await publicKeyV4(p.publicKey,p.nodeId),decodeBase64url(p.signature,64),canonicalEncodeV4({...header,body:recordBodyV4(record)})))throw Error('Record signature rejected');
   if(enforcePolicy&&ownerAnchor&&domain!=='robit-tracker-policy-v4'&&!hasPermissionV4(p.nodeId,'write'))throw Error('Record writer is not authorized');
   await pinActorV4(author,p.nodeId);return true;
 }
 function catalogShapeV4(x){
-  return!!(x&&typeof x.id==='string'&&x.id.length<=128&&['file','folder'].includes(x.kind)&&typeof x.name==='string'&&x.name.length>0&&x.name.length<=240&&(x.parent==null||typeof x.parent==='string'&&x.parent.length<=128&&x.parent!==x.id)&&x.v&&Number.isSafeInteger(x.v.c)&&x.v.c>=0&&x.v.c<=1e12&&typeof x.v.a==='string'&&x.v.a.length<=128&&(x.kind==='folder'||/^f-[0-9a-f]{64}$/.test(x.contentId)));
+  return!!(x&&typeof x.id==='string'&&x.id.length>0&&x.id.length<=128&&['file','folder'].includes(x.kind)&&(x.deleted==null||typeof x.deleted==='boolean')&&typeof x.name==='string'&&x.name.length>0&&x.name.length<=240&&(x.parent==null||typeof x.parent==='string'&&x.parent.length<=128&&x.parent!==x.id)&&x.v&&Number.isSafeInteger(x.v.c)&&x.v.c>=0&&x.v.c<=1e12&&typeof x.v.a==='string'&&x.v.a.length<=128&&(x.kind==='folder'||/^f-[0-9a-f]{64}$/.test(x.contentId)));
 }
 async function signCatalogOperationV4(entry,previous=null){
   if(!nodeIdentity)return entry;
@@ -570,7 +585,7 @@ async function saveCatalogStateV4(){
 function hasPermissionV4(nodeId,permission){if(!ownerAnchor)return true;if(nodeId===ownerAnchor)return true;if(permission==='read')return true;const grant=roomPolicy?.grants.find(g=>g.subjectNodeId===nodeId);return!!(grant&&grant.expiresAt>Date.now()&&grant.permissions.includes(permission))}
 async function acceptPolicyV4(policy){
   if(!ownerAnchor||!policy||policy.ownerNodeId!==ownerAnchor||policy.roomHash!==roomHash||policy.proof?.nodeId!==ownerAnchor||!Number.isSafeInteger(policy.epoch)||policy.epoch<1||typeof policy.revisionId!=='string'||policy.revisionId.length>128||!Array.isArray(policy.grants)||policy.grants.length>1024)return false;
-  const subjects=new Set();for(const g of policy.grants){if(!/^n-[0-9a-f]{64}$/.test(g.subjectNodeId)||subjects.has(g.subjectNodeId)||!Array.isArray(g.permissions)||!g.permissions.every(p=>['read','write','moderate'].includes(p))||!Number.isSafeInteger(g.expiresAt)||typeof g.nonce!=='string')return false;subjects.add(g.subjectNodeId)}
+  const subjects=new Set();for(const g of policy.grants){if(!/^n-[0-9a-f]{64}$/.test(g.subjectNodeId)||subjects.has(g.subjectNodeId)||!Array.isArray(g.permissions)||g.permissions.length>3||!g.permissions.every(p=>['read','write','moderate'].includes(p))||!Number.isSafeInteger(g.expiresAt)||typeof g.nonce!=='string'||g.nonce.length>128)return false;subjects.add(g.subjectNodeId)}
   try{if(!await verifyRecordV4(policy,'robit-tracker-policy-v4',policy.actor))return false}catch(_){return false}
   const same=[...policyHistory.values()].find(x=>x.epoch===policy.epoch);if(same)return canonicalStringV4(same)===canonicalStringV4(policy);
   if(policy.epoch===1){if(policy.previousRevision!==null)return false}else{const previous=policyHistory.get(policy.previousRevision);if(!previous||previous.epoch!==policy.epoch-1){if(pendingPolicies.size<256)pendingPolicies.set(policy.revisionId,policy);return false}}
@@ -588,7 +603,7 @@ async function protectRoomV4(){
 }
 async function grantRoomV4(subjectNodeId,permissions=['read','write'],expiresAt=Date.now()+30*86400000){const grants=(roomPolicy?.grants||[]).filter(g=>g.subjectNodeId!==subjectNodeId);grants.push({subjectNodeId,permissions,expiresAt,nonce:crypto.randomUUID()});return publishPolicyV4(grants)}
 async function revokeRoomV4(subjectNodeId){return publishPolicyV4((roomPolicy?.grants||[]).filter(g=>g.subjectNodeId!==subjectNodeId))}
-window.TrackerSecurity={get nodeId(){return nodeIdentity?.nodeId||null},get mode(){return ownerAnchor?'protected':'open-write-by-room-capability'},get owner(){return ownerAnchor||null},protect:protectRoomV4,grant:grantRoomV4,revoke:revokeRoomV4,peers:()=>[...actorKeys].map(([actor,nodeId])=>({actor,nodeId}))};
+window.TrackerSecurity={get nodeId(){return nodeIdentity?.nodeId||null},get mode(){return ownerAnchor?'protected':'open-write-by-room-capability'},get owner(){return ownerAnchor||null},protect:protectRoomV4,grant:grantRoomV4,revoke:revokeRoomV4,peers:()=>[...actorKeys].map(([actor,nodeId])=>({actor,nodeId})),diagnostics:()=>({nodeId:nodeIdentity?.nodeId||null,identityStatus,mode:ownerAnchor?'protected':'open-write-by-room-capability',owner:ownerAnchor||null,policyEpoch:roomPolicy?.epoch||0,authenticatedActors:actorKeys.size,binarySessions:peerBinarySessions.size})};
 
 /* Origin-scoped identity; private CryptoKeys never leave this separate DB. */
 function openIdentityDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open('robit-node-identity-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('identity');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Identity database is blocked'))})}
@@ -655,14 +670,17 @@ async function recoverPersistedSource(cid){
 async function loadLocal(){
   db=await openDB();idbClear('streamChunks').catch(()=>{});
   const storedOwner=await getKV('ownerAnchor','');if(storedOwner&&ownerAnchor&&storedOwner!==ownerAnchor)throw Error('Protected invite conflicts with the pinned owner');ownerAnchor=storedOwner||ownerAnchor;if(ownerAnchor)await putKV('ownerAnchor',ownerAnchor);
-  actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();await initBinaryIdentityV4();
+  actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();try{await initBinaryIdentityV4()}catch(e){binaryIdentity=null;console.warn('authenticated binary sessions unavailable',e.name||'Error')}
   for(const [a,n]of await getKV('actorKeys',[]))actorKeys.set(a,n);
   if(nodeIdentity){if(actorKeys.has(actor)&&actorKeys.get(actor)!==nodeIdentity.nodeId){actor=crypto.randomUUID();await putKV('actor',actor);toast('A new node identity was created. Previous signatures retain their original author.','good')}await pinActorV4(actor,nodeIdentity.nodeId)}
   for(const p of await getKV('policyHistory',[]))await acceptPolicyV4(p);
   seedMode=await getKV('seedMode','selected');
   for(const x of await getKV('catalog',[])){catalog.set(x.id,x);absorbV(x.v)}
   for(const x of await getKV('contents',[]))contents.set(x.id,x);
-  for(const x of await getKV('catalogOperations',[])){if(await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v?.a,false)){catalogOperations.set(x.operationId,x);revisionSlots.set(`${x.id}|${x.v.a}|${x.v.c}`,x.operationId)}}
+  for(const x of contents.values())if(x.proof)try{await verifyRecordV4(x,'robit-tracker-manifest-v4',x.originActor,false)}catch(_){invalidRecordProofs.add(x.id)}
+  for(const x of catalog.values())if(x.proof)try{await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v?.a,false)}catch(_){invalidRecordProofs.add(x.id)}
+  const rejected=[];for(const x of [...await getKV('catalogOperations',[]),...await getKV('rejectedV4Records',[])])try{if(await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v?.a,false)){catalogOperations.set(x.operationId,x);revisionSlots.set(`${x.id}|${x.v.a}|${x.v.c}`,x.operationId)}}catch(_){rejected.push(x);invalidRecordProofs.add(x.id)}
+  if(rejected.length){await putKV('rejectedV4Records',rejected);toast('Some stored signatures could not be verified. Local files remain available.','bad')}
   for(const x of await getKV('selectedSeeds',[]))selectedSeeds.add(x);
   for(const x of await getKV('cachedComplete',[]))cachedComplete.add(x);
   for(const [k,v] of await getKV('seedSalts',[]))seedSalts.set(k,v);
@@ -677,9 +695,11 @@ async function loadLocal(){
 function seedEnabled(cid){if(!localHave.has(cid))return false;const c=contents.get(cid);if(c?.locked&&!cachedComplete.has(cid)&&!unlockedKeys.has(cid))return false;if(seedMode==='off')return false;if(seedMode==='all')return true;return selectedSeeds.has(cid)}
 function advertisedSeeds(){return [...localHave].filter(seedEnabled)}
 function advertisedSeedSalts(){const o={};for(const cid of advertisedSeeds())if(contents.get(cid)?.locked)o[cid]=seedSaltFor(cid);return o}
-function parentChildren(parent=null){return [...catalog.values()].filter(x=>!x.deleted&&(x.parent||null)===(parent||null)).sort((a,b)=>a.kind===b.kind?String(a.name).localeCompare(String(b.name)):a.kind==='folder'?-1:1)}
-function entryPath(id){const parts=[],seenIds=new Set();let x=catalog.get(id);while(x&&!seenIds.has(x.id)){seenIds.add(x.id);parts.unshift(x.name);x=x.parent?catalog.get(x.parent):null}return '/'+parts.join('/')}
-function folderStats(id){let files=0,size=0,available=0,active=0;const walk=p=>{for(const x of parentChildren(p)){if(x.kind==='folder')walk(x.id);else{files++;const c=contents.get(x.contentId);size+=Number(c?.size)||0;if(seedCount(x.contentId)>0)available++;active+=activeStreamCount(x.contentId)}}};walk(id);return{files,size,available,active}}
+function getEntryV4(id){return catalog.get(id)||(directFileEntry?.id===id?directFileEntry:null)}
+function resourceEntryV4(cid){const c=contents.get(cid);return c?{id:'direct:'+cid,kind:'file',contentId:cid,parent:null,name:c.locked?'locked-'+cid.slice(2,16)+'.vault':'file-'+cid.slice(2,18),created:c.originAt||0}:null}
+function parentChildren(parent=null){return [...catalog.values(),...(directFileEntry?[directFileEntry]:[])].filter(x=>!x.deleted&&(x.parent||null)===(parent||null)).sort((a,b)=>a.kind===b.kind?String(a.name).localeCompare(String(b.name)):a.kind==='folder'?-1:1)}
+function entryPath(id){const parts=[],seenIds=new Set();let x=getEntryV4(id);while(x&&!seenIds.has(x.id)){seenIds.add(x.id);parts.unshift(x.name);x=x.parent?catalog.get(x.parent):null}return '/'+parts.join('/')}
+function folderStats(id){let files=0,size=0,available=0,active=0;const visited=new Set(),walk=(p,depth=0)=>{if(depth>128||visited.has(p))return;visited.add(p);for(const x of parentChildren(p)){if(x.kind==='folder')walk(x.id,depth+1);else{files++;const c=contents.get(x.contentId);size+=Number(c?.size)||0;if(seedCount(x.contentId)>0)available++;active+=activeStreamCount(x.contentId)}}};walk(id);return{files,size,available,active}}
 function advertisedRemoteSeeders(cid){const out=[];for(const[a,set]of peerSeeds)if(set.has(cid)&&(actorRoutes.has(a)||relayActors?.has?.(a)))out.push(a);return [...new Set(out)]}
 function seedActors(cid){const out=[];if(seedEnabled(cid))out.push(actor);out.push(...advertisedRemoteSeeders(cid));return [...new Set(out)]}
 function seedCount(cid){return seedActors(cid).length}
@@ -720,8 +740,8 @@ function sourceLinkActions(cid){
 function renderTree(){
   const token=++renderSeq,q=$('#search').value.trim().toLowerCase(),box=$('#tree');let html='';
   const match=x=>{const n=visibleName(x).toLowerCase();return!q||n.includes(q)||entryPath(x.id).toLowerCase().includes(q)};
-  const folderHasMatch=id=>{if(match(catalog.get(id)))return true;for(const c of parentChildren(id))if(c.kind==='folder'?folderHasMatch(c.id):match(c))return true;return false};
-  const walk=(parent,depth)=>{for(const x of parentChildren(parent)){
+  const folderHasMatch=(id,visited=new Set())=>{if(visited.has(id)||visited.size>=128)return false;visited.add(id);if(match(catalog.get(id)))return true;for(const c of parentChildren(id))if(c.kind==='folder'?folderHasMatch(c.id,new Set(visited)):match(c))return true;return false};
+  const walked=new Set(),walk=(parent,depth)=>{if(depth>128)return;for(const x of parentChildren(parent)){if(walked.has(x.id))continue;walked.add(x.id);
     if(q&&!(x.kind==='folder'?folderHasMatch(x.id):match(x)))continue;
     if(x.kind==='folder'){
       const st=folderStats(x.id),open=q||expanded.has(x.id);
@@ -738,11 +758,11 @@ function renderTree(){
 }
 function renderDetails(){
   const d=$('#details');if(String(selectedId||'').startsWith('live:')){const l=liveMedia.get(String(selectedId).slice(5));if(l){const p=profileFor(l.actor);d.innerHTML=`<dl class="kv"><dt>kind</dt><dd>ephemeral live media</dd><dt>mode</dt><dd>${esc(liveModeLabel(l.mode))}</dd><dt>publisher</dt><dd>${esc(p.alias)}</dd><dt>started</dt><dd>${new Date(l.started||Date.now()).toLocaleString()}</dd><dt>viewers</dt><dd>${Number(l.viewers)||0}</dd><dt>signaling</dt><dd>room AES-GCM control fabric</dd><dt>media</dt><dd>encrypted file-stream routes</dd></dl><div class="sideHint">Live entries are not persisted as files and disappear when the publisher stops or the heartbeat expires.</div>`;return}}
-  const x=selectedId&&catalog.get(selectedId);
+  const x=selectedId&&getEntryV4(selectedId);
   if(!x){d.innerHTML='<div class="sideHint">Select a file, folder, or live media entry to inspect it.</div>';return}
   if(x.kind==='folder'){const st=folderStats(x.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>files</dt><dd>${st.files}</dd><dt>size</dt><dd>${fmtBytes(st.size)}</dd><dt>available</dt><dd>${st.available}/${st.files}</dd></dl>`;return}
   const c=contents.get(x.contentId)||{},p=profileFor(c.originActor||''),holders=seedActors(x.contentId),have=localHave.has(x.contentId),locked=!!c.locked,unlocked=!locked||unlockedMeta.has(c.id),m=unlockedMeta.get(c.id);
-  const svp=sourceVerifyProgress.get(c.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>display name</dt><dd>${esc(visibleName(x))}</dd><dt>size</dt><dd>${fmtBytes(visibleSize(x,c))}</dd><dt>type</dt><dd>${esc(unlocked?inferMime(visibleName(x),visibleType(x,c)):'encrypted / hidden')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>provenance</dt><dd>${c.proof?'Signed publisher · '+esc(c.proof.nodeId):'Legacy · unverified publisher'}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>active</dt><dd>${activeStreamCount(c.id)}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd>${svp?`<dt>verification</dt><dd>${Math.round((svp.fraction||0)*100)}% · ${fmtBytes(svp.done||0)} / ${fmtBytes(svp.total||0)}${svp.rate?` · ${fmtRate(svp.rate)}`:''}</dd>`:''}${locked?`<dt>lock</dt><dd>${unlocked?'unlocked in this tab':'password locked'}</dd><dt>PBKDF2</dt><dd>${Number(c.lock?.iterations)||600000} iterations</dd><dt>seeder envelopes</dt><dd>${holders.length} independent salt${holders.length===1?'':'s'}</dd>`:''}</dl>${locked&&!unlocked?'<div class="sideHint">The real filename and MIME type are encrypted. Click the scrambled title to enter the password.</div>':''}${holders.length?`<div class="sideHint" style="margin-top:7px">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
+  const svp=sourceVerifyProgress.get(c.id);d.innerHTML=`<dl class="kv"><dt>path</dt><dd>${esc(entryPath(x.id))}</dd><dt>display name</dt><dd>${esc(visibleName(x))}</dd><dt>size</dt><dd>${fmtBytes(visibleSize(x,c))}</dd><dt>type</dt><dd>${esc(unlocked?inferMime(visibleName(x),visibleType(x,c)):'encrypted / hidden')}</dd><dt>added by</dt><dd>${esc(p.alias)}</dd><dt>first added</dt><dd>${new Date(c.originAt||x.created||0).toLocaleString()}</dd><dt>provenance</dt><dd>${invalidRecordProofs.has(c.id)?'Publisher verification unavailable':c.proof?'Signed publisher · '+esc(c.proof.nodeId):'Legacy · unverified publisher'}</dd><dt>swarm root</dt><dd class="hash">${esc(c.root||c.sha||'')}</dd><dt>chunk size</dt><dd>${fmtBytes(contentChunkSize(c))}</dd><dt>sources</dt><dd>${holders.length}</dd><dt>active</dt><dd>${activeStreamCount(c.id)}</dd><dt>local source</dt><dd>${have?'yes':'no'}</dd><dt>you seed</dt><dd>${seedEnabled(x.contentId)?'yes':'no'}</dd>${svp?`<dt>verification</dt><dd>${Math.round((svp.fraction||0)*100)}% · ${fmtBytes(svp.done||0)} / ${fmtBytes(svp.total||0)}${svp.rate?` · ${fmtRate(svp.rate)}`:''}</dd>`:''}${locked?`<dt>lock</dt><dd>${unlocked?'unlocked in this tab':'password locked'}</dd><dt>PBKDF2</dt><dd>${Number(c.lock?.iterations)||600000} iterations</dd><dt>seeder envelopes</dt><dd>${holders.length} independent salt${holders.length===1?'':'s'}</dd>`:''}</dl>${locked&&!unlocked?'<div class="sideHint">The real filename and MIME type are encrypted. Click the scrambled title to enter the password.</div>':''}${holders.length?`<div class="sideHint" style="margin-top:7px">Live: ${holders.map(a=>esc(profileFor(a).alias)).join(' · ')}</div>`:''}`
 }
 
 async function ensureFolderPath(parts){let parent=null,path='';for(const raw of parts){const name=safeName(raw);path+=(path?'/':'')+name;const id='d-'+await shortHash('dir:'+path,28);let old=catalog.get(id);if(!old){old={id,kind:'folder',parent,name,created:Date.now(),createdBy:actor,v:nextV(),deleted:false};old=await signCatalogOperationV4(old);catalog.set(id,old);expanded.add(id);await saveState();broadcast(msg('catalog',{entries:[old]})).catch(()=>{})}parent=id}return parent}
@@ -811,7 +831,7 @@ async function addFiles(items,{password=null}={}){
       Object.assign(entry,await signCatalogOperationV4(entry,old));catalog.set(eid,entry);sourceFiles.set(cid,file);localHave.add(cid);selectedSeeds.add(cid);seedSaltFor(cid);await rememberLocalSource(cid,file,handle);changed.push(entry);await saveState();toast(`<b>Added</b> ${esc(password?entryName:realName)} · ${fmtBytes(file.size)}${password?' · locked':''}`,'good')
     }catch(e){toast(`<b>Add failed.</b> ${esc(e.message||e)}`,'bad')}
   }
-  if(changed.length){await broadcast(msg('catalog',{entries:changed,contents:changed.map(x=>contents.get(x.contentId)).filter(Boolean)}));await broadcastAvailability();renderAll()}
+  if(changed.length){for(let i=0;i<changed.length;i+=128){const entries=changed.slice(i,i+128);await broadcast(msg('catalog',{entries,contents:entries.map(x=>contents.get(x.contentId)).filter(Boolean)}))}await broadcastAvailability();renderAll()}
 }
 
 
@@ -1200,7 +1220,7 @@ function routeDescriptor(r){return r?{actor:r.actor,routeId:r.routeId,strategy:r
 function recomputePrimaryRoute(a){const m=peerRoutes.get(a);if(!m?.size){peerPrimaryRoute.delete(a);return null}const oldId=peerPrimaryRoute.get(a),old=oldId&&m.get(oldId);let best=null;for(const r of m.values()){r.score=routeScore(r);if(!best||r.score>best.score)best=r}if(old&&Date.now()-old.lastSeen<ROUTE_STALE_MS&&best&&best!==old&&best.score<old.score+18)best=old;if(best&&Number.isFinite(best.score)){peerPrimaryRoute.set(a,best.routeId);for(const r of m.values())r.primary=r===best;return best}peerPrimaryRoute.delete(a);return null}
 function registerPeerRoute(remote,w,p,strategy=w?.strategy||'unknown'){if(privacyEnabled()&&!(strategy==='nats'&&privacyTurnReady()))return null;remote=String(remote||'');if(!remote||remote===actor||!w||!p)return null;const rid=routeKey(w,p),rm=routeMapFor(remote);let r=rm.get(rid),created=!r;if(!r){r={actor:remote,routeId:rid,strategy,wrapper:w,peerId:p,lastSeen:Date.now(),lastProbe:0,lastBench:0,rtt:Infinity,bps:0,score:0,failures:0};rm.set(rid,r)}else{r.wrapper=w;r.peerId=p;r.strategy=strategy;r.lastSeen=Date.now()}routeActors.set(rid,remote);let am=actorRoutes.get(remote);if(!am){am=new Map;actorRoutes.set(remote,am)}am.set(w.key||w.name,p);w.actor=remote;recomputePrimaryRoute(remote);scheduleHeaderRender();if(created&&meshHasActiveTransfer())routeProbe(r,false).catch(()=>{});return r}
 function trackActor(remote,w,p){return registerPeerRoute(remote,w,p,w?.strategy||'unknown')}
-function untrack(w,p){const rid=routeKey(w,p),remote=routeActors.get(rid);routeActors.delete(rid);if(remote){const rm=peerRoutes.get(remote);rm?.delete(rid);const am=actorRoutes.get(remote);am?.delete(w.key||w.name);if(!am?.size)actorRoutes.delete(remote);if(!rm?.size){peerRoutes.delete(remote);peerPrimaryRoute.delete(remote)}else recomputePrimaryRoute(remote);for(const sess of sessions.values())if(sess.holders.has(remote))sess.holders.delete(remote)}renderAll()}
+function untrack(w,p){const rid=routeKey(w,p),remote=routeActors.get(rid);routeActors.delete(rid);binaryRouteSessionsV4.delete(rid);if(remote){const rm=peerRoutes.get(remote);rm?.delete(rid);const am=actorRoutes.get(remote);am?.delete(w.key||w.name);if(!am?.size)actorRoutes.delete(remote);if(!rm?.size){peerRoutes.delete(remote);peerPrimaryRoute.delete(remote)}else recomputePrimaryRoute(remote);for(const sess of sessions.values())if(sess.holders.has(remote))sess.holders.delete(remote)}renderAll()}
 function healthyRoutesFor(a){return[...(peerRoutes.get(a)?.values()||[])].filter(r=>privacyRouteAllowed(r)&&Date.now()-r.lastSeen<ROUTE_STALE_MS&&r.wrapper?.peers?.has(r.peerId)).sort((x,y)=>routeScore(y)-routeScore(x))}
 function chooseRoute(a){const r=healthyRoutesFor(a)[0];return r?{w:r.wrapper,peerId:r.peerId,route:r}:null}
 function controlRoutesFor(a){const rs=healthyRoutesFor(a);if(rs.length<=1)return rs;const direct=rs.filter(r=>r.strategy!=='nkn'),overlay=rs.filter(r=>r.strategy==='nkn');return [...direct.slice(0,2),...overlay.slice(0,1)]}
@@ -1214,7 +1234,7 @@ function dataReachable(a){return bulkRoutesFor(a).length>0||relayPathAvailable(a
 function markRouteFailure(r){if(!r)return;r.failures=(r.failures||0)+1;recomputePrimaryRoute(r.actor)}
 function firstSuccessfulSend(jobs){return new Promise(resolve=>{let pending=jobs.length;if(!pending){resolve(false);return}for(const job of jobs)Promise.resolve(job).then(ok=>{if(ok===true)resolve(true);if(!--pending)resolve(false)},()=>{if(!--pending)resolve(false)})})}
 async function sendPacketVia(w,packet,p=null){try{if(!w?.ctl?.send)return false;const sent=await w.ctl.send(packet,p?{target:p}:undefined);if(sent===false){const remote=p&&routeActors.get(routeKey(w,p));markRouteFailure(remote&&peerRoutes.get(remote)?.get(routeKey(w,p)));return false}return true}catch(e){const remote=p&&routeActors.get(routeKey(w,p)),r=remote&&peerRoutes.get(remote)?.get(routeKey(w,p));markRouteFailure(r);return false}}
-async function sendDirectBinaryActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);const routes=bulkRoutesFor(remote);if(!routes.length)return false;const direct=routes.filter(r=>r.strategy!=='nkn'),overlay=routes.filter(r=>r.strategy==='nkn'),pool=direct.length?direct:overlay,start=pool.length?Math.abs(Number(hint)||0)%pool.length:0,ordered=pool.length?[...pool.slice(start),...pool.slice(0,start)]:[];if(direct.length&&overlay.length)ordered.push(...overlay);const seenRoutes=new Set();for(const r of ordered){if(!r||seenRoutes.has(r.routeId))continue;seenRoutes.add(r.routeId);try{if(await r.wrapper.bin.send(packet,{target:r.peerId,metadata})===false){markRouteFailure(r);continue}r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}catch(_){markRouteFailure(r)}}return false}
+async function sendDirectBinaryActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);const routes=bulkRoutesFor(remote).filter(r=>binaryRouteAllowedV4(r,metadata));if(!routes.length)return false;const direct=routes.filter(r=>r.strategy!=='nkn'),overlay=routes.filter(r=>r.strategy==='nkn'),pool=direct.length?direct:overlay,start=pool.length?Math.abs(Number(hint)||0)%pool.length:0,ordered=pool.length?[...pool.slice(start),...pool.slice(0,start)]:[];if(direct.length&&overlay.length)ordered.push(...overlay);const seenRoutes=new Set();for(const r of ordered){if(!r||seenRoutes.has(r.routeId))continue;seenRoutes.add(r.routeId);try{if(await r.wrapper.bin.send(packet,{target:r.peerId,metadata})===false){markRouteFailure(r);continue}r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}catch(_){markRouteFailure(r)}}return false}
 async function broadcastChannelBinary(remote,packet,metadata={}){metadata=await authenticateBinaryV4(remote,packet,metadata);if(!bc)return false;try{const b=packet instanceof Uint8Array?packet:new Uint8Array(packet);bc.postMessage({v:2,bin:true,packet:b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),metadata,to:remote,from:actor,ts:Date.now()});return true}catch(_){return false}}
 async function sendBinaryActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);const hasDirect=bulkRoutesFor(remote).length>0,streaming=metadata?.mode==='stream',relayNeeded=streaming||!hasDirect||relayPathAvailable(remote);const jobs=[sendDirectBinaryActor(remote,packet,metadata,hint)];if(relayNeeded)jobs.push(sendRelayBinaryActor(remote,packet,metadata,hint));if(bc)jobs.push(broadcastChannelBinary(remote,packet,metadata));const rs=await Promise.allSettled(jobs);return rs.some(x=>x.status==='fulfilled'&&x.value===true)}
 async function sendCtlVia(w,o,p=null){return sendPacketVia(w,await seal(o),p)}
@@ -1364,7 +1384,7 @@ async function sendRelayBinaryActor(remote,packet,metadata={},hint=0){const loca
 async function sendRelayBinaryIngress(remote,packet,metadata={},hint=0){const x=peerIngress.get(remote),plane=relayPlaneName(x?.relay||'');if(RELAY_PLANES.includes(plane)&&localRelayPlanes().includes(plane))return publishRelayBinaryPacket(packet,metadata,remote,{planes:[plane]});if(x?.bc&&bc)return broadcastChannelBinary(remote,packet,metadata);return sendRelayBinaryActor(remote,packet,metadata,hint)}
 async function sendBinaryBootstrapActor(remote,packet,metadata={},hint=0){metadata=await authenticateBinaryV4(remote,packet,metadata);
   const jobs=[],seen=new Set(),x=peerIngress.get(remote);
-  const addDirect=r=>{if(!r?.wrapper?.bin?.send||!r.wrapper.peers?.has(r.peerId)||seen.has(r.routeId))return;seen.add(r.routeId);jobs.push(Promise.resolve(r.wrapper.bin.send(packet,{target:r.peerId,metadata})).then(()=>{r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}).catch(()=>{markRouteFailure(r);return false}))};
+  const addDirect=r=>{if(!r?.wrapper?.bin?.send||!r.wrapper.peers?.has(r.peerId)||seen.has(r.routeId)||!binaryRouteAllowedV4(r,metadata))return;seen.add(r.routeId);jobs.push(Promise.resolve(r.wrapper.bin.send(packet,{target:r.peerId,metadata})).then(()=>{r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}).catch(()=>{markRouteFailure(r);return false}))};
   for(const r of bulkRoutesFor(remote))addDirect(r);
   const local=localRelayPlanes(),remotePlanes=new Set(remoteRelayPlanes(remote).map(relayPlaneName)),planes=[];
   if(x?.relay)planes.push(relayPlaneName(x.relay));
@@ -1403,10 +1423,10 @@ function streamPathHintsFor(s,remote){
   for(const[k,x]of s.pathStats){if(!k.startsWith(prefix)||now-(x.lastAt||0)>STREAM_PATH_HINT_TTL_MS)continue;const path=k.slice(prefix.length),bps=recentPathBps(x,now),score=pathReinforcementScore(x,now),chunks=x.chunks||0,age=now-(x.lastAt||0),strong=chunks>=STREAM_PATH_STRONG_CHUNKS&&bps>0&&score>=STREAM_PATH_STRONG_SCORE&&age<=STREAM_PATH_WINNER_FRESH_MS;out.push({path,bps:Math.round(bps),chunks,lastAt:x.lastAt||0,score:Math.round(score),credit:Number(x.credit||0).toFixed(2),streak:Number(x.streak)||0,strong,preferred:path===preferred})}
   return out.sort((a,b)=>(b.preferred-a.preferred)||b.score-a.score||b.bps-a.bps||b.chunks-a.chunks).slice(0,10)
 }
-function streamDataCandidates(remote,pathHints=[],includeAllRelays=false){
+function streamDataCandidates(remote,pathHints=[],includeAllRelays=false,metadata={}){
   const out=[],seen=new Set(),hintMap=new Map((pathHints||[]).map(h=>[String(typeof h==='string'?h:h?.path||''),typeof h==='string'?{}:h]));
   const add=(path,send,baseScore=1)=>{if(!path||seen.has(path)||typeof send!=='function')return;seen.add(path);const h=hintMap.get(path)||{},hintScore=Math.max(0,Number(h.score)||0),hintBps=Math.max(0,Number(h.bps)||0);out.push({path,send,score:Math.max(1,hintScore||baseScore),bps:hintBps})};
-  const directByPath=new Map;for(const r of healthyRoutesFor(remote)){const path=streamPathIdFromRoute(r);directByPath.set(path,r)}
+  const directByPath=new Map;for(const r of healthyRoutesFor(remote)){if(metadata.nodeAuth&&!binaryRouteAllowedV4(r,metadata))continue;const path=streamPathIdFromRoute(r);directByPath.set(path,r)}
   const localRelays=new Set(localRelayPlanes()),remoteRelays=new Set(remoteRelayPlanes(remote).map(relayPlaneName)),ing=peerIngress.get(remote);
   const addNamed=path=>{path=String(path||'');if(path.startsWith('direct:')){const r=directByPath.get(path);if(r)add(path,async(packet,metadata)=>{try{if(await r.wrapper.bin.send(packet,{target:r.peerId,metadata})===false){markRouteFailure(r);return false}r.lastSeen=Date.now();r.failures=Math.max(0,(r.failures||0)-.08);return true}catch(_){markRouteFailure(r);return false}},Math.max(1,routeScore(r)))}else if(path.startsWith('relay:')){const plane=relayPlaneName(path.slice(6));if(RELAY_PLANES.includes(plane)&&localRelays.has(plane)&&(remoteRelays.has(plane)||relayActors.has(remote)))add(`relay:${plane}`,(packet,metadata)=>publishRelayBinaryPacket(packet,metadata,remote,{planes:[plane]}),18)}else if(path==='bc'&&bc)add('bc',(packet,metadata)=>broadcastChannelBinary(remote,packet,metadata),32)};
   for(const h of pathHints||[])addNamed(typeof h==='string'?h:h?.path);
@@ -1471,7 +1491,7 @@ async function boundedStreamPathSend(remote,path,packet,metadata,critical=false,
   }finally{clearTimeout(tid)}
 }
 async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHints=[],aggressive=false){metadata=await authenticateBinaryV4(remote,packet,metadata);
-  const paths=streamDataCandidates(remote,pathHints,aggressive);
+  const paths=streamDataCandidates(remote,pathHints,aggressive,metadata);
   if(!paths.length)return sendBinaryActor(remote,packet,metadata,hint);
   const critical=!!(metadata?.decoderHead||metadata?.frontierRescue||metadata?.hardRescue);
   const idx=Math.max(0,Number(metadata?.idx)||Number(hint)||0);
@@ -1504,7 +1524,7 @@ async function sendBinaryMultipathActor(remote,packet,metadata={},hint=0,pathHin
   for(const x of ordered)if(!selected.includes(x)&&await send(x))return true;
   return false;
 }
-async function consumeRelayFrame(raw,plane){if(typeof raw!=='string'){const bytes=raw instanceof Uint8Array?raw:new Uint8Array(raw);if(bytes[0]===80&&bytes[1]===82&&bytes[2]===66&&bytes[3]===2)return consumeBinaryRelayEnvelope(bytes,plane)}let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;if(e.kind==='ctlfrag')noteRelayActor(e.via||e.from,e.nknAddr,plane);if(e.target&&e.target!==actor)return;/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
+async function consumeRelayFrame(raw,plane){if(typeof raw!=='string'){const bytes=raw instanceof Uint8Array?raw:new Uint8Array(raw);if(bytes[0]===80&&bytes[1]===82&&bytes[2]===66&&bytes[3]===2)return consumeBinaryRelayEnvelope(bytes,plane)}let e;try{e=await openSeal(typeof raw==='string'?raw:dec.decode(raw instanceof Uint8Array?raw:new Uint8Array(raw)))}catch(_){return}if(e?.v!==9||!['ctlfrag','binfrag'].includes(e.kind)||!e.rid||e.from===actor||Math.abs(Date.now()-Number(e.ts||0))>180000)return;if(e.kind==='ctlfrag')noteRelayActor(e.via||e.from,e.nknAddr,plane);if(e.target&&e.target!==actor)return;/* Binary frames must never trigger route promotion or UI work. */if(e.kind==='ctlfrag'&&meshHasActiveTransfer())queueMicrotask(()=>promoteRelayActor(e.via||e.from).catch(()=>{}));const n=Number(e.n),i=Number(e.i),limit=e.kind==='binfrag'?Math.max(RELAY_DATA_FRAME_CHARS,260000)+2000:24000;if(!Number.isInteger(n)||n<1||n>512||!Number.isInteger(i)||i<0||i>=n||String(e.d||'').length>limit)return;
   if(e.kind==='binfrag'&&e.to&&e.to!==actor){const hop=Math.max(0,Number(e.hop)||0),bridgeKey=`${e.from}|${e.to}|${e.rid}|${i}|${hop}`;if(hop<RELAY_DATA_MAX_HOPS&&!relayBridgeSeen.has(bridgeKey)){relayBridgeSeen.set(bridgeKey,Date.now());const reachable=remoteRelayPlanes(e.to);if(reachable.includes(relayPlaneName(plane)))return;const targetPlanes=reachable.filter(p=>RELAY_PLANES.includes(p)&&p!==relayPlaneName(plane));if(targetPlanes.length){const bridged=await seal({...e,via:actor,hop:hop+1,ts:Date.now()});for(const p of targetPlanes)publishRelayRawOnPlane(p,bridged).catch(()=>{})}}return}
   const key=`${e.kind}|${plane}|${e.from}|${e.rid}`;let x=relayRx.get(key);if(!x){x={kind:e.kind,parts:new Array(n),count:0,chars:0,ts:Date.now(),to:e.to||'',from:e.from,nknAddr:e.nknAddr||'',m:e.m||null,hop:Number(e.hop)||0,rid:e.rid};relayRx.set(key,x)}if(x.parts[i]===undefined){x.parts[i]=String(e.d||'');x.count++;x.chars+=x.parts[i].length;if(x.chars>12_000_000){relayRx.delete(key);return}}if(relayRx.size>RELAY_RX_MAX_SESSIONS||[...relayRx.values()].reduce((z,v)=>z+(v.chars||0),0)>RELAY_RX_MAX_BYTES){
     for(const [oldKey,old] of [...relayRx].sort((a,b)=>(a[1].ts||0)-(b[1].ts||0))){
@@ -1628,20 +1648,22 @@ function wakeSeederRecoveryTransports(){
 async function handleControl(packet,meta={},w=null,origin='direct'){
   let m;try{m=await openSeal(packet)}catch(_){return}if(!m||(m.v!==1&&m.v!==2)||m.actor===actor||remember(m.mid))return;
   if(w&&meta.peerId){const bound=routeActors.get(routeKey(w,meta.peerId));if(bound&&bound!==m.actor&&actorKeys.has(bound))return}
+  if(ownerAnchor&&['live-announce','live-end','live-relay'].includes(m.type)&&!hasPermissionV4(m.auth?.nodeId,'write'))return;
+  if(m.auth&&m.binarySession){if(w&&meta.peerId)binaryRouteSessionsV4.set(routeKey(w,meta.peerId),m.binarySession.nonce);if(m.sid){binaryTransferRecipientsV4.set(m.actor+'|'+m.sid,m.binarySession.nonce);if(binaryTransferRecipientsV4.size>4096)binaryTransferRecipientsV4.delete(binaryTransferRecipientsV4.keys().next().value)}}
   rememberIngress(m.actor,w,meta,origin);
   if(m.type==='_route'){if(w&&meta.peerId)await handleRouteMessage(m,w,meta.peerId);return}
   if(m.nknAddr)ensureNknRoute(m.nknAddr,m.actor).catch(()=>{});if(w&&meta.peerId)trackActor(m.actor,w,meta.peerId);const first=!peerProfiles.has(m.actor);if(m.profile)peerProfiles.set(m.actor,m.profile);noteRelayActor(m.actor,m.nknAddr,origin);
   bridgePacket(packet,m,origin).catch(()=>{});if(m.to&&m.to!==actor)return;
   switch(m.type){
-    case'hello':if(ownerAnchor)sendActor(m.actor,msg('policy-query')).catch(()=>{});if(fileLocator)queryFileLocator(m.actor).catch(()=>{});if(!m.reply)sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()})).catch(()=>{});sendActor(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});if(localLive)sendLiveAnnouncement(m.actor).catch(()=>{});if(first)sendActor(m.actor,msg('state-req')).catch(()=>{});{const ss=activeStreamSession();if(ss)announceStreamDemand(ss,m.actor).catch(()=>{})}break;
-    case'state-req':sendActor(m.actor,msg('state',{entries:[...catalog.values()],contents:[...contents.values()],operations:[...catalogOperations.values()],availability:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break;
+    case'hello':if(ownerAnchor)sendActor(m.actor,msg('policy-query')).catch(()=>{});if(fileLocator)queryFileLocator(m.actor).catch(()=>{});if(!m.reply)sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()})).catch(()=>{});sendAvailabilityV4(m.actor).catch(()=>{});if(localLive)sendLiveAnnouncement(m.actor).catch(()=>{});if(first)sendActor(m.actor,msg('state-req')).catch(()=>{});{const ss=activeStreamSession();if(ss)announceStreamDemand(ss,m.actor).catch(()=>{})}break;
+    case'state-req':sendStateV4(m.actor).catch(()=>{});break;
     case'state':await mergeState(m.entries||[],m.contents||[],m,m.operations||[]);peerSeeds.set(m.actor,new Set(m.availability||[]));peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.availability||[]);break;
     case'policy-query':if(ownerAnchor)sendActor(m.actor,msg('policy-result',{policies:[...policyHistory.values()].slice(-1024)})).catch(()=>{});break;
     case'policy-result':if(Array.isArray(m.policies)&&m.policies.length<=1024){for(const policy of m.policies)await acceptPolicyV4(policy);if(fileLocator)queryFileLocator(m.actor).catch(()=>{});sendActor(m.actor,msg('state-req')).catch(()=>{})}break;
     case'catalog':await mergeState(m.entries||[],m.contents||[],m,m.operations||[]);break;
-    case'content-query':{const c=contents.get(m.cid);if(validContentShape(c)){const entries=[...catalog.values()].filter(x=>!x.deleted&&x.contentId===m.cid).slice(0,32);sendActor(m.actor,msg('content-result',{cid:m.cid,entries,contents:[c],operations:[...catalogOperations.values()].filter(x=>entries.some(e=>e.id===x.id)).slice(-1024)})).catch(()=>{})}break;}
-    case'content-result':if(fileLocator&&m.cid===fileLocator.cid&&Array.isArray(m.contents)&&m.contents.every(c=>c.id===m.cid&&validContentShape(c))){await mergeState((m.entries||[]).filter(x=>x.kind==='file'&&x.contentId===m.cid),m.contents,m,m.operations||[])}break;
-    case'availability':{const prev=peerSeeds.get(m.actor)||new Set(),next=new Set(m.ids||[]),changed=prev.size!==next.size||[...next].some(x=>!prev.has(x));peerSeeds.set(m.actor,next);peerSeedSalts.set(m.actor,m.salts||{});updateSessionSeeder(m.actor,m.ids||[]);const ss=activeStreamSession();if(ss&&next.has(ss.cid)){ss.holders.add(m.actor);announceStreamDemand(ss,m.actor).catch(()=>{});scheduleSession(ss,0)}if(changed){renderAll();refreshTransfer(true);refreshPreviewStats(true)}break;}
+    case'content-query':sendContentResultV4(m.actor,m.cid).catch(()=>{});break;
+    case'content-result':if(fileLocator&&m.cid===fileLocator.cid&&Array.isArray(m.contents)&&m.contents.every(c=>c.id===m.cid&&validContentShape(c))){await mergeState((m.entries||[]).filter(x=>x.kind==='folder'||x.kind==='file'&&x.contentId===m.cid),m.contents,m,m.operations||[])}break;
+    case'availability':{const prev=peerSeeds.get(m.actor)||new Set(),next=new Set(m.append?[...prev,...(m.ids||[])]:m.ids||[]),changed=prev.size!==next.size||[...next].some(x=>!prev.has(x));peerSeeds.set(m.actor,next);peerSeedSalts.set(m.actor,m.append?{...peerSeedSalts.get(m.actor),...m.salts}:m.salts||{});updateSessionSeeder(m.actor,[...next]);const ss=activeStreamSession();if(ss&&next.has(ss.cid)){ss.holders.add(m.actor);announceStreamDemand(ss,m.actor).catch(()=>{});scheduleSession(ss,0)}if(changed){renderAll();refreshTransfer(true);refreshPreviewStats(true)}break;}
     case'seed-query':{const requested=(m.ids||[]).filter(id=>seedEnabled(id));for(const id of requested){try{if(!(await readLocalChunk(id,0)))await markUnreadableSeed(id,m.actor)}catch(_){await markUnreadableSeed(id,m.actor)}}sendActorIngress(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break}
     case'route-promote':wakeSeederRecoveryTransports();if(m.nknAddr)ensureNknRoute(m.nknAddr,m.actor).catch(()=>{});if(natsState.nc&&!natsState.sessions.has(m.actor)&&actor<m.actor)makeNatsOffer(m.actor).catch(()=>{});sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr(),promoted:true})).catch(()=>{});break;
     case'live-announce':handleLiveAnnouncement(m);break;
@@ -1661,20 +1683,32 @@ async function handleControl(packet,meta={},w=null,origin='direct'){
     case'source-unavailable':{const set=peerSeeds.get(m.actor);if(set){set.delete(String(m.id||''));updateSessionSeeder(m.actor,[...set]);renderAll();refreshPreviewStats();refreshTransfer()}break;}
   }
 }
-async function broadcastAvailability(){await broadcast(msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()}))}
+async function sendAvailabilityV4(remote=''){const ids=advertisedSeeds(),salts=advertisedSeedSalts();for(let i=0;i<Math.max(1,ids.length);i+=1024){const part=ids.slice(i,i+1024),m=msg('availability',{ids:part,append:i>0,salts:Object.fromEntries(part.filter(cid=>salts[cid]).map(cid=>[cid,salts[cid]]))});if(remote)await sendActor(remote,m);else await broadcast(m)}}
+async function broadcastAvailability(){await sendAvailabilityV4()}
+async function sendStateV4(remote){
+  const entries=[...catalog.values()].filter(x=>!invalidRecordProofs.has(x.id)),rows=[...contents.values()].filter(x=>!invalidRecordProofs.has(x.id)),operations=[...catalogOperations.values()],availability=advertisedSeeds(),salts=advertisedSeedSalts();
+  for(let i=0;i<Math.max(1,entries.length,rows.length,operations.length);i+=128)await sendActor(remote,msg('state',{entries:entries.slice(i,i+128),contents:rows.slice(i,i+128),operations:operations.slice(i,i+128),...(availability.length<=1024?{availability,salts}:{})}));
+  if(availability.length>1024)await sendAvailabilityV4(remote);
+}
+async function sendContentResultV4(remote,cid){
+  const c=contents.get(cid);if(!validContentShape(c)||invalidRecordProofs.has(cid))return;
+  const found=new Map();for(const e of [...catalog.values()].filter(x=>!x.deleted&&x.contentId===cid&&!invalidRecordProofs.has(x.id)).slice(0,32)){found.set(e.id,e);let p=e.parent;for(let depth=0;p&&depth<128&&found.size<1024;depth++){const folder=catalog.get(p);if(!folder||invalidRecordProofs.has(p)||found.has(p))break;found.set(p,folder);p=folder.parent}}
+  const entries=[...found.values()],operations=[...catalogOperations.values()].filter(x=>found.has(x.id));for(let i=0;i<Math.max(1,entries.length,operations.length);i+=128)await sendActor(remote,msg('content-result',{cid,entries:entries.slice(i,i+128),contents:[c],operations:operations.slice(i,i+128)}));
+}
 
 /* A pending permalink is navigation state, never a persisted download or fake catalog row. */
 function validContentShape(c){
   if(!c||typeof c.id!=='string'||!/^f-[0-9a-f]{64}$/.test(c.id)||typeof (c.root||c.sha)!=='string'||c.id!=='f-'+(c.root||c.sha)||(c.hashAlg!=null&&c.hashAlg!==HASH_ALG))return false;
   if(!Number.isSafeInteger(c.size)||c.size<0||!Number.isSafeInteger(c.chunkSize)||c.chunkSize<65536||c.chunkSize>16*1024*1024||!Number.isSafeInteger(c.totalChunks)||c.totalChunks<1||c.totalChunks!==Math.max(1,Math.ceil(c.size/c.chunkSize)))return false;
   if(typeof c.type!=='string'||c.type.length>240)return false;
-  return !c.locked||!!(c.lock&&JSON.stringify(c.lock).length<16384);
+  if(!c.locked)return true;const l=c.lock;
+  return!!(l&&JSON.stringify(l).length<16384&&typeof l.id==='string'&&l.id.length<=128&&Number.isSafeInteger(l.iterations)&&l.iterations>=1&&l.iterations<=2000000&&['salt','wrapIv','wrappedKey','metaIv','metaCipher','ivSalt'].every(k=>typeof l[k]==='string'&&l[k].length<=8192)&&typeof l.verifier==='string'&&/^[0-9a-f]{64}$/.test(l.verifier));
 }
 function resolveFileLocator(){
-  const status=$('#fileLinkStatus');if(!status)return;
+  const status=$('#fileLinkStatus');if(!status)return;if(!fileLocator||fileLinkError)directFileEntry=null;
   status.hidden=!fileLocator&&!fileLinkError;if(status.hidden)return;
   const text=$('#fileLinkText');if(fileLinkError){text.textContent=fileLinkError;return}
-  const cid=fileLocator.cid,c=contents.get(cid),entry=[...catalog.values()].filter(x=>!x.deleted&&x.kind==='file'&&x.contentId===cid).sort((a,b)=>a.id.localeCompare(b.id))[0];
+  const cid=fileLocator.cid,c=contents.get(cid);let entry=[...catalog.values()].filter(x=>!x.deleted&&x.kind==='file'&&x.contentId===cid).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0)[0];directFileEntry=null;if(!entry&&validContentShape(c)&&!invalidRecordProofs.has(cid)){directFileEntry=resourceEntryV4(cid);entry=directFileEntry}
   if(entry&&c){
     if(fileLinkSelected!==entry.id){selectedId=entry.id;fileLinkSelected=entry.id;$('#search').value='';let parent=entry.parent;const visited=new Set();while(parent&&!visited.has(parent)){visited.add(parent);expanded.add(parent);parent=catalog.get(parent)?.parent}requestAnimationFrame(()=>document.querySelector(`.row[data-id="${CSS.escape(entry.id)}"]`)?.scrollIntoView({block:'nearest'}))}
     text.textContent=seedCount(cid)>0||localHave.has(cid)?(c.locked&&!unlockedMeta.has(cid)?'File located · unlock with its password':'File located · choose Stream or Download'):'File located · waiting for a seeder';
@@ -1687,7 +1721,7 @@ function startFileLocator(){
   clearInterval(fileLinkTimer);fileLinkStarted=Date.now();fileLinkSelected='';if(fileLocator)selectedId=null;resolveFileLocator();
   if(fileLocator){queryFileLocator().catch(()=>{});fileLinkTimer=setInterval(()=>{resolveFileLocator();if(!fileLinkSelected&&!document.hidden)queryFileLocator().catch(()=>{})},4000)}
 }
-function backToRoom(){location.hash=encodeURIComponent(secret)}
+function backToRoom(){location.hash=new URL(buildRoomUrl(secret,location.href,ownerAnchor)).hash}
 async function copyFileLink(entry,button=null){
   const c=contents.get(entry?.contentId);if(!c)return;
   try{const url=buildFileUrl(secret,c.root||c.sha,location.href,ownerAnchor);await navigator.clipboard.writeText(url);toast('<b>File link copied.</b>','good')}
@@ -1725,11 +1759,14 @@ async function mergeState(entries,contentRows,context={},operations=[]){
   for(const c of contentRows){
     try{if(!validContentShape(c))continue;const signed=await verifyRecordV4(c,'robit-tracker-manifest-v4',c.originActor),old=contents.get(c.id);
       if(ownerAnchor&&!signed)continue;
-      if(old){/* Content descriptors are immutable, including encryption and publisher metadata. */if(canonicalStringV4(recordBodyV4(old))!==canonicalStringV4(recordBodyV4(c)))continue;if(!old.proof&&signed)contents.set(c.id,c)}else contents.set(c.id,c);
+      if(!old&&contents.size>=100000)continue;
+      if(signed&&invalidRecordProofs.has(c.id)){contents.set(c.id,c);invalidRecordProofs.delete(c.id);continue}
+      if(old){/* Verified manifests take precedence over unverified legacy claims. */if(!old.proof&&signed)contents.set(c.id,c);else if(canonicalStringV4(recordBodyV4(old))!==canonicalStringV4(recordBodyV4(c)))continue}else contents.set(c.id,c);
     }catch(_){/* A bad embedded record does not authenticate through its snapshot's signer. */}
   }
   for(const x of [...operations,...entries]){
     try{if(!catalogShapeV4(x))continue;const old=catalog.get(x.id),signed=await verifyRecordV4(x,'robit-tracker-catalog-v4',x.v.a);
+      if(!old&&catalog.size>=100000)continue;
       if(!signed){if(ownerAnchor||old?.proof||actorKeys.has(x.v.a)||!catalogParentSafeV4(x))continue;if(!old||cmpV(x.v,old.v)>0){catalog.set(x.id,x);absorbV(x.v)}continue}
       if(typeof x.operationId!=='string'||x.operationId.length>128||!Number.isSafeInteger(x.operationAt)||!(x.previousRevision===null||typeof x.previousRevision==='string'&&x.previousRevision.length<=256))continue;
       const slot=`${x.id}|${x.v.a}|${x.v.c}`,slotId=revisionSlots.get(slot);if(slotId&&slotId!==x.operationId)continue;
@@ -1741,7 +1778,7 @@ async function mergeState(entries,contentRows,context={},operations=[]){
   let progress=true;while(progress){progress=false;for(const[id,x]of pendingCatalogOperations){
     const previous=x.previousRevision&&catalogOperations.get(x.previousRevision),old=catalog.get(x.id),legacy=typeof x.previousRevision==='string'&&x.previousRevision.startsWith('legacy:');
     if(x.previousRevision&&!previous&&!legacy)continue;
-    if(previous&&(previous.id!==x.id||x.v.c<=previous.v.c||x.v.c>previous.v.c+1000000)||!previous&&x.v.c>1000000||legacy&&old?.proof||!catalogParentSafeV4(x)){pendingCatalogOperations.delete(id);continue}
+    if(previous&&(previous.id!==x.id||x.v.c<=previous.v.c||x.v.c>previous.v.c+1000000)||!previous&&x.v.c>1000000||legacy&&old?.proof||!catalogParentSafeV4(x)){pendingCatalogOperations.delete(id);revisionSlots.delete(`${x.id}|${x.v.a}|${x.v.c}`);continue}
     catalogOperations.set(id,x);pendingCatalogOperations.delete(id);progress=true;
     if(!old||!old.proof||cmpV(x.v,old.v)>0||cmpV(x.v,old.v)===0&&x.operationId>old.operationId){catalog.set(x.id,x);absorbV(x.v)}
   }}
@@ -2083,7 +2120,7 @@ async function prepareResumeSink(c){if(c.locked)return{kind:'locked-idb'};let h=
 async function requireUnlocked(entry){const c=contents.get(entry?.contentId);if(!c?.locked||unlockedKeys.has(c.id))return true;unlockRows.add(entry.id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(entry.id)}"] input`)?.focus());toast('<b>Password required.</b> Unlock this file first.');return false}
 async function scanPartialDownload(cid,c){const total=contentTotal(c),bits=new Uint8Array(Math.ceil(total/8)),keys=await idbKeysPrefix('chunks',cid+':');let count=0,bytes=0;for(const k of keys){const idx=Number(k.slice((cid+':').length));if(!Number.isInteger(idx)||idx<0||idx>=total||bitHas(bits,idx))continue;bitSet(bits,idx);count++;bytes+=Math.max(0,Math.min(contentChunkSize(c),(Number(c.size)||0)-idx*contentChunkSize(c)))}return{bits,count,bytes}}
 async function makeDownloadSession(entry,c,sink,{resume=false}={}){const total=contentTotal(c),chunkSize=contentChunkSize(c),scan=resume?await scanPartialDownload(c.id,c):{bits:new Uint8Array(Math.ceil(total/8)),count:0,bytes:0},sid=crypto.randomUUID(),holders=[...new Set([...liveSeeders(c.id),...advertisedRemoteSeeders(c.id)])],sess={sid,mode:'download',cid:c.id,entryId:entry.id,name:visibleName(entry),total,chunkSize,receivedBits:scan.bits,receivedCount:scan.count,bytesReceived:scan.bytes,holders:new Set(holders),inflight:new Map(),inflightByPeer:new Map(),retry:[],cursor:0,providerBytes:new Map(),providerStarted:new Map(),providerLastAt:new Map(),providerPenalty:new Map(),binaryProven:new Set(),dataProven:new Set(),pathStats:new Map(),started:performance.now(),lastByteAt:0,lastRouteRecoveryAt:0,pausedAt:0,pausedMs:0,timer:null,state:'downloading',sink,receiving:new Set(),finishing:false,rateSamples:[],jobPersistTimer:0};while(sess.cursor<total&&bitHas(sess.receivedBits,sess.cursor))sess.cursor++;sessions.set(c.id,sess);sessionBySid.set(sid,sess);scheduleDownloadJobPersist(sess,true);renderTree();if(sess.receivedCount>=sess.total)queueMicrotask(()=>finishDownload(sess));else{scheduleSession(sess,0);setTimeout(()=>{if(sess.state==='downloading'&&!sess.lastByteAt)hardTransferRescue(sess,'download-bootstrap').catch(()=>{})},450)}return sess}
-async function resumePersistedDownloadJob(job,{open=false}={}){const c=contents.get(job?.cid),entry=c&&catalog.get(job.entryId)||[...catalog.values()].find(x=>x.contentId===job?.cid&&!x.deleted);if(!c||!entry){if(job?.cid)clearDownloadJob(job.cid);return null}if(localHave.has(c.id)){clearDownloadJob(c.id);return null}const existing=sessions.get(c.id);if(existing){if(open)openTransfer(c.id);return existing}const sink=await prepareResumeSink(c),s=await makeDownloadSession(entry,c,sink,{resume:true});wakeTransferTransports();for(const a of s.holders)promoteRelayActor(a).catch(()=>{});if(open)openTransfer(c.id);return s}
+async function resumePersistedDownloadJob(job,{open=false}={}){const c=contents.get(job?.cid),entry=c&&getEntryV4(job.entryId)||[...catalog.values()].find(x=>x.contentId===job?.cid&&!x.deleted)||resourceEntryV4(job?.cid);if(!c||!entry){if(job?.cid)clearDownloadJob(job.cid);return null}if(localHave.has(c.id)){clearDownloadJob(c.id);return null}const existing=sessions.get(c.id);if(existing){if(open)openTransfer(c.id);return existing}const sink=await prepareResumeSink(c),s=await makeDownloadSession(entry,c,sink,{resume:true});wakeTransferTransports();for(const a of s.holders)promoteRelayActor(a).catch(()=>{});if(open)openTransfer(c.id);return s}
 async function resumePersistedDownloads(){for(const job of [...downloadJobs.values()]){try{await resumePersistedDownloadJob(job)}catch(e){console.warn('download resume failed',job?.cid,e);const j=downloadJobs.get(job?.cid);if(j){j.state='queued';j.error=String(e?.message||e)}}}renderTree()}
 async function requestFile(entry){
   const c=contents.get(entry.contentId);if(!c)return;if(!await requireUnlocked(entry))return;wakeTransferTransports();
@@ -2763,7 +2800,8 @@ async function storeReceivedChunk(s,idx,part){
 async function queueVerification(s,idx,part){if(s.mode==='download'){if(s.receivedCount===s.total)await finishDownload(s);return}const leaf=await sha256Bytes(part);s.verifyPending.set(idx,leaf);if(s.verifyBusy)return;s.verifyBusy=true;try{while(s.verifyPending.has(s.verifyCursor)){const h=s.verifyPending.get(s.verifyCursor);s.verifyPending.delete(s.verifyCursor);s.verifyState=await swarmStep(s.verifyState,h);s.verifyCursor++}}finally{s.verifyBusy=false}if(s.receivedCount===s.total&&s.verifyCursor===s.total)await finishDownload(s)}
 async function verifyCachedDownloadRoot(s){const c=contents.get(s.cid);let state=await swarmInit(c.size,s.total,s.chunkSize);for(let i=0;i<s.total;i++){const p=await idbGet('chunks',chunkKey(s.cid,i));if(!p)throw Error(`cached chunk ${i} missing during final verification`);const canonical=new Uint8Array(await decryptBytes(p,`cache:${s.cid}:${i}`));state=await swarmStep(state,await sha256Bytes(canonical));if(i%32===0)await new Promise(r=>setTimeout(r,0))}return bytesToHex(state)}
 async function handleBinary(packet,{peerId,metadata},w){
-  const sender=metadata?.relayActor||(w&&routeActors.get(routeKey(w,peerId||'')))||metadata?.nodeAuth?.from||'';if(!await verifyBinaryV4(packet,metadata,sender))return;
+  if(!packet||Number(packet.byteLength)>64*1024*1024||!metadata||typeof metadata!=='object')return;
+  const routeSender=w&&routeActors.get(routeKey(w,peerId||'')),sender=routeSender||metadata?.relayActor||metadata?.nodeAuth?.from||'';if(!await verifyBinaryV4(packet,metadata,sender))return;if(routeSender&&metadata.relayActor)metadata={...metadata,relayActor:routeSender};
   if(metadata?.kind==='live-media'){await handleLiveBinary(packet,{peerId,metadata},w);return}
   if(metadata?.kind!=='chunk')return;const cid=String(metadata.id||''),s=metadata.sid?sessionBySid.get(metadata.sid):(sessions.get(cid)||(activePreview?.session?.cid===cid?activePreview.session:null));if(!s||s.state!=='downloading'||(metadata.seekEpoch!=null&&Number(metadata.seekEpoch)<Number(s.seekEpoch||0)))return;const idx=Number(metadata.idx);if(!Number.isInteger(idx)||idx<0||idx>=s.total||(bitHas(s.receivedBits,idx)&&!s.decoderRepairNeeded?.has(idx)))return;s.receiving=s.receiving||new Set;if(s.receiving.has(idx))return;s.receiving.add(idx);s.receivingSince=s.receivingSince||new Map();s.receivingSince.set(idx,performance.now());
   try{
@@ -2793,9 +2831,9 @@ async function handleBinary(packet,{peerId,metadata},w){
 }
 async function finishDownload(s){
   if(s.finishing||s.state!=='downloading')return;s.finishing=true;clearTimeout(s.timer);s.timer=0;s.schedulerDueAt=0;s.state='verifying';if(s.mode==='stream')refreshPreviewStats();else refreshTransfer();
-  try{const meta=contents.get(s.cid);let root;if(s.mode==='stream')root=bytesToHex(s.verifyState);else root=await verifyCachedDownloadRoot(s);if(root!==(meta.root||meta.sha))throw new Error('swarm SHA-256 root mismatch');if(s.mode==='stream'){s.networkComplete=true;s.verified=true;s.state='downloading';s.finishing=false;const p=activePreview;if(p?.session===s&&p.mode==='compat'){s.state='complete';await finishPreviewSession(s);refreshPreviewStats();return}promoteStreamCacheToDecoder(s).catch(()=>{});if((s.decoderFedCount||0)>=s.total){s.state='complete';await finishPreviewSession(s)}refreshPreviewStats();return}
+  try{const meta=contents.get(s.cid);let root;if(s.mode==='stream')root=bytesToHex(s.verifyState);else root=await verifyCachedDownloadRoot(s);if(root!==(meta.root||meta.sha)){for(const source of s.providerBytes?.keys()||[])penalizeProvider(s,source,12);const failure=new Error('Content verification failed: swarm SHA-256 root mismatch');failure.code='CONTENT_INTEGRITY';throw failure}if(s.mode==='stream'){s.networkComplete=true;s.verified=true;s.state='downloading';s.finishing=false;const p=activePreview;if(p?.session===s&&p.mode==='compat'){s.state='complete';await finishPreviewSession(s);refreshPreviewStats();return}promoteStreamCacheToDecoder(s).catch(()=>{});if((s.decoderFedCount||0)>=s.total){s.state='complete';await finishPreviewSession(s)}refreshPreviewStats();return}
     s.state='storing';scheduleDownloadJobPersist(s,true);refreshTransfer();if(s.sink.kind==='handle'){await s.sink.writable?.close?.();if(s.sink.handle){await persistHandle(s.cid,s.sink.handle);try{const f=await s.sink.handle.getFile();sourceFiles.set(s.cid,f);sourceStamps.set(s.cid,sourceStamp(f))}catch(_){ }}}else if(s.sink.kind==='locked-handle'){await s.sink.writable?.close?.();if(s.sink.handle)try{sourceStamps.set(s.cid,sourceStamp(await s.sink.handle.getFile()))}catch(_){}}cachedComplete.add(s.cid);localHave.add(s.cid);sourceClaims.add(s.cid);sourceNeedsAuth.delete(s.cid);sourceMissing.delete(s.cid);seedSaltFor(s.cid);s.state='complete';s.completed=performance.now();clearDownloadJob(s.cid);await saveState();renderAll();refreshTransfer();await broadcastAvailability();toast(`<b>Download complete.</b> ${esc(s.name)} is cached locally and will seed if enabled.`,'good')
-  }catch(e){failSession(s,e)}
+  }catch(e){if(e.code==='CONTENT_INTEGRITY'&&s.mode==='download'){await idbDeletePrefix('chunks',s.cid+':').catch(()=>{});s.receivedBits.fill(0);s.receivedCount=0;s.bytesReceived=0;s.cursor=0}failSession(s,e)}
 }
 function failSession(s,e){clearTimeout(s.timer);s.timer=0;s.schedulerDueAt=0;if(s.state==='error')return;s.state='error';s.error=String(e?.message||e);if(s.sink?.writable){try{s.sink.writable.abort?.()}catch(_){ }}if(s.mode==='stream'){showPreviewError(s.error);refreshPreviewStats()}else{scheduleDownloadJobPersist(s,true);renderTree();refreshTransfer();toast(`<b>Transfer interrupted.</b> ${esc(s.error)} · progress is retained; click DOWNLOADING to retry.`,`bad`)}}
 async function streamLocalToWritable(cid,writable,c){for(let i=0;i<contentTotal(c);i++){const canonical=await readLocalChunk(cid,i);if(!canonical)throw Error('local chunk missing');const part=await canonicalToPlain(c,i,canonical);await writable.write(part)}}
@@ -3481,7 +3519,7 @@ async function cancelTransfer(s){if(!s||['complete','cancelled'].includes(s.stat
 async function restartTransfer(s){if(!s)return;sessionBySid.delete(s.sid);sessions.delete(s.cid);const j=downloadJobs.get(s.cid)||{cid:s.cid,entryId:s.entryId,total:s.total,chunkSize:s.chunkSize,receivedCount:s.receivedCount,bytesReceived:s.bytesReceived,state:'queued'};downloadJobs.set(s.cid,j);await resumePersistedDownloadJob(j,{open:true})}
 function openTransfer(cid){$('#transferModal').classList.add('show');$('#transferModal').dataset.cid=cid;refreshTransfer()}
 function renderTransferNow(){
-  const cid=$('#transferModal').dataset.cid,s=cid&&sessions.get(cid);if(!s)return;const meta=contents.get(cid)||{},entry=catalog.get(s.entryId),done=s.receivedCount,pct=s.total?done/s.total:0,elapsed=transferActiveElapsed(s),averageRate=s.bytesReceived/elapsed,recentRate=transferRecentRate(s),rate=recentRate||averageRate;
+  const cid=$('#transferModal').dataset.cid,s=cid&&sessions.get(cid);if(!s)return;const meta=contents.get(cid)||{},entry=getEntryV4(s.entryId),done=s.receivedCount,pct=s.total?done/s.total:0,elapsed=transferActiveElapsed(s),averageRate=s.bytesReceived/elapsed,recentRate=transferRecentRate(s),rate=recentRate||averageRate;
   $('#transferTitle').textContent=s.state==='complete'?'TRANSFER COMPLETE':s.state==='paused'?'TRANSFER PAUSED':s.state==='cancelled'?'TRANSFER STOPPED':'SWARM TRANSFER';const seg=Math.min(180,s.total),doneSeg=Math.round(seg*pct),bars=Array.from({length:seg},(_,i)=>`<i class="${i<doneSeg?'done':''}" style="width:${100/seg}%"></i>`).join('');
   const holders=[...s.holders],rows=holders.map(a=>{const p=profileFor(a),bytes=s.providerBytes.get(a)||0,start=s.providerStarted.get(a)||s.started,secs=Math.max(.1,(performance.now()-start)/1000),pr=meta.size?Math.min(100,bytes/meta.size*100):0;return`<div class="sourceRow"><div>${esc(p.alias)}</div><div class="sourceBar"><i style="width:${pr}%"></i></div><div>${fmtBytes(bytes)}</div><div>${s.state==='downloading'?fmtRate(bytes/secs):'—'}</div></div>`}).join('');
   const transferred=Math.min(Number(meta.size)||0,s.bytesReceived),eta=transferEtaLabel(s,Number(meta.size)||0,transferred),pauseIcon='<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>',playIcon='<svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg>',stopIcon='<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>',restartIcon='<svg viewBox="0 0 24 24"><path d="M5 8V4l-3 3 3 3V8a8 8 0 1 1-1 8"/></svg>';
@@ -3548,8 +3586,8 @@ document.addEventListener('pointerdown',hideActionTooltip);document.addEventList
 
 $('#tree').addEventListener('click',async e=>{
   const liveRow=e.target.closest('.row[data-live-id]');if(liveRow){const id=liveRow.dataset.liveId,l=liveMedia.get(id);if(!l)return;if(e.target.closest('[data-live-watch]')){await watchLiveMedia(id);return}if(e.target.closest('[data-live-preview]')){openLocalLivePreview();return}if(e.target.closest('[data-live-stop]')){await stopLiveMedia();return}selectedId='live:'+id;renderAll();return}
-  const unlockRow=e.target.closest('.unlockRow[data-unlock-for]');if(unlockRow){const id=unlockRow.dataset.unlockFor,entry=catalog.get(id);if(e.target.closest('[data-unlock-submit]')){const input=unlockRow.querySelector('[data-unlock-pass]');try{await unlockContent(contents.get(entry.contentId),input.value);unlockRows.delete(id);input.value='';toast(`<b>Unlocked</b> ${esc(visibleName(entry))}`,'good');await broadcastAvailability();selectedId=id;renderAll()}catch(err){input.classList.add('bad');input.select();toast('<b>Unlock failed.</b> Wrong password or damaged lock metadata.','bad')}return}return}
-  const row=e.target.closest('.row[data-id]');if(!row)return;const id=row.dataset.id,x=catalog.get(id);if(e.target.closest('[data-file-link]')){await copyFileLink(x,e.target.closest('button'));return}if(e.target.closest('[data-toggle]')){expanded.has(id)?expanded.delete(id):expanded.add(id);renderTree();return}if(e.target.closest('[data-unlock], [data-unlock-title]')){unlockRows.has(id)?unlockRows.delete(id):unlockRows.add(id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(id)}"] input`)?.focus());return}if(e.target.closest('[data-reauth]')){await reauthorizeSource(x.contentId);return}if(e.target.closest('[data-relink]')){await relinkSource(x.contentId);return}if(e.target.closest('[data-stream]')){await openPreview(x);return}if(e.target.closest('[data-download]')){await requestFile(x);return}if(e.target.closest('[data-seed]')){await toggleSeed(x.contentId);return}selectedId=id;renderAll()
+  const unlockRow=e.target.closest('.unlockRow[data-unlock-for]');if(unlockRow){const id=unlockRow.dataset.unlockFor,entry=getEntryV4(id);if(e.target.closest('[data-unlock-submit]')){const input=unlockRow.querySelector('[data-unlock-pass]');try{await unlockContent(contents.get(entry.contentId),input.value);unlockRows.delete(id);input.value='';toast(`<b>Unlocked</b> ${esc(visibleName(entry))}`,'good');await broadcastAvailability();selectedId=id;renderAll()}catch(err){input.classList.add('bad');input.select();toast('<b>Unlock failed.</b> Wrong password or damaged lock metadata.','bad')}return}return}
+  const row=e.target.closest('.row[data-id]');if(!row)return;const id=row.dataset.id,x=getEntryV4(id);if(e.target.closest('[data-file-link]')){await copyFileLink(x,e.target.closest('button'));return}if(e.target.closest('[data-toggle]')){expanded.has(id)?expanded.delete(id):expanded.add(id);renderTree();return}if(e.target.closest('[data-unlock], [data-unlock-title]')){unlockRows.has(id)?unlockRows.delete(id):unlockRows.add(id);renderTree();requestAnimationFrame(()=>document.querySelector(`.unlockRow[data-unlock-for="${CSS.escape(id)}"] input`)?.focus());return}if(e.target.closest('[data-reauth]')){await reauthorizeSource(x.contentId);return}if(e.target.closest('[data-relink]')){await relinkSource(x.contentId);return}if(e.target.closest('[data-stream]')){await openPreview(x);return}if(e.target.closest('[data-download]')){await requestFile(x);return}if(e.target.closest('[data-seed]')){await toggleSeed(x.contentId);return}selectedId=id;renderAll()
 });
 $('#tree').addEventListener('keydown',async e=>{if(e.key!=='Enter')return;const input=e.target.closest('[data-unlock-pass]');if(!input)return;e.preventDefault();input.closest('.unlockRow')?.querySelector('[data-unlock-submit]')?.click()});
 $('#search').addEventListener('input',renderTree);document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>setSeedMode(b.dataset.mode));

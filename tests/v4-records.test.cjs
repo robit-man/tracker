@@ -30,3 +30,7 @@ test('cyclic folder graphs and invalid content dimensions never enter the catalo
  await r.mergeState([await a.signCatalogOperationV4(folder('a','b')),await a.signCatalogOperationV4(folder('b','a'))],[]);assert.equal(r.catalog.size,1);
  for(const bad of [{...content,totalChunks:2},{...content,chunkSize:Infinity},{...content,size:-1}])assert.equal(r.validContentShape(bad),false);
 });
+test('a verified original manifest replaces a conflicting unverified legacy claim',async()=>{
+ const a=await records('author'),r=await records('receiver');await r.mergeState([],[{...content,originActor:'legacy',type:'application/octet-stream'}]);assert.equal(r.contents.get(content.id).proof,undefined);
+ const signed=await a.signRecordV4(content,'robit-tracker-manifest-v4');await r.mergeState([],[signed]);assert.equal(r.contents.get(content.id).proof.nodeId,a.nodeIdentity.nodeId);await r.mergeState([],[{...content,originActor:'legacy',type:'application/octet-stream'}]);assert.equal(r.contents.get(content.id).proof.nodeId,a.nodeIdentity.nodeId);
+});

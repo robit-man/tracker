@@ -7,7 +7,7 @@ colors:
   panel: '#0c0e10'
   text: '#eef1f3'
   muted: '#9099a2'
-  accent: '#f1bb37'
+  primary: '#f1bb37'
   success: '#67d391'
 typography:
   sans:

@@ -34,3 +34,9 @@ test('only unknown legacy actors have the explicit unverified compatibility path
  const r=await fixture('receiver');assert.equal((await r.verifyControlV4({v:2,actor:'old-peer',type:'hello'})).status,'legacy-unverified');
  await assert.rejects(r.verifyControlV4({v:2,actor:'old-peer',type:'hello',auth:{protocol:4}}));
 });
+test('framing, hostile profiles, unbounded leases and saturated replay evidence fail closed',async()=>{
+ const a=await fixture(),r=await fixture('recipient');
+ for(const body of [{entries:new Array(1025).fill({})},{profile:{alias:'peer',color:'red;position:fixed'}},{expires:Date.now()+3600000},{type:'content-query',cid:'../../file'},{sid:'x'.repeat(257)}])await assert.rejects(a.signControlV4({v:2,actor:a.actor,type:'state',mid:'bounds',...body}));
+ for(let i=0;i<10000;i++)r.authenticatedReplay.set('existing-'+i,Date.now()+120000);await assert.rejects(r.verifyControlV4(await a.signControlV4({v:2,actor:a.actor,type:'hello',mid:'capacity'})),/capacity/);assert.equal(r.authenticatedReplay.size,10000);assert.ok(r.authenticatedReplay.has('existing-0'));
+ r.Date={now:()=>1000};const legacy={v:2,actor:'old',type:'hello'};for(let i=0;i<256;i++)await r.verifyControlV4(legacy);await assert.rejects(r.verifyControlV4(legacy),/rate limit/);
+});
