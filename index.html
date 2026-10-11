@@ -286,6 +286,8 @@ let privacyMode=localStorage.getItem(PRIVACY_MODE_KEY)==='1';
 let secret='',roomHash='',aesKey=null,db=null,actor=crypto.randomUUID(),clock=0,seedMode='selected',served=0,networkReady=false;
 let fileLocator=null,fileLinkError='',fileLinkStarted=0,fileLinkTimer=0,fileLinkSelected='',shareKind='room',shareReturnFocus=null;
 let nodeIdentity=null,identityStatus='starting';
+const actorKeys=new Map(),verifiedPublicKeys=new Map(),authenticatedReplay=new Map();
+let securityPinsWrite=Promise.resolve();
 const catalog=new Map(),contents=new Map(),wrappers=new Map(),actorRoutes=new Map(),routeActors=new Map(),peerProfiles=new Map(),peerSeeds=new Map(),peerSeedSalts=new Map(),expanded=new Set(),selectedSeeds=new Set(),localHave=new Set(),cachedComplete=new Set(),seen=new Map(),sessions=new Map(),sessionBySid=new Map(),downloadJobs=new Map();
 const sourceFiles=new Map(),sourceHandles=new Map(),serveQueues=new Map(),streamServeEpochs=new Map(),serveRecentlySent=new Map(),seederFrontierAttempts=new Map(),unlockedKeys=new Map(),unlockedMeta=new Map(),unlockRows=new Set(),seedSalts=new Map(),sourceStamps=new Map();
 const sourceClaims=new Set(),sourceNeedsAuth=new Set(),sourceMissing=new Set(),sourceVerifying=new Set(),sourceVerifyProgress=new Map();
@@ -424,8 +426,65 @@ async function initSecret(){
 }
 async function encryptBytes(input,aad=''){const bytes=input instanceof Uint8Array?input:new Uint8Array(input);const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},aesKey,bytes));const out=new Uint8Array(12+ct.length);out.set(iv);out.set(ct,12);return out.buffer}
 async function decryptBytes(packet,aad=''){const b=packet instanceof Uint8Array?packet:new Uint8Array(packet),iv=b.slice(0,12),ct=b.slice(12);return crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},aesKey,ct)}
-async function seal(o){return bytesToB64(new Uint8Array(await encryptBytes(enc.encode(JSON.stringify(o)),'ctl')))}
-async function openSeal(s){return JSON.parse(dec.decode(await decryptBytes(b64ToBytes(s),'ctl')))}
+async function seal(o){return bytesToB64(new Uint8Array(await encryptBytes(enc.encode(JSON.stringify(await signControlV4(o))),'ctl')))}
+async function openSeal(s){if(typeof s!=='string'||s.length>8*1024*1024)throw Error('Control packet too large');const m=JSON.parse(dec.decode(await decryptBytes(b64ToBytes(s),'ctl')));await verifyControlV4(m);return m}
+
+/* V4 authentication: canonical JSON subset and additive signed wire envelope. */
+function canonicalStringV4(value,depth=0,budget={n:0}){
+  if(depth>32||++budget.n>200000)throw Error('Canonical payload exceeds limits');
+  if(value===null)return'null';
+  if(typeof value==='string'){
+    if(value.length>4*1024*1024)throw Error('String exceeds limits');
+    for(let i=0;i<value.length;i++){const n=value.charCodeAt(i);if(n>=0xd800&&n<=0xdbff){const next=value.charCodeAt(++i);if(!(next>=0xdc00&&next<=0xdfff))throw Error('Invalid Unicode')}else if(n>=0xdc00&&n<=0xdfff)throw Error('Invalid Unicode')}
+    return JSON.stringify(value);
+  }
+  if(typeof value==='number'){if(!Number.isFinite(value))throw Error('Invalid number');return JSON.stringify(value)}
+  if(typeof value==='boolean')return JSON.stringify(value);
+  if(Array.isArray(value))return'['+value.map(x=>canonicalStringV4(x,depth+1,budget)).join(',')+']';
+  if(typeof value!=='object'||!value)throw Error('Unsupported canonical value');
+  return'{'+Object.keys(value).sort().map(k=>{if(['__proto__','constructor','prototype'].includes(k))throw Error('Unsafe property');return canonicalStringV4(k,depth+1,budget)+':'+canonicalStringV4(value[k],depth+1,budget)}).join(',')+'}';
+}
+function canonicalEncodeV4(value){return enc.encode(canonicalStringV4(value))}
+function base64url(bytes){return bytesToB64(bytes).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function decodeBase64url(s,length){if(typeof s!=='string'||! /^[A-Za-z0-9_-]+$/.test(s)||s.length!==Math.ceil(length*8/6))throw Error('Invalid key or signature encoding');const bytes=b64ToBytes(s.replace(/-/g,'+').replace(/_/g,'/'));if(bytes.length!==length||base64url(bytes)!==s)throw Error('Invalid key or signature encoding');return bytes}
+function controlSender(m){return m?.v===9?m.via||m.from:m?.actor||m?.from||''}
+function controlShapeV4(m){
+  if(!m||typeof m!=='object'||Array.isArray(m)||![1,2,9,11].includes(m.v)||typeof controlSender(m)!=='string'||!controlSender(m)||controlSender(m).length>128)throw Error('Invalid control envelope');
+  if(m.to!=null&&(typeof m.to!=='string'||m.to.length>128))throw Error('Invalid recipient');
+  for(const field of ['entries','contents','operations','availability','ids','indexes','pathHints'])if(m[field]!=null&&(!Array.isArray(m[field])||m[field].length>(field==='indexes'?512:1024)))throw Error('Control array exceeds limits');
+  canonicalEncodeV4(m);
+}
+async function publicKeyV4(key,nodeId){
+  const raw=decodeBase64url(key,32);if(nodeId!==await nodeIdFor(raw))throw Error('Node key mismatch');
+  const cached=verifiedPublicKeys.get(nodeId);if(cached)return cached;
+  const imported=await crypto.subtle.importKey('raw',raw,'Ed25519',false,['verify']);verifiedPublicKeys.set(nodeId,imported);if(verifiedPublicKeys.size>256)verifiedPublicKeys.delete(verifiedPublicKeys.keys().next().value);return imported;
+}
+async function pinActorV4(a,nodeId){
+  const pin=actorKeys.get(a);if(pin&&pin!==nodeId)throw Error('Actor identity collision');
+  if(!pin){if(actorKeys.size>=4096)throw Error('Actor binding limit reached');actorKeys.set(a,nodeId);securityPinsWrite=securityPinsWrite.catch(()=>{}).then(()=>putKV('actorKeys',[...actorKeys]));await securityPinsWrite}
+}
+async function signControlV4(input){
+  const m=JSON.parse(JSON.stringify(input));delete m.auth;
+  if(!nodeIdentity){if(actorKeys.has(actor))throw Error('Signing key unavailable for authenticated actor');return m}
+  if(controlSender(m)!==actor)throw Error('Cannot sign another actor');
+  const now=Date.now(),auth={protocol:4,algorithm:'Ed25519',domain:'robit-tracker-control-v4',roomHash,actor,nodeId:nodeIdentity.nodeId,publicKey:base64url(nodeIdentity.publicKeyRaw),mid:m.mid||crypto.randomUUID(),ts:now,expiresAt:now+120000};
+  controlShapeV4(m);auth.signature=base64url(new Uint8Array(await crypto.subtle.sign('Ed25519',nodeIdentity.privateKey,canonicalEncodeV4({...auth,body:m}))));return{...m,auth};
+}
+async function verifyControlV4(m){
+  controlShapeV4(m);const auth=m.auth;
+  if(auth===undefined){if(actorKeys.has(controlSender(m)))throw Error('Unsigned downgrade rejected');return{status:'legacy-unverified'}}
+  if(!auth||auth.protocol!==4||auth.algorithm!=='Ed25519'||auth.domain!=='robit-tracker-control-v4'||auth.roomHash!==roomHash||auth.actor!==controlSender(m)||typeof auth.mid!=='string'||auth.mid.length>128)throw Error('Invalid signed context');
+  const now=Date.now();if(!Number.isSafeInteger(auth.ts)||!Number.isSafeInteger(auth.expiresAt)||auth.ts>now+30000||auth.expiresAt<now-30000||auth.expiresAt<=auth.ts||auth.expiresAt-auth.ts>120000)throw Error('Expired control message');
+  const body={...m};delete body.auth;const header={...auth};delete header.signature;
+  if(!await crypto.subtle.verify('Ed25519',await publicKeyV4(auth.publicKey,auth.nodeId),decodeBase64url(auth.signature,64),canonicalEncodeV4({...header,body})))throw Error('Control signature rejected');
+  const replayKey=auth.nodeId+'|'+auth.mid;if(authenticatedReplay.has(replayKey))throw Error('Control replay rejected');
+  await pinActorV4(auth.actor,auth.nodeId);
+  /* Recheck after asynchronous pin persistence; concurrent transports may race. */
+  if(authenticatedReplay.has(replayKey))throw Error('Control replay rejected');
+  authenticatedReplay.set(replayKey,auth.expiresAt);for(const[k,t]of authenticatedReplay)if(t<now-30000)authenticatedReplay.delete(k);while(authenticatedReplay.size>10000)authenticatedReplay.delete(authenticatedReplay.keys().next().value);
+  return{status:'verified',nodeId:auth.nodeId};
+}
+/* End V4 authentication. */
 
 /* Origin-scoped identity; private CryptoKeys never leave this separate DB. */
 function openIdentityDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open('robit-node-identity-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('identity');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Identity database is blocked'))})}
@@ -492,6 +551,8 @@ async function recoverPersistedSource(cid){
 async function loadLocal(){
   db=await openDB();idbClear('streamChunks').catch(()=>{});
   actor=String(await getKV('actor',actor));await putKV('actor',actor);await initNodeIdentity();
+  for(const [a,n]of await getKV('actorKeys',[]))actorKeys.set(a,n);
+  if(nodeIdentity){if(actorKeys.has(actor)&&actorKeys.get(actor)!==nodeIdentity.nodeId){actor=crypto.randomUUID();await putKV('actor',actor);toast('A new node identity was created. Previous signatures retain their original author.','good')}await pinActorV4(actor,nodeIdentity.nodeId)}
   seedMode=await getKV('seedMode','selected');
   for(const x of await getKV('catalog',[]))catalog.set(x.id,x);
   for(const x of await getKV('contents',[]))contents.set(x.id,x);
@@ -1424,7 +1485,7 @@ async function nknSendRaw(dest,raw,{priority=false}={}){if(!nknState.connected||
 function nknPeerId(addr){return'nkn:'+addr}
 function getNknWrapper(addr,remote=''){if(nknState.routes.has(addr)){const w=nknState.routes.get(addr);if(remote&&!w.actor)registerPeerRoute(remote,w,nknPeerId(addr),'nkn');return w}const peerId=nknPeerId(addr),w={strategy:'nkn',key:peerId,name:peerId,actor:remote||'',peers:new Set([peerId]),room:{leave:()=>{}},addr};w.ctl={send:(packet,opts={})=>{if(opts.target&&opts.target!==peerId)return false;return nknSendRaw(addr,JSON.stringify({v:3,r:meshRoomName,k:'ctl',p:String(packet),from:actor}),{priority:true})}};w.bin={send:(packet,opts={})=>{if(opts.target&&opts.target!==peerId)return false;return nknSendRaw(addr,JSON.stringify({v:3,r:meshRoomName,k:'bin',p:bytesToB64(new Uint8Array(packet)),m:opts.metadata||null,from:actor}))}};nknState.routes.set(addr,w);wrappers.set(w.key,w);if(remote){nknState.actorByAddr.set(addr,remote);registerPeerRoute(remote,w,peerId,'nkn')}return w}
 async function ensureNknRoute(addr,remote=''){if(privacyEnabled())return false;addr=String(addr||'').trim();if(!addr||addr===nknState.addr||!nknState.connected)return false;const existed=nknState.routes.has(addr),w=getNknWrapper(addr,remote),peerId=nknPeerId(addr);if(remote){nknState.actorByAddr.set(addr,remote);registerPeerRoute(remote,w,peerId,'nkn')}if(!existed||!w.lastHello||Date.now()-w.lastHello>60000){w.lastHello=Date.now();sendCtlVia(w,msg('hello',{profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()}),peerId).catch(()=>{})}meshStatus.set('nkn','on');updateMeshState();return true}
-async function handleNknPayload(src,payload){let raw=payload instanceof Uint8Array?dec.decode(payload):String(payload||''),m;try{m=JSON.parse(raw)}catch(_){return}if(m?.c===1){const total=Number(m.total),i=Number(m.i),piece=String(m.d||'');if(!Number.isInteger(total)||total<1||total>256||!Number.isInteger(i)||i<0||i>=total||piece.length>22000)return;const key=`${src}|${m.id}`;let x=nknState.chunks.get(key);if(!x){x={parts:new Array(total),count:0,chars:0,ts:Date.now()};nknState.chunks.set(key,x);if(nknState.chunks.size>96)nknState.chunks.delete(nknState.chunks.keys().next().value)}if(x.parts[i]===undefined){x.parts[i]=piece;x.count++;x.chars+=piece.length;if(x.chars>4_000_000){nknState.chunks.delete(key);return}}if(x.count===total){nknState.chunks.delete(key);await handleNknPayload(src,x.parts.join(''))}return}if(m?.v!==3||m.r!==meshRoomName||!['ctl','bin'].includes(m.k)||!m.p)return;const remote=String(m.from||nknState.actorByAddr.get(src)||''),w=getNknWrapper(src,remote),peerId=nknPeerId(src);if(remote){nknState.actorByAddr.set(src,remote);registerPeerRoute(remote,w,peerId,'nkn')}if(m.k==='ctl')await handleControl(m.p,{peerId},w,'direct');else await handleBinary(b64ToBytes(m.p),{peerId,metadata:m.m||{}},w)}
+async function handleNknPayload(src,payload){let raw=payload instanceof Uint8Array?dec.decode(payload):String(payload||''),m;try{m=JSON.parse(raw)}catch(_){return}if(m?.c===1){const total=Number(m.total),i=Number(m.i),piece=String(m.d||'');if(!Number.isInteger(total)||total<1||total>256||!Number.isInteger(i)||i<0||i>=total||piece.length>22000)return;const key=`${src}|${m.id}`;let x=nknState.chunks.get(key);if(!x){x={parts:new Array(total),count:0,chars:0,ts:Date.now()};nknState.chunks.set(key,x);if(nknState.chunks.size>96)nknState.chunks.delete(nknState.chunks.keys().next().value)}if(x.parts[i]===undefined){x.parts[i]=piece;x.count++;x.chars+=piece.length;if(x.chars>4_000_000){nknState.chunks.delete(key);return}}if(x.count===total){nknState.chunks.delete(key);await handleNknPayload(src,x.parts.join(''))}return}if(m?.v!==3||m.r!==meshRoomName||!['ctl','bin'].includes(m.k)||!m.p)return;const remote=String(m.from||nknState.actorByAddr.get(src)||''),w=getNknWrapper(src,remote),peerId=nknPeerId(src);if(remote&&m.k==='bin'&&nknState.actorByAddr.get(src)===remote){registerPeerRoute(remote,w,peerId,'nkn')}if(m.k==='ctl')await handleControl(m.p,{peerId},w,'direct');else await handleBinary(b64ToBytes(m.p),{peerId,metadata:m.m||{}},w)}
 async function startNkn(){if(meshStopped||privacyEnabled()){meshStatus.set('nkn','privacy-blocked');updateMeshState();return false}if(nknState.client)return true;if(nknState.starting)return nknState.starting;const gen=++nknState.generation;meshStatus.set('nkn','loading');updateMeshState();nknState.starting=(async()=>{try{const sdk=await loadNkn();if(meshStopped||gen!==nknState.generation)return false;const seedKey='private-tracker-nkn-seed:'+roomHash.slice(0,20),seed=localStorage.getItem(seedKey)||'',cfg={identifier:'private-tracker',numSubClients:NKN_SUBCLIENTS,originalClient:true,reconnectIntervalMin:1800,reconnectIntervalMax:30000,responseTimeout:5000};if(seed)cfg.seed=seed;if(location.protocol==='http:')cfg.rpcServerAddr=SIGNALING_ENDPOINTS.nkn[h32(roomHash)%SIGNALING_ENDPOINTS.nkn.length];const client=new sdk.MultiClient(cfg);nknState.client=client;nknState.createdAt=Date.now();const newSeed=client.getSeed?.()||client.defaultClient?.getSeed?.()||seed;if(newSeed)localStorage.setItem(seedKey,newSeed);nknState.addr=client.addr||client.defaultClient?.addr||'';client.onMessage(async({src,payload})=>{if(client!==nknState.client||gen!==nknState.generation)return false;await handleNknPayload(src,payload).catch(()=>{});return null});client.onConnect(()=>{if(client!==nknState.client||gen!==nknState.generation)return;nknState.connected=true;nknState.lastConnectAt=Date.now();nknState.addr=client.addr||client.defaultClient?.addr||nknState.addr;meshStatus.set('nkn','ready');updateMeshState();broadcast(msg('hello',{profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr()})).catch(()=>{})});meshStatus.set('nkn','connecting');updateMeshState();return true}catch(_){meshStatus.set('nkn','err');updateMeshState();return false}finally{if(gen===nknState.generation)nknState.starting=null}})();return nknState.starting}
 function stopNkn(){nknState.generation++;nknState.starting=null;const c=nknState.client;nknState.client=null;nknState.connected=false;try{c?.close?.()}catch(_){}for(const w of nknState.routes.values()){for(const p of [...w.peers])untrack(w,p);wrappers.delete(w.key)}nknState.routes.clear();nknState.actorByAddr.clear();nknState.chunks.clear();nknState.sendChains.clear();nknState.pendingSends=0}
 async function recycleNkn(){const now=Date.now();if(meshStopped||now-nknState.lastRecycleAt<NKN_RECYCLE_COOLDOWN_MS)return false;nknState.lastRecycleAt=now;nknState.recycles++;stopNkn();await sleep(600+h32(roomHash)%900);return startNkn()}
@@ -1457,6 +1518,7 @@ function wakeSeederRecoveryTransports(){
 }
 async function handleControl(packet,meta={},w=null,origin='direct'){
   let m;try{m=await openSeal(packet)}catch(_){return}if(!m||(m.v!==1&&m.v!==2)||m.actor===actor||remember(m.mid))return;
+  if(w&&meta.peerId){const bound=routeActors.get(routeKey(w,meta.peerId));if(bound&&bound!==m.actor&&actorKeys.has(bound))return}
   rememberIngress(m.actor,w,meta,origin);
   if(m.type==='_route'){if(w&&meta.peerId)await handleRouteMessage(m,w,meta.peerId);return}
   if(m.nknAddr)ensureNknRoute(m.nknAddr,m.actor).catch(()=>{});if(w&&meta.peerId)trackActor(m.actor,w,meta.peerId);const first=!peerProfiles.has(m.actor);if(m.profile)peerProfiles.set(m.actor,m.profile);noteRelayActor(m.actor,m.nknAddr,origin);
