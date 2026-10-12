@@ -4,6 +4,27 @@ Run the controller and MP4 fetch-planning regressions with Node:
 node --test tests/streaming.test.cjs
 ```
 
+The reference interface and free peer retention harness uses three independent
+peers plus a local-cache scenario, with real encrypted public relays and direct
+ICE disabled:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  FIXTURE=/path/to/short.mp4 node tests/interface-storage-browser.mjs
+```
+
+It checks both saved themes, all navigation views without changing the room
+fragment, inspector keyboard tabs, mobile overflow and action sizes, and dialog
+focus. One peer opts into storage, accepts a free retention request, verifies the
+complete file and reloads. The original source then closes; a fresh third peer
+must retrieve byte-identical data from the retained source and decode the video.
+Finally it disables contribution. Use a short MP4 of at least five seconds.
+`BROWSER=firefox`, `BROWSER_EXECUTABLE`, and `RESULT` select the browser and trace;
+omit `TRACKER_HTML` to exercise the actual deployment. The harness checks voluntary
+online storage, not a paid service or guaranteed durability after browser eviction.
+`peer-storage.test.cjs` covers capacity reservation, authenticated controls,
+idempotent pins, opt-out, reload behavior and replacement placement.
+
 AVI compatibility playback, using two independent browser contexts and real
 encrypted public relays with direct ICE disabled:
 

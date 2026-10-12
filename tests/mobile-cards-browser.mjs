@@ -15,7 +15,7 @@ try{
   await page.setViewportSize({width,height:800});await page.waitForTimeout(100);
   const layout=await page.locator('.row[data-cid]').evaluateAll(rows=>rows.map(r=>({name:r.querySelector('.nameText').textContent,height:r.offsetHeight,width:r.offsetWidth,overflow:r.scrollWidth>r.clientWidth,bounds:[...r.querySelectorAll(':scope > div,button,.nameText,.ownerName')].map(e=>{const b=e.getBoundingClientRect();return{left:b.left,right:b.right,width:b.width,scroll:e.scrollWidth,client:e.clientWidth,name:e.className}}),labels:[...r.querySelectorAll('[data-label]')].map(e=>getComputedStyle(e,'::before').content),actions:[...r.querySelectorAll('button')].map(e=>({label:e.getAttribute('aria-label'),width:e.offsetWidth,height:e.offsetHeight}))})));
   if(width<=640)for(const r of layout){assert.equal(r.overflow,false);assert.ok(r.bounds.every(b=>b.left>=0&&b.right<=width+.5),JSON.stringify({width,row:r}));assert.ok(r.actions.every(a=>a.width>=40&&a.height>=40));assert.ok(r.labels.length>=4);assert.ok(r.height>100)}
-  else assert.ok(layout.every(r=>r.height<60),'desktop retains compact rows');result.sizes.push({width,layout});await page.screenshot({path:out+'.'+width+'.png'});
+  else assert.ok(layout.every(r=>r.height>=60&&r.height<=100),'desktop uses the reference table spacing');result.sizes.push({width,layout});await page.screenshot({path:out+'.'+width+'.png'});
  }
  assert.deepEqual(result.errors,[]);result.passed=true;
 }catch(e){result.failure=e.message;throw e}finally{fs.writeFileSync(out,JSON.stringify(result,null,2));await browser.close()}

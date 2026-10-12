@@ -1,75 +1,85 @@
 ---
-version: alpha
+version: 99
 name: Tracker
-description: A compact private-room file console, preserving the established monospace controls and dark catalog.
+description: Private peer sharing using the supplied Tracker interface system.
+reference: /home/roko/Downloads/index(84).html
 colors:
-  background: '#08090a'
-  panel: '#0c0e10'
-  text: '#eef1f3'
-  muted: '#9099a2'
-  primary: '#f1bb37'
-  success: '#67d391'
+  light:
+    canvas: '#f8f9fa'
+    surface: '#ffffff'
+    ink: '#1d2329'
+    primary: '#252c33'
+    line: '#e3e7ea'
+  dark:
+    canvas: '#111518'
+    surface: '#191e22'
+    ink: '#e2e6e9'
+    primary: '#e6eaed'
+    line: '#30383d'
 typography:
   sans:
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontFamily: 'system-ui, sans-serif'
   mono:
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-omitted:
-  - section: spacing
-    reason: Existing component geometry remains owned by index.html.
-  - section: rounded
-    reason: Existing controls are square; special QR and avatar shapes remain in CSS.
+spacing: 4px grid
+radii: [4px, 6px, 9px, 13px, 17px]
 ---
 
-## Overview
+## Source of truth
 
-Tracker resembles a compact transfer console: bordered rows, technical metadata,
-quiet controls and visible availability dots. The v4 brief explicitly preserves
-this visual language. The audience shares files by room links on desktop and
-mobile; the existing product uses English. Avoid account onboarding, promotional
-cards, decorative gradients or a visual rebrand.
+The supplied `index(84).html` supersedes the former dark transfer-console design.
+Its semantic tokens, component styles, SVG symbol library, neutral surfaces,
+rounded controls, typography and spacing are included in `index.html`. The
+application remains one HTML file. Video surfaces remain black in either theme.
 
-Runtime ownership: `index.html` is the canonical token source. This document
-mirrors `:root` roles; it does not generate another theme or duplicate stylesheet.
+Light is the initial theme. The sun/moon button switches every application
+surface and persists the choice using the reference's `tracker-guide-theme`
+setting. Apply the saved value before the first paint. Use semantic colors for
+success, warning, error and information, including the optional debug graph.
 
-## Colors
+## Layout and components
 
-Dark surfaces and thin borders separate the catalog, details and overlays.
-Amber identifies transfer activity; green identifies seeding and successful
-actions. Preserve semantic labels alongside color. Focus uses the existing amber
-outline. This application currently has one dark theme.
+Use the reference's 253px navigation sidebar, 61px sticky topbar, hero, bordered
+panels, metric cards, segmented filters, inputs, switches, radio choices, range
+controls, badges, progress indicators, empty states, alerts and lifecycle steps.
+Navigation changes the view without changing the private URL fragment.
 
-## Typography
+The workspace contains Files, Live media and Transfers. Distributed storage
+contains Contribute storage, Provider marketplace, and Lifecycle & health.
+Settings & identity contains bandwidth contribution, appearance, privacy and
+optional connectivity details. The selected file has Overview, Shards, Activity
+and Settings tabs. Shards shows actual verified chunks and whole-file replicas.
 
-Use the existing monospace stack for controls, file metadata and technical values;
-use the sans stack for general layout. Preserve compact uppercase action labels
-and plain sentence case status text. Let filenames wrap on mobile.
+At tablet widths the file table becomes cards; at 800px the sidebar becomes a
+drawer. On phones each file includes its wrapped name, labeled metadata and
+wrapping action buttons of at least 40px. Panels and dialogs must fit at 320px.
+Keep browser zoom available and respect reduced motion.
 
-## Layout
+Use inline SVG action icons with accessible names and viewport-safe tooltips.
+Use text alongside important primary actions. Dialogs support Escape, keyboard
+focus containment and focus return. Inspector tabs support arrow/Home/End keys.
+Do not replace focused controls when unchanged telemetry is refreshed.
 
-Preserve the fixed header, scrolling catalog and desktop details sidebar. Mobile
-rows become file cards through the existing breakpoints. File links add one icon
-to the established actions; pending resource navigation is a compact status row.
+## Actual peer storage
 
-## Elevation & Depth
+All storage and retrieval processes are free. Contribution is disabled until
+the user opts in. Save allocation, browser persistence preference, retention
+profile and duration locally in the room's encrypted IndexedDB. The selected
+allocation is bounded by browser quota; pending copies reserve capacity too.
 
-Keep rows flat. Existing overlays and toasts alone use elevated shadows.
+Provider cards come from authenticated, expiring room offers. Keep available
+requests use the existing encrypted chunk acquisition, durable cache, complete
+file-root verification and seed advertisement. A local upload can also be
+materialized into the cache. Locked files are retained as canonical ciphertext.
+Never show a completed replica before its file root has been verified.
 
-## Shapes
+Show actual placement status and live sources. Active requests may recruit
+replacement providers until their retention period expires. Turning storage
+contribution off stops its background work, including after reload. Releasing
+retention stops automatic seeding while preserving cached bytes and pre-existing
+manual seed choices. A provider serves only while its room is open and bandwidth
+contribution permits it; browser persistence requests may be denied.
 
-Preserve square bordered controls, circular availability dots and avatars, and
-the rounded white QR frame. Use existing SVG strokes and icon decoration.
-
-## Components
-
-Reuse `.mini`, `setActionIcon`, `decorateActions`, the toast system and room share
-dialog. Copy file link and Link local source are separate actions with separate
-icons and accessible labels. Pending resolution never creates a catalog record.
-Room sharing uses the canonical room URL even from a file permalink. Clipboard
-failure exposes a selectable link through the existing share dialog. Preserve
-keyboard focus and focus return. Password links expose existing unlock controls.
-
-## Do's and Don'ts
-
-Keep cryptographic details in the optional details/diagnostics surface. Do not
-add accounts, wallets, connection setup, mandatory dialogs or key management.
+No payment, wallet, service contract, audit guarantee or fabricated provider is
+connected. A future payment protocol can extend authenticated placement controls
+without changing today's free opt-in process.

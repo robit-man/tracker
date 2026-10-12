@@ -1,5 +1,30 @@
 # Tracker v4 execution report
 
+## Reference interface and free storage, v99
+
+Executed 2026-10-11 against `2026-10-11-interface-system-v99`. The supplied
+`/home/roko/Downloads/index(84).html` defines the new interface system.
+
+Final candidate validation:
+
+| Result | Coverage |
+| --- | --- |
+| PASS | `node --test tests/*.test.cjs`: **174/174**, no failures or skips. |
+| PASS | `interface-storage-browser.mjs`, Chromium and Firefox: exact light/dark canvas tokens and saved theme; seven views without room fragment changes; actual file filters/search; four keyboard-accessible inspector tabs; wrapped metadata/actions at 320/360/390/640/1280/1440px; dialog Escape/focus return. |
+| PASS | Same harness, both browsers: opt-in free provider discovery, authenticated placement carrying signed metadata, complete file-root verification, provider reload, original source closure, third peer byte-identical MP4 download and decoded playback, keyboard opt-out. A separate local upload is materialized in encrypted storage and downloaded byte-identically after its File object is lost on reload. |
+| PASS | `avi-playback-browser.mjs`, Chromium and Firefox: MPEG-4/MP3 AVI, H.264/MP3 AVI and H.264/AAC MP4, real encrypted relays, decoded frames/time advancing, seek and saved-position resume; conversion close/resume; counterclockwise download glyph. |
+| PASS | `live-stream-routes-browser.mjs`, Chromium capture to Firefox playback: screen, camera/microphone and microphone; privacy and LIVE enabled, encrypted relay byte path, missing-chunk repair without encoder restart, non-silent audio, screen recovery after a network outage. |
+| PASS | `privacy-resume-browser.mjs`: actual toggle/reload, direct connections close, fresh relay bytes match, X stops queued work and playback, same-decoder resume, cold MP4 position restored. |
+| PASS | `room-share-browser.mjs`: rendered/downloaded QR independently scanned, clipboard and offline generation, keyboard focus, 320px layout. |
+| PASS | `mobile-cards-browser.mjs`, `v4-browser.mjs`, complete inline-script parsing and `git diff --check`. |
+
+Detailed candidate traces and screenshots are under `/tmp/tracker-overhaul/`.
+These are short real-media tests, not whole-movie or physical-carrier CGNAT tests.
+Retention remains voluntary browser storage; persistence can be denied and peers
+must stay online to serve. No payment service is connected or simulated.
+
+## Earlier v4 validation
+
 Executed on 2026-10-11 in this Linux workspace. Baseline is commit `5050998`,
 build `2026-10-10-source-link-v95`, archived exactly at
 `fixtures/tracker-v3.html`. Candidate build: `2026-10-11-crypto-v4-v96`.

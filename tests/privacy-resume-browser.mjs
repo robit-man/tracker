@@ -26,7 +26,7 @@ async function peer(role){
    };return pc
   }});
  });
- const page=await context.newPage();page.setDefaultTimeout(45000);page.on('pageerror',e=>result.errors.push({role,error:e.message}));return page;
+ const page=await context.newPage();page.setDefaultTimeout(45000);page.on('pageerror',e=>result.errors.push({role,error:e.message,stack:e.stack}));return page;
 }
 async function ready(page,url){await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#sideActor')?.textContent!=='—')}
 async function state(page){return page.evaluate(()=>{const v=document.querySelector('#previewStage video,audio');return{privacy:PrivateTrackerMesh.privacy(),preview:PrivateTrackerMesh.preview(),served:document.querySelector('#servedBytes').textContent,video:v&&{time:v.currentTime,paused:v.paused,error:v.error?.message,duration:v.duration},pcs:__privacyAudit.pcs.map(pc=>({policy:pc.getConfiguration().iceTransportPolicy,state:pc.connectionState})),violations:__privacyAudit.violations,transfer:document.querySelector('#transferModal')?.textContent,rows:[...document.querySelectorAll('.row[data-cid]')].map(r=>({name:r.querySelector('.nameText')?.textContent,availability:r.querySelector('[data-source-stat]')?.textContent,action:r.querySelector('[data-download]')?.getAttribute('aria-label')}))}})}
