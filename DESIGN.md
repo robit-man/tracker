@@ -1,5 +1,5 @@
 ---
-version: 99
+version: 100
 name: Tracker
 description: Private peer sharing using the supplied Tracker interface system.
 reference: /home/roko/Downloads/index(84).html
@@ -39,16 +39,24 @@ success, warning, error and information, including the optional debug graph.
 
 ## Layout and components
 
-Use the reference's 253px navigation sidebar, 61px sticky topbar, hero, bordered
+Use the reference's 253px navigation sidebar, 61px sticky topbar, bordered
 panels, metric cards, segmented filters, inputs, switches, radio choices, range
 controls, badges, progress indicators, empty states, alerts and lifecycle steps.
-Navigation changes the view without changing the private URL fragment.
+Navigation changes the view without changing the private URL fragment. Search
+is the first sidebar control. Files and Live media show the full derived room
+hash in a compact, wrapping identifier row. Do not use promotional heroes,
+sidebar branding or decorative motifs; other views use concise section headers.
+The browser title is `Room | abcd...1234`, derived from the actual room hash and
+retained across navigation. Long breadcrumb labels truncate on small screens
+while the header action buttons stay visible.
 
 The workspace contains Files, Live media and Transfers. Distributed storage
 contains Contribute storage, Provider marketplace, and Lifecycle & health.
 Settings & identity contains bandwidth contribution, appearance, privacy and
-optional connectivity details. The selected file has Overview, Shards, Activity
-and Settings tabs. Shards shows actual verified chunks and whole-file replicas.
+optional connectivity details. Its modules share a grid gap, including the
+two-column identity/bandwidth group and the full-width cards below it. Card
+resets must preserve the spacing utilities used across views. The selected file
+has Overview, Shards, Activity and Settings tabs. Shards shows actual verified chunks and whole-file replicas.
 
 At tablet widths the file table becomes cards; at 800px the sidebar becomes a
 drawer. On phones each file includes its wrapped name, labeled metadata and

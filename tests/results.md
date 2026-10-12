@@ -1,5 +1,28 @@
 # Tracker v4 execution report
 
+## Room layout cleanup, v100
+
+Executed 2026-10-11 against `2026-10-11-room-layout-v100`.
+
+- Chromium and Firefox: all seven views at 320/390/640/800/1024/1440px
+  without horizontal overflow. Settings' full-width modules have the same 14px
+  gap as its two-column group; the compact retention summary has a 15px gap
+  below its fields, and the preferences card has 24px above it.
+- Both browsers: no hero, motif or sidebar branding; search is first in the
+  sidebar. The full room identifier matches an independently derived SHA-256
+  hash. The browser title uses `Room | abcd...1234` from that hash, preserved
+  across navigation and reload alongside the saved theme.
+- Existing mobile file-card and QR sharing harnesses: PASS. Existing real-relay
+  interface/storage harness: PASS, including verified retention, source closure,
+  byte-identical retrieval by a third peer, decoded playback and local retention
+  after reload. No browser errors were recorded.
+- `node --test tests/*.test.cjs`: **174/174 PASS**. Inline JavaScript parses;
+  `git diff --check` passes.
+
+Layout measurements, screenshots and harness traces are under
+`/tmp/tracker-ui-v100/`. These are emulated browser viewports, not physical-device
+coverage. The changes affect presentation and the tab title, not media transport.
+
 ## Reference interface and free storage, v99
 
 Executed 2026-10-11 against `2026-10-11-interface-system-v99`. The supplied
