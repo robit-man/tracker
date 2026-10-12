@@ -38,9 +38,9 @@ async function addContent(c,f){
 }
 test('any member can link remote, orphaned, locked and already-local listings',()=>{
  const c=fixture();assert.match(c.sourceLinkActions('remote'),/data-relink/);
- c.sourceClaims.add('orphan');c.sourceMissing.add('orphan');assert.match(c.sourceLinkActions('orphan'),/data-relink/);
+ c.sourceClaims.add('orphan');c.sourceMissing.add('orphan');assert.match(c.sourceLinkActions('orphan'),/data-relink/);assert.match(c.sourceLinkActions('orphan'),/resumeAvailable/);
  c.sourceNeedsAuth.add('permission');const actions=c.sourceLinkActions('permission');assert.match(actions,/data-reauth/);assert.match(actions,/data-relink/);
- c.localHave.add('local');assert.match(c.sourceLinkActions('local'),/data-relink/);
+ c.localHave.add('local');c.sourceClaims.add('local');assert.match(c.sourceLinkActions('local'),/data-relink/);assert.doesNotMatch(c.sourceLinkActions('local'),/resumeAvailable/);
  c.sourceVerifying.add('remote');assert.match(c.sourceLinkActions('remote'),/disabled/);assert.doesNotMatch(c.sourceLinkActions('remote'),/data-relink/);
 });
 test('full multi-chunk hash accepts a renamed copy and advertises it without modifying the catalog',async()=>{
@@ -89,4 +89,28 @@ test('cancelled input pickers remove their input and release the source action; 
  assert.equal(removed,1);assert.equal(c.sourceVerifying.has(cid),false);assert.equal(c.localHave.has(cid),false);
  const linked=c.relinkSource(cid);input.files=[good];input.onchange();await linked;
  assert.equal(c.seedEnabled(cid),true);assert.equal(removed,2);
+});
+function recoveryFixture(){
+ const c=fixture();Object.assign(c,{automaticSourceFailures:new Map(),automaticSourceRecovery:false,downloadJobs:new Map(),roomLocalReady:Promise.resolve(),db:{},document:{hidden:false},cacheHasCompleteContent:async()=>false});
+ for(const name of ['stampMatches','recoverPersistedSource','retryPersistedSources'])vm.runInContext(source(name),c);return c;
+}
+test('saved handles recover automatically without prompting; changed metadata requires the complete hash',async()=>{
+ const c=recoveryFixture(),good=file('correct bytes'),cid=await addContent(c,good),copy=file('correct bytes','renamed.bin',999);let prompts=0;
+ const handle={queryPermission:async()=>'granted',requestPermission:async()=>{prompts++;return 'granted'},getFile:async()=>copy};
+ c.idbGet=async store=>store==='handles'?handle:null;c.sourceClaims.add(cid);c.sourceStamps.set(cid,c.sourceStamp(good));c.sourceMissing.add(cid);c.selectedSeeds.add(cid);
+ const original=JSON.stringify([...c.catalog]);await c.retryPersistedSources();
+ assert.equal(c.sourceFiles.get(cid),copy);assert.equal(c.seedEnabled(cid),true);assert.equal(c.sourceMissing.has(cid),false);assert.equal(c.sourceNeedsAuth.has(cid),false);assert.equal(prompts,0);assert.equal(JSON.stringify([...c.catalog]),original);assert.ok(c.writes.some(x=>x[0]==='advertise'));
+});
+test('automatic recovery leaves permission fallback available and rejects a changed incorrect source',async()=>{
+ const c=recoveryFixture(),good=file('correct bytes'),cid=await addContent(c,good);let permission='prompt',prompts=0;
+ const handle={queryPermission:async()=>permission,requestPermission:async()=>{prompts++;return 'granted'},getFile:async()=>file('corrupt bytes','copy.bin',999)};
+ c.idbGet=async store=>store==='handles'?handle:null;c.sourceClaims.add(cid);c.sourceStamps.set(cid,c.sourceStamp(good));
+ await c.retryPersistedSources();assert.equal(c.localHave.has(cid),false);assert.equal(c.sourceNeedsAuth.has(cid),true);assert.match(c.sourceLinkActions(cid),/resumeAvailable/);
+ permission='granted';await c.retryPersistedSources();assert.equal(c.localHave.has(cid),false);assert.equal(c.sourceMissing.has(cid),true);assert.equal(c.sourceVerifying.has(cid),false);assert.equal(prompts,0);
+ handle.getFile=async()=>file('correct bytes','copy.bin',1000);c.seedMode='off';await c.retryPersistedSources();assert.equal(c.localHave.has(cid),true);assert.equal(c.seedEnabled(cid),false);assert.doesNotMatch(c.sourceLinkActions(cid),/resumeAvailable/);
+});
+test('automatic cache recovery preserves seed selection and never claims an unfinished download',async()=>{
+ const c=recoveryFixture(),good=file('correct bytes'),cid=await addContent(c,good);c.cacheHasCompleteContent=async()=>true;c.sourceClaims.add(cid);c.sourceMissing.add(cid);
+ c.downloadJobs.set(cid,{state:'queued'});await c.retryPersistedSources();assert.equal(c.localHave.has(cid),false);
+ c.downloadJobs.delete(cid);await c.retryPersistedSources();assert.equal(c.localHave.has(cid),true);assert.equal(c.cachedComplete.has(cid),true);assert.equal(c.selectedSeeds.has(cid),false);assert.equal(c.seedEnabled(cid),false);
 });

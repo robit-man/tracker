@@ -1,5 +1,53 @@
 # Tracker v4 execution report
 
+## Decentralized networks and source recovery, v101
+
+Executed 2026-10-11–12 against `2026-10-12-decentralized-room-v101`.
+
+- **195/195 unit tests pass**, including framed stream boundaries and limits,
+  Waku's exclusion of media traffic, independent IPFS locator signatures,
+  provider-address freshness, exact-provider route readiness, pin durability,
+  identity startup ordering, source
+  hash verification and seven-day orphan cleanup.
+- Chromium and Firefox: all seven views at 320/390/640/800/1024/1440px fit without
+  horizontal overflow. Breadcrumbs identify Workspace, Storage or Room; Files
+  and Live media use the Transfers header structure and preserve the full room
+  hash. Tooltip colors match dark/light tokens, opacity fades in, keyboard focus
+  works and reduced motion disables the visible transition. Theme choice and
+  the room-derived browser title survive reload.
+- Chromium and WebKit: dark default and saved light preference; focus/double-tap
+  scale stays 1; touch controls use 16px text; pinch/gesture guards work. Actual
+  Chromium single-touch scrolling remains functional. These are browser engine
+  and emulated viewport checks, not physical-device coverage.
+- Actual encrypted relay source-link tests: Firefox checks wrong-hash rejection,
+  renamed-copy verification, original publisher preservation, reload fallback
+  pulses and byte-identical third-peer retrieval after source closure. Chromium
+  also persists a real FileSystemFileHandle, restores it on reload, and restores
+  access on tab focus without a picker after a simulated permission interruption.
+  Changed metadata requires a complete hash; seed preferences remain unchanged.
+- Actual public-network harness with the original app carriers and
+  BroadcastChannel disabled: Waku discovery/catalog replication, libp2p
+  WebRTC-upgraded byte-identical MP4 transfer and decoded playback, encrypted
+  IPFS pin/retrieve through Bitswap, durable pin/peer identity after reload,
+  original source closure, fresh-peer retrieval from the remaining provider,
+  and pin release. All eight checks pass with no page errors.
+- Actual existing relay/storage harness: all twelve checks pass, including
+  retained copy verification/reload, original source closure, byte-identical
+  third-peer retrieval, decoded playback, opt-out and locally retained uploads.
+- Compressed-clock cleanup fixture: signed replicated deadlines, reload,
+  wrong-hash rejection, final-day mobile rescue, protected retention and expiry
+  tombstones pass. Production retains the exact seven-day TTL and final-day
+  warning. Inline JavaScript parses and `git diff --check` passes.
+
+Evidence is under `/tmp/tracker-v101/`. Network tests use a short real H.264/AAC
+MP4, not the full ETV movie or physical carrier NAT. Public circuit relays have
+byte quotas and only carry controls; bulk libp2p uses an unrestricted upgrade.
+Privacy mode disables that direct upgrade while preserving the existing encrypted
+byte relays. IPFS pins are browser-held copies served while that browser is open;
+bootstrap peers are not an external pinning service. Saved file handles restore
+automatically only when browser permissions allow; input-only uploads require
+the blinking relink fallback unless a verified cached copy exists.
+
 ## Room layout cleanup, v100
 
 Executed 2026-10-11 against `2026-10-11-room-layout-v100`.

@@ -393,3 +393,38 @@ binary without Xvfb; capture devices are synthetic browser inputs, while actual
 capture, encoding, data channels and playback are used. Display capture still
 requires the existing display/Xvfb workflow. Actual coverage and limitations,
 including the baseline media fixture size, are recorded in `tests/results.md`.
+
+Independent networks, orphan expiry and touch viewport behavior:
+
+```sh
+node --test tests/*.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps node tests/decentralized-browser.mjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps node tests/file-cleanup-browser.mjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML=index.html node tests/mobile-zoom-browser.mjs
+```
+
+The decentralized harness disables the original app carriers and
+BroadcastChannel. It uses real public Waku Filter/LightPush, libp2p circuits and
+WebRTC upgrades. It checks byte-identical MP4 transfer and decoded playback,
+encrypted IPFS pin/retrieve, pin persistence, original source closure and
+retrieval by a fresh peer from the remaining pin provider. Public relays may
+reject individual connection attempts; evidence records the end-to-end result.
+
+The cleanup harness compresses only the production seven-day/final-day/probe
+constants in its fixture. It exercises real signatures, catalogs, native file
+selection, wrong-hash rejection, reloads, replicated countdowns, mobile rescue,
+retention protection and expiry tombstones. Production constants stay unchanged.
+
+The mobile harness checks dark default and saved light preference, focus and
+double-tap scale, gesture guards, 16px inputs, Chromium native pinch/touch scroll
+and WebKit form focus/DOM scrolling. Install the Playwright Chromium and WebKit
+engines. `RESULT` sets the evidence filename; `TRACKER_HTML` overrides the live
+page where supported. Source-link coverage also checks the blinking recovery cue
+and its removal after verified relinking.
+
+Source recovery also checks a real persisted `FileSystemFileHandle` in Chromium.
+The permission fixture first denies automatic access after reload, then restores
+it and dispatches tab focus. The saved source must resume without a file picker,
+and its relink pulse must clear. Unit coverage requires full hash verification
+when saved-handle metadata changes, preserves seed-off/selection preferences,
+and excludes incomplete download caches from automatic recovery.

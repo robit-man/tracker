@@ -40,3 +40,49 @@ Old clients ignore these extension types and continue normal file sharing.
 All storage and retrieval are free. No x402 or other payment service is required
 or contacted. Future payment integration should extend placement negotiation
 without changing file identity, chunk verification or the transport routes.
+
+## Unavailable listings
+
+Each file with no live seeder and no known retained copy receives a seven-day
+orphan deadline in a signed catalog revision. Peers replicate that deadline;
+visiting or refreshing the page does not reset it. Existing listings without an
+observation receive a fresh window. A verified local cache, a live seed, a local
+IPFS pin or a confirmed retention period protects the listing.
+
+The file card shows its countdown. In the final 24 hours, **Link local source**
+verifies a chosen disk file against the immutable content root and resumes
+seeding. **Let expire** acknowledges the prompt without shortening the deadline.
+Before deletion, the browser queries sources and retention again and waits for
+responses. Offline browsers, read-only members and pending source verification
+cannot erase a listing. Expiry publishes a signed tombstone, preserving catalog
+history; a returning verified source can restore an automatically expired item.
+Manual deletions remain deleted.
+
+When a previously linked File object is lost on reload, its relink action uses
+the same reduced-motion-aware pulse as paused media. A wrong file does not clear
+the cue. Restoring a matching source or a verified persistent handle clears it.
+
+## IPFS copies
+
+File inspector → Settings provides **Pin encrypted copy**, **Retrieve IPFS
+copy** and **Remove IPFS pin**. The Helia browser node stores room-encrypted raw
+blocks and a room-encrypted block index in separate persistent IndexedDB stores.
+The private room distributes an independently signed locator. IPFS receives no
+plaintext file bytes, index or filename. Password-locked content keeps its
+canonical ciphertext inside this additional room encryption.
+
+Retrieval verifies each IPFS block digest, decrypts the index and chunks, and
+checks the complete canonical file root before marking a local source ready.
+Another member can retrieve, verify and pin its own encrypted copy. Removing an
+IPFS pin releases that pin’s blocks without deleting the ordinary verified file
+cache or disk source. Browser persistence is subject to browser storage policy;
+no external pinning company or paid retention service is configured.
+
+An active pin advertises the configured retention period to room peers, which
+protects the listing through that period even if the browser disconnects. The
+local pin remains until explicitly removed. The node serves while the room is open. Public circuit relays can impose small
+byte quotas; those paths are suitable for control traffic. Ordinary mode uses
+WebRTC upgrades where possible for Bitswap and the existing media scheduler.
+Relay-only privacy disables RTC transports entirely; IPFS providers still need
+a reachable byte path, while normal file/live transfer retains the established
+relay routes. Closing all providers does not create public offline retention.

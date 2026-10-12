@@ -16,9 +16,9 @@ async function view(p,v){if(await p.locator('#menu-button').isVisible())await p.
 let timer;
 try{
  const source=await peer('source');result.url=source.url();
- assert.equal(await source.evaluate(()=>document.documentElement.dataset.theme),'light');
- assert.equal(await source.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()),'#f8f9fa');
- await source.locator('#theme-toggle').click();assert.equal(await source.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()),'#111518');await source.reload();await source.waitForFunction(()=>PrivateTrackerMesh.storage().config);assert.equal(await source.evaluate(()=>document.documentElement.dataset.theme),'dark');await source.locator('#theme-toggle').click();check('reference light/dark tokens and persisted theme toggle');
+ assert.equal(await source.evaluate(()=>document.documentElement.dataset.theme),'dark');
+ assert.equal(await source.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()),'#111518');
+ await source.locator('#theme-toggle').click();assert.equal(await source.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()),'#f8f9fa');await source.reload();await source.waitForFunction(()=>PrivateTrackerMesh.storage().config);assert.equal(await source.evaluate(()=>document.documentElement.dataset.theme),'light');check('reference light/dark tokens and persisted theme toggle');
  for(const v of ['live','downloads','storage','providers','lifecycle','settings','files']){await view(source,v);assert.equal(source.url(),result.url)}check('all module navigation preserves the private room fragment');
  const bytes=fs.readFileSync(process.env.FIXTURE||'/tmp/tracker-avi-test/native.mp4'),filename='A shared resource with a very long name — '+'unbrokenfilename'.repeat(9)+'.mp4';
  await source.locator('#fileInput').setInputFiles({name:filename,mimeType:'video/mp4',buffer:bytes});const row=source.locator('.row[data-cid]').first();await row.locator('[data-seed][aria-pressed="true"]').waitFor();const cid=await row.getAttribute('data-cid');result.cid=cid;

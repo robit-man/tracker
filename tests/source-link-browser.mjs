@@ -13,6 +13,7 @@ async function peer(role){
  const context=await browser.newContext({acceptDownloads:true});if(html)await context.route(site,r=>r.fulfill({contentType:'text/html',body:html}));
  await context.addInitScript(()=>{
   // Use the cross-browser input picker; direct ICE cannot mask relay failures.
+  localStorage.setItem('private-tracker-deep-privacy-v1','1');
   window.showOpenFilePicker=undefined;window.showSaveFilePicker=undefined;
   const Native=window.RTCPeerConnection;window.RTCPeerConnection=new Proxy(Native,{construct(target,args){return new target({...args[0],iceTransportPolicy:'relay',iceServers:[]})}});
  });
@@ -36,8 +37,8 @@ try{
  assert.equal(await row.locator('.nameText').textContent(),originalName);assert.equal(await row.locator('.ownerName').textContent(),originalPublisher);assert.equal(await member.page.locator('.row[data-cid]').count(),1);
  result.checks.push('matching renamed copy seeds the original listing without changing publisher');
  await member.page.reload({waitUntil:'domcontentloaded'});await member.page.waitForFunction(()=>document.querySelector('#sideActor')?.textContent!=='—');
- await row.locator('[data-relink]').waitFor();assert.equal(await row.locator('[data-seed]').count(),0);result.checks.push('returning browser can relink its orphaned listing');
- await link(member.page,row,bytes,'recovered-copy.bin');await row.locator('[data-seed][aria-pressed="true"]').waitFor();
+ await row.locator('[data-relink]').waitFor();assert.equal(await row.locator('[data-seed]').count(),0);assert.equal(await row.locator('[data-relink]').evaluate(b=>b.classList.contains('resumeAvailable')),true);result.checks.push('returning browser sees a blinking relink cue on its orphaned listing');
+ await link(member.page,row,bytes,'recovered-copy.bin');await row.locator('[data-seed][aria-pressed="true"]').waitFor();assert.equal(await row.locator('[data-relink]').evaluate(b=>b.classList.contains('resumeAvailable')),false);
  // Stop the uploader and remove it before the new downloader joins. Only the
  // member's verified linked copy can supply these chunks.
  await sourceRow.locator('[data-seed]').click();await sourceRow.locator('[data-seed][aria-pressed="false"]').waitFor();await source.context.close();
@@ -61,6 +62,15 @@ try{
   await row.locator('[data-relink]').click();await row.locator('[data-relink]').waitFor();
   await member.page.reload({waitUntil:'domcontentloaded'});await row.locator('[data-seed][aria-pressed="true"]').waitFor();
   result.checks.push('native file handle persists and restores seeding after reload');
+  await member.context.addInitScript(()=>{
+   const native=FileSystemHandle.prototype.queryPermission;
+   FileSystemHandle.prototype.queryPermission=function(options){return localStorage.getItem('test-source-permission')==='prompt'?Promise.resolve('prompt'):native.call(this,options)};
+  });
+  await member.page.evaluate(()=>localStorage.setItem('test-source-permission','prompt'));await member.page.reload({waitUntil:'domcontentloaded'});
+  await row.locator('[data-relink].resumeAvailable').waitFor();assert.equal(await row.locator('[data-seed]').count(),0);
+  await member.page.evaluate(()=>{localStorage.removeItem('test-source-permission');window.dispatchEvent(new Event('focus'))});
+  await row.locator('[data-seed][aria-pressed="true"]').waitFor();assert.equal(await row.locator('[data-relink].resumeAvailable').count(),0);
+  result.checks.push('returning to the tab automatically restores an accessible saved handle and clears its blinking fallback');
  }
  assert.deepEqual(result.errors,[]);result.passed=true;console.log(JSON.stringify(result,null,2));
-}catch(e){result.failure=e.message;throw e}finally{fs.writeFileSync(out,JSON.stringify(result,null,2));await browser.close()}
+}catch(e){result.failure=e.message;result.states=await Promise.all(browser.contexts().flatMap(c=>c.pages()).map(p=>p.evaluate(()=>({net:PrivateTrackerMesh.status(),nats:PrivateTrackerMesh.nats(),relayActors:PrivateTrackerMesh.relayActors(),routes:PrivateTrackerMesh.routes(),files:PrivateTrackerMesh.cleanup(),extra:PrivateTrackerMesh.decentralized()})).catch(()=>null)));throw e}finally{fs.writeFileSync(out,JSON.stringify(result,null,2));await browser.close()}

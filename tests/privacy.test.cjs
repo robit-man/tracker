@@ -8,7 +8,7 @@ function harness(names=[]){
   wrappers:new Map(),peerIngress:new Map(),peerRoutes:new Map(),actorRoutes:new Map(),routeActors:new Map(),peerPrimaryRoute:new Map(),routeBenchPending:new Map(),meshStatus:new Map(),
   natsState:{sessions:new Map(),nc:{kept:true}},localLive:null,activeLiveViewer:null,sessions:new Map(),activePreview:null,
   closeNatsPeer:remote=>{events.push(['close',remote]);c.natsState.sessions.delete(remote)},
-  stopNkn:()=>events.push(['stop-nkn']),leaveStrategy:async key=>{events.push(['leave',key]);c.wrappers.delete(key)},clearTimeout:()=>{},
+  restartDecentralized:async()=>events.push(['restart-libp2p']),stopNkn:()=>events.push(['stop-nkn']),leaveStrategy:async key=>{events.push(['leave',key]);c.wrappers.delete(key)},clearTimeout:()=>{},
   startLiveRelayRecorder:async viewer=>events.push(['legacy-relay',viewer]),scheduleLiveViewerRetry:()=>{},
   advertisedRemoteSeeders:()=>['source'],scheduleSession:s=>events.push(['schedule',s]),announceStreamDemand:async s=>events.push(['demand',s]),sendLiveWatchRequest:v=>events.push(['watch',v]),
   publishNatsPresence:async()=>events.push(['presence']),broadcastAvailability:async()=>events.push(['availability']),meshSupervisorTick:async()=>events.push(['supervise']),updateMeshState:()=>{},storedTurnIce:()=>[]
@@ -36,9 +36,10 @@ test('privacy closes legacy media connections without ending the capture or chun
  c.localLive={peers:new Map([['modern',chunked],['old',legacy]])};c.activeLiveViewer={pc:{close:()=>closed++}};
  c.setPrivacyMode(true);assert.equal(closed,2);assert.equal(legacy.pc,null);assert.equal(c.activeLiveViewer.pc,null);assert.equal(chunked.relay.encoder,'same');assert.ok(events.some(x=>x[0]==='legacy-relay'&&x[1]==='old'));
 });
-test('privacy permits only relay-configured NATS wrappers, independent of stored TURN credentials',()=>{
+test('privacy permits relay-configured NATS and libp2p wrappers, independent of stored TURN credentials',()=>{
  const {c}=harness();c.privacyMode=true;c.storedTurnIce=()=>[{urls:'turn:configured'}];
  assert.equal(c.privacyWrapperAllowed({strategy:'nats',privacyRelay:false}),false);assert.equal(c.privacyWrapperAllowed({strategy:'nats',privacyRelay:true}),true);
+ assert.equal(c.privacyWrapperAllowed({strategy:'libp2p',privacyRelay:true}),true);assert.equal(c.privacyWrapperAllowed({strategy:'libp2p',privacyRelay:false}),false);
  for(const strategy of ['torrent','nkn','mqtt','nostr'])assert.equal(c.privacyWrapperAllowed({strategy,privacyRelay:true}),false);
  assert.equal(c.privacyPcAllowed({getConfiguration:()=>({iceTransportPolicy:'all'})}),false);assert.equal(c.privacyPcAllowed({getConfiguration:()=>({iceTransportPolicy:'relay'})}),true);
  c.privacyMode=false;assert.equal(c.privacyWrapperAllowed({strategy:'torrent'}),true);
@@ -60,7 +61,7 @@ test('the global RTC cap tracks idle connections and prevents configuration chan
  assert.equal(relay.getConfiguration().iceTransportPolicy,'relay');assert.deepEqual(Array.from(relay.getConfiguration().iceServers,x=>x.urls),['turn:configured']);relay.close();assert.equal(c.privacyRtcConnections.size,0);
 });
 test('cached control ingress cannot bypass the privacy policy, while encrypted broker delivery remains usable',async()=>{
- const {c}=harness(['firstSuccessfulSend','sendPacketVia','sendActorIngress']);let direct=0,relayed=0;
+ const {c}=harness(['firstSuccessfulSend','sendPacketVia','sendActorIngress']);c.wakuPlane={ready:false};let direct=0,relayed=0;
  c.privacyMode=true;const w={strategy:'torrent',key:'stale',peers:new Set(['p']),ctl:{send:async()=>{direct++;return true}}};
  Object.assign(c,{seal:async x=>x,peerIngress:new Map([['peer',{direct:{w,peerId:'p'},relay:'nats'}]]),controlRoutesFor:()=>[],localRelayPlanes:()=>['nats'],remoteRelayPlanes:()=>['nats'],relayPlaneName:x=>x,RELAY_PLANES:['nats'],relayActors:new Map([['peer',{}]]),bc:null,routeKey:()=> 'stale',publishRelayPacketOnPlane:async()=>{relayed++;return true}});
  assert.equal(await c.sendPacketVia(w,'packet','p'),false);assert.equal(await c.sendActorIngress('peer',{type:'request'}),true);assert.equal(direct,0);assert.equal(relayed,1);

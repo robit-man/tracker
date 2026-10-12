@@ -1,5 +1,5 @@
 ---
-version: 100
+version: 101
 name: Tracker
 description: Private peer sharing using the supplied Tracker interface system.
 reference: /home/roko/Downloads/index(84).html
@@ -32,7 +32,7 @@ Its semantic tokens, component styles, SVG symbol library, neutral surfaces,
 rounded controls, typography and spacing are included in `index.html`. The
 application remains one HTML file. Video surfaces remain black in either theme.
 
-Light is the initial theme. The sun/moon button switches every application
+Dark is the initial theme. The sun/moon button switches every application
 surface and persists the choice using the reference's `tracker-guide-theme`
 setting. Apply the saved value before the first paint. Use semantic colors for
 success, warning, error and information, including the optional debug graph.
@@ -44,7 +44,8 @@ panels, metric cards, segmented filters, inputs, switches, radio choices, range
 controls, badges, progress indicators, empty states, alerts and lifecycle steps.
 Navigation changes the view without changing the private URL fragment. Search
 is the first sidebar control. Files and Live media show the full derived room
-hash in a compact, wrapping identifier row. Do not use promotional heroes,
+hash below the same compact section header used by Transfers. Breadcrumbs show
+the sidebar group and current page (Workspace, Storage or Room). Do not use promotional heroes,
 sidebar branding or decorative motifs; other views use concise section headers.
 The browser title is `Room | abcd...1234`, derived from the actual room hash and
 retained across navigation. Long breadcrumb labels truncate on small screens
@@ -61,9 +62,17 @@ has Overview, Shards, Activity and Settings tabs. Shards shows actual verified c
 At tablet widths the file table becomes cards; at 800px the sidebar becomes a
 drawer. On phones each file includes its wrapped name, labeled metadata and
 wrapping action buttons of at least 40px. Panels and dialogs must fit at 320px.
-Keep browser zoom available and respect reduced motion.
+Prevent pinch, trackpad pinch and double-tap page zoom while preserving scrolling.
+Touch-device form controls use at least 16px text to prevent focus zoom. Respect
+reduced motion, including the shared resume/relink pulse. A previously linked
+resource pulses its relink icon after access is lost; verified relinking clears it.
+Recover accessible persisted handles and finalized cached copies on reload and
+when returning to the tab, without requesting permission automatically. Rehash
+changed handle metadata before accepting it, preserving existing seed choices.
 
 Use inline SVG action icons with accessible names and viewport-safe tooltips.
+Tooltip surfaces, text and borders follow the active theme. Fade them in over
+180ms, support keyboard focus and respect reduced-motion preferences.
 Use text alongside important primary actions. Dialogs support Escape, keyboard
 focus containment and focus return. Inspector tabs support arrow/Home/End keys.
 Do not replace focused controls when unchanged telemetry is refreshed.
@@ -91,3 +100,26 @@ contribution permits it; browser persistence requests may be denied.
 No payment, wallet, service contract, audit guarantee or fabricated provider is
 connected. A future payment protocol can extend authenticated placement controls
 without changing today's free opt-in process.
+
+## Orphans and independent networks
+
+A signed catalog revision carries each orphan’s seven-day deadline. Source and
+retained-copy observations cancel the countdown; a confirmed retention period
+protects a listing while the provider is absent. During the final 24 hours show
+Link local source and Let expire. Before a tombstone, query for live sources and
+retention again; never remove entries while offline or before discovery starts.
+
+libp2p supplies another authenticated peer route. Limited public circuits carry
+control only; normal mode can upgrade them to WebRTC for file and live-media
+bytes through the existing scheduler. Privacy mode omits the RTC transports and
+uses the established encrypted relay carriers for media. Waku carries encrypted
+discovery, catalogs, availability and retention controls, with a bounded,
+coalescing queue; it does not carry media chunks or decoder demand.
+
+File Settings offers opt-in encrypted IPFS pins, retrieval and release. Store
+only room-encrypted blocks and an encrypted index on IPFS; independently sign
+locators and verify the canonical whole-file root before advertising a retrieved
+copy. Persistent browser block storage is local, not a promise that a public
+service will retain content. Another participating pin provider must stay online
+after the original browser leaves. Use actual connectivity states in network
+details.
