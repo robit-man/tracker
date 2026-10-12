@@ -457,3 +457,16 @@ multipart ciphertext retention and root-verified retrieval after source closure.
 It keeps normal room control available for the original signed private metadata.
 Global tests can set `TRACKER_SITE` to an isolated base when overriding HTML;
 deployed verification uses the real site and no override.
+
+
+### Relink verification progress
+
+`FILE=/path/to/large.mp4 TRACKER_TEST_DEPS=/path/to/playwright-deps node tests/source-verification-browser.mjs`
+indexes the file, reloads the room to lose its temporary source, and relinks the
+same disk file through the real browser picker and background hash worker. Use a
+large file so intermediate progress is visible. `BROWSER=firefox` selects Firefox;
+`MOBILE=1` checks the 390px layout. The harness checks increasing inline progress,
+byte totals and verification speed, preserves the original content root, confirms
+seeding resumes, and verifies the progress and expiry blocks disappear. It saves
+dark/light screenshots during verification and a JSON report; `RESULT` changes the
+output path. `TRACKER_HTML` can select another app snapshot.

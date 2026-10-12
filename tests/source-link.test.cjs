@@ -26,7 +26,7 @@ function fixture(){
   saveState:async()=>writes.push(['save']),seedSaltFor:cid=>writes.push(['salt',cid]),
   broadcastAvailability:async()=>writes.push(['advertise',[...c.localHave].filter(cid=>c.seedEnabled(cid))])
  });
- for(const name of ['swarmInit','swarmStep','hashFileStreamingMain','hashLockedFileStreamingMain','sourceStamp','seedEnabled','sourceLinkActions','verifySourceCandidate','linkVerifiedSource','pickSourceFile','reauthorizeSource','relinkSource'])vm.runInContext(source(name),c);
+ for(const name of ['swarmInit','swarmStep','hashFileStreamingMain','hashLockedFileStreamingMain','sourceStamp','seedEnabled','sourceLinkActions','sourceVerificationMarkup','verifySourceCandidate','linkVerifiedSource','pickSourceFile','reauthorizeSource','relinkSource'])vm.runInContext(source(name),c);
  c.hashFileStreaming=c.hashFileStreamingMain;c.hashLockedFileStreaming=c.hashLockedFileStreamingMain;
  c.writes=writes;c.messages=messages;
  return c;
@@ -113,4 +113,35 @@ test('automatic cache recovery preserves seed selection and never claims an unfi
  const c=recoveryFixture(),good=file('correct bytes'),cid=await addContent(c,good);c.cacheHasCompleteContent=async()=>true;c.sourceClaims.add(cid);c.sourceMissing.add(cid);
  c.downloadJobs.set(cid,{state:'queued'});await c.retryPersistedSources();assert.equal(c.localHave.has(cid),false);
  c.downloadJobs.delete(cid);await c.retryPersistedSources();assert.equal(c.localHave.has(cid),true);assert.equal(c.cachedComplete.has(cid),true);assert.equal(c.selectedSeeds.has(cid),false);assert.equal(c.seedEnabled(cid),false);
+});
+
+test('relink exposes per-file verification progress until the verified source is attached',async()=>{
+ const c=fixture(),good=file(Buffer.alloc(1024*1024,7)),cid=await addContent(c,good);let progress,release,started,saved,saving;const timers=[];
+ const hashing=new Promise(resolve=>{started=resolve}),persisting=new Promise(resolve=>{saving=resolve});
+ c.setTimeout=fn=>timers.push(fn);c.saveState=()=>new Promise(resolve=>{saved=resolve;saving()});
+ c.pickSourceFile=async()=>({file:good,handle:null});
+ c.hashFileStreaming=(_file,onProgress)=>new Promise(resolve=>{progress=onProgress;release=resolve;started()});
+ const linking=c.relinkSource(cid);await hashing;
+ progress(.25,good.size/4,2000);
+ assert.equal(c.sourceVerifyProgress.get(cid).fraction,.25);assert.equal(c.sourceVerifyProgress.get(cid).total,good.size);
+ const markup=c.sourceVerificationMarkup(cid);assert.match(markup,/Verifying source · 25%/);assert.match(markup,/aria-valuenow="25"/);assert.match(markup,/262144 \/ 1048576 · 131072/);
+ assert.equal(c.sourceVerificationMarkup('another-file'),'');assert.equal(c.localHave.has(cid),false);
+ progress(1,good.size,4000);assert.doesNotMatch(c.sourceVerificationMarkup(cid),/Verification complete/);
+ release({root:c.contents.get(cid).root});await persisting;
+ assert.match(c.sourceVerificationMarkup(cid),/Verification complete/);timers[0]();assert.match(c.sourceVerificationMarkup(cid),/Verification complete/);
+ saved();await linking;
+ assert.equal(c.seedEnabled(cid),true);assert.equal(c.sourceVerifying.has(cid),false);assert.equal(c.sourceVerificationMarkup(cid),'');
+});
+test('a pending peer announcement cannot keep a verified relink spinning',async()=>{
+ const c=fixture(),good=file('correct bytes'),cid=await addContent(c,good);let announcements=0;
+ c.pickSourceFile=async()=>({file:good,handle:null});c.broadcastAvailability=()=>{announcements++;return new Promise(()=>{})};
+ const completed=await Promise.race([c.relinkSource(cid).then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),200))]);
+ assert.equal(completed,true);assert.equal(announcements,1);assert.equal(c.seedEnabled(cid),true);assert.equal(c.sourceVerifying.has(cid),false);
+ assert.ok(c.messages.some(s=>s.includes('Source linked.')));
+});
+test('completion cleanup from an earlier attempt cannot erase a new verification progress record',async()=>{
+ const c=fixture(),good=file('correct bytes'),cid=await addContent(c,good),timers=[];c.setTimeout=fn=>timers.push(fn);
+ await c.verifySourceCandidate(cid,good);assert.equal(timers.length,1);
+ const fresh={fraction:.1,done:1,total:good.size,started:performance.now()+1};c.sourceVerifyProgress.set(cid,fresh);
+ timers[0]();assert.equal(c.sourceVerifyProgress.get(cid),fresh);
 });

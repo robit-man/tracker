@@ -1,5 +1,24 @@
 # Tracker v4 execution report
 
+## Relink verification progress, v103
+
+Executed 2026-10-12 against `2026-10-12-source-progress-v103`.
+
+- **213/213 unit tests pass**, including active per-file verification progress,
+  completion with a pending peer announcement, and cleanup from an older attempt.
+- The real 2.6 GB `ETV.mp4` verifies and relinks in Chromium and Firefox through
+  their native background hash workers. Inline percentage, byte counts, and speed
+  update during verification; progress stays within the mobile file card in both
+  themes, then disappears once the source is linked and seeding resumes.
+- Actual encrypted public-relay source recovery passes in both browsers, including
+  wrong-hash rejection, renamed matching files, reload recovery, original uploader
+  closure, and byte-identical third-peer retrieval. An initial Firefox run timed
+  out waiting for its save event; a repeat passed without app changes.
+- File-row expiry notices and their countdown refresh/actions are removed.
+  The existing background cleanup and retained-copy protection checks still pass.
+- Peer announcements run after local verification without holding its spinner.
+  Progress renders are batched with the existing download-row refresh.
+
 ## Decentralized networks and source recovery, v101
 
 Executed 2026-10-11–12 against `2026-10-12-decentralized-room-v101`.
