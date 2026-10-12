@@ -1,0 +1,6 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Storage index</title><style>body{background:#111518;color:#e2e6e9;font:16px system-ui,sans-serif}a{color:inherit}</style><script>
+/* GitHub Pages serves this entry for deployment-relative storage paths. Room
+   capabilities stay in the fragment throughout the redirect. */
+const match=location.pathname.match(/^(.*\/)storage(?:\/s\/(0[0-9a-f]))?\/?$/);
+if(match){const url=new URL(match[1],location.origin);url.searchParams.set('storage','1');if(match[2])url.searchParams.set('shard',match[2]);url.hash=location.hash;location.replace(url.href)}
+</script><p>Page unavailable. <a href="./">Return to the site</a></p></html>

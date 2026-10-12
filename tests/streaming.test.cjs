@@ -94,7 +94,7 @@ test('STREAM preserves explicit Play intent across asynchronous unlock and decod
   const c=context(['openPreview']);
   let unlock;c.requireUnlocked=()=>new Promise(r=>{unlock=r});
   c.navigator={userActivation:{isActive:true}};c.activePreview=null;
-  c.contents=new Map([['movie',{id:'movie'}]]);c.localHave=new Set();
+  c.contents=new Map([['movie',{id:'movie'}]]);c.localHave=new Set();c.globalMesh={records:new Map()};c.advertisedRemoteSeeders=()=>[];
   c.cleanupPreview=()=>{};c.syncVisualViewport=()=>{};c.previewDebugState=()=>{};c.refreshPreviewStats=()=>{};
   c.previewKind=()=> 'video';c.visibleName=()=> 'movie.mp4';c.visibleType=()=> 'video/mp4';c.inferMime=()=> 'video/mp4';
   c.visibleSize=()=>1;c.fmtBytes=()=> '1 MB';c.seedCount=()=>1;c.getReadableFile=async()=>null;c.startRemotePreview=async()=>{};

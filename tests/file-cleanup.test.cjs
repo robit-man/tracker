@@ -37,3 +37,5 @@ test('malformed or shortened deadlines are ignored and a source arriving while s
  const c=fixture();c.entry().cleanup={orphanedAt:c.now()-TTL,expiresAt:c.now()-TTL+1,retainedUntil:0};assert.equal(c.fileCleanupData(c.entry()),null);await c.maintainFileCleanup();assert.equal(c.entry().cleanup.expiresAt,c.now()+TTL);
  const entry=c.entry();c.signCatalogOperationV4=async e=>{c.seeds=1;return{...e,operationId:'race'}};assert.equal(await c.writeFileCleanup(entry,{...entry.cleanup,expired:true},true),false);assert.equal(c.entry().deleted,false);
 });
+
+test('confirmed global retention protects a room listing through its private locator deadline',()=>{const c=fixture();c.globalMesh={records:new Map([[cid,{placements:[{until:c.now()+86400000}]}]])};assert.equal(c.fileCleanupProtected(cid),true);assert.equal(c.fileRetainedUntil(cid),c.now()+86400000);c.advance(86400001);assert.equal(c.fileCleanupProtected(cid),false)});

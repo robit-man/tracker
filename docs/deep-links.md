@@ -58,3 +58,10 @@ signed policy chains must match it. An existing local pin takes precedence over
 an invite attempting to replace the owner. Removing the anchor from the address
 bar does not remove the stored protected policy. Ordinary room URLs retain the
 open collaborative default.
+
+Global storage routes use `/storage/` and `/storage/s/00/` beneath the deployment
+base. These public routes contain no room capability. Navigation from a private
+room preserves its fragment locally; generated room/file links return to the
+base application URL. The GitHub Pages 404 entry supports direct shard visits
+and refreshes. Recent rooms are stored per base URL and can be removed individually
+from Room navigation.

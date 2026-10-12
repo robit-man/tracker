@@ -428,3 +428,32 @@ it and dispatches tab focus. The saved source must resume without a file picker,
 and its relink pulse must clear. Unit coverage requires full hash verification
 when saved-handle metadata changes, preserves seed-off/selection preferences,
 and excludes incomplete download caches from automatic recovery.
+
+Global storage coverage:
+
+```sh
+node --test tests/global-storage.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML=index.html \
+  node tests/global-storage-browser.mjs
+```
+
+The browser harness uses separate contexts and unrelated private rooms over real
+public relays. It checks collective capacity, placement across shards, ciphertext
+storage without private catalogs, provider reload, byte-identical retrieval with
+the source closed and a replica paused, direct shard reload, mobile fit and recent
+room navigation. Omit `TRACKER_HTML` to exercise the deployed app, including its
+GitHub Pages deep-path entry. `BROWSER=firefox` selects Firefox.
+
+Force an individual global relay with the fixture harness:
+
+```sh
+PLANE=mqtt node tests/global-storage-relays-browser.mjs
+PLANE=nostr node tests/global-storage-relays-browser.mjs
+```
+
+This harness uses an isolated deployment URL, closes the other global transport
+clients and BroadcastChannel, then checks actual public-relay discovery,
+multipart ciphertext retention and root-verified retrieval after source closure.
+It keeps normal room control available for the original signed private metadata.
+Global tests can set `TRACKER_SITE` to an isolated base when overriding HTML;
+deployed verification uses the real site and no override.

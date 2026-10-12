@@ -204,3 +204,29 @@ are not counted as successful executions.
 
 The nine reviewable implementation commits preserve an emergency source rollback.
 See `docs/migration-v3-v4.md` for its data compatibility and security consequences.
+
+## Global storage v102 — 2026-10-12
+
+- **209/209 unit tests pass**, including namespace/signature binding, effective
+  relay-only privacy, quota reservations, weighted placement, private locator
+  metadata ordering, shared-tab offers, recent-room isolation, global retention
+  cleanup protection and the pinned Nostr subscription API.
+- **9/9 global browser checks pass in Chromium and Firefox** using isolated
+  contexts, unrelated rooms and actual public relay connections. Coverage includes
+  collective shards, two encrypted replicas in different shards, provider reload,
+  source closure plus a paused replica, byte-identical retrieval, shard reload,
+  mobile fit, recent rooms, provider-tab takeover and mutual direct-route opt-in.
+- **12/12 existing room-storage/interface checks pass**, including retained MP4
+  download and decoded playback after the source leaves, reload and opt-out.
+- Independent carrier fixtures disconnect the other global clients and local
+  BroadcastChannel. **MQTT-only and Nostr-only each pass discovery, multipart
+  storage and verified retrieval** of 650,000 bytes after source closure.
+- A **32 MiB / 64-chunk NATS-only bulk test passes** storage and full-root,
+  byte-identical retrieval after source closure. This is a bulk data test; it
+  does not claim a multi-gigabyte or unattended storage endurance result.
+- Inline scripts parse and `git diff --check` passes. Evidence is under
+  `/tmp/tracker-v102/` on the test host.
+
+Global capacity is live and self-reported. Browsers must remain open to serve;
+quota, eviction and relay availability still apply. Public shard routes expose
+capacity and pseudonyms, while room locators and file metadata stay private.

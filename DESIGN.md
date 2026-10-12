@@ -1,5 +1,5 @@
 ---
-version: 101
+version: 102
 name: Tracker
 description: Private peer sharing using the supplied Tracker interface system.
 reference: /home/roko/Downloads/index(84).html
@@ -123,3 +123,12 @@ copy. Persistent browser block storage is local, not a promise that a public
 service will retain content. Another participating pin provider must stay online
 after the original browser leaves. Use actual connectivity states in network
 details.
+
+## Global storage and recent rooms
+
+Contribution scope separates room consent from deployment-wide encrypted storage.
+Global offers default to relay-only privacy. The Global storage index uses the
+existing section-head and responsive card grids, with live capacity, available
+space, provider count and collective shard modules. Private room copy controls
+stay separate from public capacity listings. Room navigation includes a local,
+removable recent-room list scoped to the deployment base URL.

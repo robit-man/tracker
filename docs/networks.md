@@ -49,3 +49,16 @@ A targeted, authenticated presence request lets either end initiate the upgrade;
 ordinary repeated presence preserves dial backoff. Saved locator addresses only
 bootstrap unknown providers, so older records cannot overwrite live presence.
 A pin is advertised only after its metadata is durable.
+
+Global storage multiplexes a separate deployment-scoped directory and addressed
+inboxes through the pinned NATS, MQTT and Nostr adapters. Its nonextractable
+Ed25519 identity is separate from room actors and node identities. Anonymous
+providers never signal direct peers; mutual opt-in can add WebRTC, subject to the
+room’s privacy policy. Waku remains a control plane and public libp2p circuits
+remain unsuitable for bulk storage; global bytes use the established broker
+carriers rather than depending on those constrained paths.
+
+The pinned nostr-tools 2.25.2 `subscribeMany` API accepts a Filter object. Both
+room and global subscriptions use that shape; global readiness reflects actual
+connected relays. Addressed bulk retries prefer the relay that most recently
+delivered a verified packet from that provider, then try the other carriers.
