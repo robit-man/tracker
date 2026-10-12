@@ -465,11 +465,23 @@ TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML=index.html \
 ```
 
 The browser harness uses separate contexts and unrelated private rooms over real
-public relays. It checks collective capacity, placement across shards, ciphertext
-storage without private catalogs, provider reload, byte-identical retrieval with
-the source closed and a replica paused, direct shard reload, mobile fit and recent
-room navigation. Omit `TRACKER_HTML` to exercise the deployed app, including its
-GitHub Pages deep-path entry. `BROWSER=firefox` selects Firefox.
+public relays. It closes the uploader and reloads both providers **before** a
+fresh context visits the room. Recovery must pass through the encrypted global
+catalog path; an old room announcement cannot satisfy the assertion. The normal
+file download action must retrieve byte-identical content with one replica
+paused. It also checks collective capacity, placement across shards, provider
+reload, shard reload, mobile fit, recent rooms, provider-tab takeover and mutual
+direct-route opt-in. Finally only one provider context remains; entering the
+private room must discover and download its own opaque copy locally.
+
+HTML overrides automatically use a random deployment path to keep simultaneous
+runs and real contributors isolated. `BROWSER=firefox` selects Firefox.
+`TRACKER_SITE=http://127.0.0.1:9031/` can select a local origin. Omit `TRACKER_HTML`
+to exercise the actual deployment and its GitHub Pages deep-path entry; use an
+isolated deployment if other active providers would affect placement assertions.
+Set `TRACKER_BEFORE_HTML=/path/to/v105.html` together with `TRACKER_HTML` to pin
+using the old app, then upgrade the same browser contexts. Existing encrypted
+copies must gain recovery metadata without re-uploading or relinking the file.
 
 Force an individual global relay with the fixture harness:
 
@@ -478,12 +490,51 @@ PLANE=mqtt node tests/global-storage-relays-browser.mjs
 PLANE=nostr node tests/global-storage-relays-browser.mjs
 ```
 
-This harness uses an isolated deployment URL, closes the other global transport
-clients and BroadcastChannel, then checks actual public-relay discovery,
-multipart ciphertext retention and root-verified retrieval after source closure.
-It keeps normal room control available for the original signed private metadata.
-Global tests can set `TRACKER_SITE` to an isolated base when overriding HTML;
-deployed verification uses the real site and no override.
+This harness uses an isolated deployment URL, prevents the other global transport
+clients from starting and closes BroadcastChannel. It checks actual public-relay
+discovery, multipart ciphertext retention, cold catalog recovery and root-verified
+retrieval. The uploader closes before the receiver is created. Normal room control
+remains available, but provider catalog recovery is required independently.
+`BULK_BYTES=64000` selects the smaller MQTT fixture; the default is 650,000 bytes.
+
+Global recovery privacy boundary:
+
+- HKDF-SHA-256 derives separate lookup, catalog encryption and per-object writer
+  keys from the existing room key derivation, scoped to the deployment. The opaque
+  lookup is neither the room hash nor a key that decrypts the room. Names, original
+  signed manifests, catalog revision chains, owner policies and private placement
+  locators remain inside AES-GCM ciphertext. Providers never join the room.
+- An object owner registers a separate Ed25519 public writer key. Subsequent
+  updates require signatures from its room-derived private key, bound to the
+  object, deployment, lookup, ciphertext hash and previous catalog hash. No secret
+  update credential crosses a relay. Previously signed writes cannot roll back newer provider
+  state; an identical retry is idempotent. Private keys are not retained by the
+  provider. The private-key import encoding follows
+  [RFC 8410](https://www.rfc-editor.org/rfc/rfc8410.html#section-7); key separation
+  follows [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869.html).
+- Recovery authenticates the ciphertext and original room signatures. Protected
+  rooms take their owner anchor from the invite, then verify the retained policy
+  before accepting authors. The provider cannot grant room membership or choose
+  an owner. Catalog removals and their signed revision history travel with updates.
+- Catalog ciphertext occupies a separate IndexedDB chunk, committed atomically
+  with its opaque descriptor. Its 256 KiB limit counts against quota and follows
+  the file object's expiry/removal. Discovery pages contain at most eight opaque
+  descriptors, with two providers serviced per maintenance turn. Recovery and
+  updates are single-flight, yield to foreground global transfers, and use bounded
+  queues and deduplication maps. New pins are confirmed only after catalog storage
+  is acknowledged as well as file storage.
+
+Providers and relays can observe opaque token equality, object sizes and traffic
+timing. This does not hide those patterns or defend availability against a
+malicious provider; file identities remain encrypted. Copies require an online
+provider, and browser eviction still applies. Opening a room restores its listing
+automatically; Play/Download fetch retained bytes without a manual relink. It does
+not download every large room file merely because the room was opened.
+
+Old pins can be upgraded while the original uploader browser still has its signed
+room metadata and global identity, and the providers run the current app. Backfill
+uploads only recovery metadata. Old blobs with all original locators/catalogs
+already erased cannot be found from the room secret alone.
 
 
 ### Relink verification progress

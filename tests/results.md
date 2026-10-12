@@ -522,3 +522,68 @@ is limited to the existing RAM byte budget; playback then asks the user to
 download and link a local source, keeping decoded media available. Slow devices
 or codecs may still rebuffer. These tests cover Chromium and Firefox on this
 host; they do not establish physical mobile/Safari behavior or years of uptime.
+
+## Private global catalog recovery v106 — 2026-10-12
+
+The v105 isolated baseline retained both encrypted replicas and survived provider
+reload, but a fresh room visitor created after the uploader closed recovered
+neither a file entry nor a global locator within 30 seconds. Global file bytes
+were durable while their private catalog context existed only in room peers or
+the original browser. Evidence: `/tmp/tracker-global-catalog/baseline-isolated-chromium`.
+
+v106 retains an encrypted, independently authenticated catalog context alongside
+each opaque file object. Providers index an opaque room capability and ciphertext;
+room hashes, names, original catalog signatures, owner policies and file locators
+stay encrypted. Room entry derives the lookup and encryption keys locally, checks
+the original signatures, and restores retained entries automatically. The ordinary
+Play/Download actions can then retrieve from global storage. Per-object opaque
+writer signatures bind updates to the previous ciphertext hash, without sending
+a secret write credential. Provider metadata is atomic, quota-accounted, bounded
+and deleted with its object. Existing pins backfill metadata without file upload
+when the original uploader browser and updated providers are available.
+
+Release app SHA-256:
+`183960d52ca0ae694bfa09d911e566f22270a15cbb37bb01c1223fdcfe217c50`.
+
+- **292/292 unit tests pass.** New regressions cover key/room/deployment separation,
+  non-extractable keys, ciphertext authentication, original record signatures,
+  pinned-owner policy, opaque writer authorization, replay rejection, removals,
+  quota failure, bounded pagination/caches, single-flight discovery, local provider
+  reads, old-pin backfill and withholding confirmation until catalog persistence.
+- **13/13 Chromium and 12/12 Firefox browser checks pass** on that exact snapshot,
+  with zero page errors. Four independent browser profiles use unrelated provider
+  rooms and real public relays. The uploader closes and both providers reload before
+  a fresh visitor is created. Assertions require actual provider catalog recovery,
+  then byte-identical downloads through the ordinary file action with a replica
+  paused. The final remaining provider also enters the private room and retrieves
+  its own opaque copy with every other context closed. Chromium additionally pins
+  with v105, upgrades the same profiles, and backfills recovery metadata while
+  preserving the original ciphertext chain and without relinking the source.
+- **NATS-only and Nostr-only each pass 4/4 carrier checks with 650,000 bytes;
+  MQTT-only passes 4/4 with 64,000 bytes**, all on the release snapshot. The other
+  global clients are disabled before startup. Fresh visitors must recover the
+  provider catalog after source closure, then verify the complete file root and
+  original bytes. This is not a new claim about reliable larger MQTT transfers.
+- All three inline scripts parse; `git diff --check` passes. JSON/log evidence is
+  under `/tmp/tracker-global-catalog/release-{chromium,firefox,nats,nostr,mqtt}`
+  and `release-unit.log`. Test HTML uses isolated deployment paths so parallel
+  suites cannot select one another's providers. Two earlier parallel fixture runs
+  shared a base and failed their placement-count assertions; their traces remain
+  as `migration-chromium` and `final-firefox`. Namespace isolation fixes the fixture.
+
+Opening a room restores its retained listing; it does not eagerly download every
+large file. Providers must remain online to serve, and browser eviction still
+applies. Opaque token equality, sizes and traffic timing remain visible. A provider
+cannot decrypt or authorize private records, but can deny service or roll back its
+own disk; there is no new malicious-provider availability guarantee. Pre-v106 blobs
+whose original locators and catalog were already erased cannot be discovered from
+the room secret alone. Reload the original uploader and provider tabs to backfill
+existing pins while their metadata is still available.
+
+The separate 24-hour v105 run continues against its immutable older snapshot; it
+does not validate v106 endurance. At `2026-10-12T21:45:29.497Z`, Firefox's seeding
+context logged an unhandled Helia `ReadableStream.cancel` locked-reader exception
+after roughly 53 minutes. No tab crash was observed at this checkpoint, but this
+fails its zero-exception acceptance criterion. Duration and the original seeding
+crash attribution remain unresolved. Original evidence is preserved in
+`/tmp/tracker-long-haul/final-v105-active-24h/run.log`; the run has not been stopped.
