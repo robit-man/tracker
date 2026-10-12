@@ -207,7 +207,7 @@ See `docs/migration-v3-v4.md` for its data compatibility and security consequenc
 
 ## Global storage v102 — 2026-10-12
 
-- **209/209 unit tests pass**, including namespace/signature binding, effective
+- **210/210 unit tests pass**, including namespace/signature binding, effective
   relay-only privacy, quota reservations, weighted placement, private locator
   metadata ordering, shared-tab offers, recent-room isolation, global retention
   cleanup protection and the pinned Nostr subscription API.
