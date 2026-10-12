@@ -35,7 +35,7 @@ function context(names) {
   c.advance = ms => { now += ms; };
   return c;
 }
-const controlFunctions = ['contentChunkSize', 'mp4SafeRamHorizon', 'streamSafeBand', 'safeBufferCritical', 'updateSafeRateController', 'noteStreamDelivery', 'streamRefillWindowCaps', 'streamPendingCap', 'streamTargetSeconds'];
+const controlFunctions = ['contentChunkSize', 'timeRangesList', 'sourceBufferAhead', 'sourceBufferNativeUsage', 'sourceBufferNativeHorizon', 'sourceBufferQuotaBlocked', 'mp4SafeRamHorizon', 'streamSafeBand', 'safeBufferCritical', 'updateSafeRateController', 'noteStreamDelivery', 'streamRefillWindowCaps', 'streamPendingCap', 'streamTargetSeconds'];
 test('compact relay envelopes preserve encrypted metadata, exact bytes and recipient authentication', async () => {
   const c=context(['encryptBytes','decryptBytes','binaryRelayEnvelope','consumeBinaryRelayEnvelope']),received=[];
   const crypto=require('node:crypto').webcrypto;
@@ -506,7 +506,7 @@ test('one hung carrier cannot delay a successful independent send', async () => 
 });
 
 function relayContext(){
-  const c=context(['firstSuccessfulSend','relayWriteBacklog','reserveRelayWrite','acquireRelayWrite','publishRelayBinaryFrames']);
+  const c=context(['firstSuccessfulSend','relayWriteBacklog','reserveRelayWrite','acquireRelayWrite','mqttPublishTracked','publishRelayBinaryFrames']);
   Object.assign(c,{relayWriteReservations:new WeakMap(),serveQueues:new Map(),natsState:{nc:null},mqttRelayState:{ready:new Set(),clients:new Map(),topic:'room'},natsSubjects:()=>({relay:'room'}),enc:new TextEncoder(),setTimeout,clearTimeout});
   return c;
 }
@@ -841,7 +841,7 @@ test('an asynchronous decrypt from the old seek cannot append to the new parser 
 });
 
 test('send timeouts retain physical transport capacity and keep two slots for the missing frontier', async () => {
-  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[],pending=[];
+  const c=context(['pruneStreamDispatches','streamRelayDispatchWindow','boundedStreamPathSend']),timers=[],pending=[];
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
   const path={path:'direct:slow',send:()=>new Promise(r=>pending.push(r))};
   const normal=Array.from({length:4},()=>c.boundedStreamPathSend('viewer',path,new Uint8Array(),{decoderHead:true},true));
@@ -858,7 +858,7 @@ test('send timeouts retain physical transport capacity and keep two slots for th
   assert.equal(c.streamPathDispatches.get('viewer|direct:slow').active,0);
 });
 test('upload deadlines grow with measured byte service and outstanding refill work', async () => {
-  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),pending=[],delays=[];
+  const c=context(['pruneStreamDispatches','streamRelayDispatchWindow','boundedStreamPathSend']),pending=[],delays=[];
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:(fn,ms)=>{delays.push(ms);return delays.length},clearTimeout:()=>{}});
   const path={path:'relay:nats',bps:512*1024,send:()=>new Promise(r=>pending.push(r))};
   const jobs=Array.from({length:5},(_,idx)=>c.boundedStreamPathSend('viewer',path,new Uint8Array(512*1024),{idx,decoderHead:true,supplyPressure:3},true));
@@ -869,7 +869,7 @@ test('upload deadlines grow with measured byte service and outstanding refill wo
 });
 
 test('frontier retries cannot clone a pending chunk onto the same carrier, even after timeout', async () => {
-  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[];let finish,sends=0;
+  const c=context(['pruneStreamDispatches','streamRelayDispatchWindow','boundedStreamPathSend']),timers=[];let finish,sends=0;
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
   const path={path:'relay:nats',send:()=>{sends++;return new Promise(r=>{finish=r})}},metadata={id:'movie',sid:'session',idx:10,seekEpoch:0,decoderHead:true};
   const first=c.boundedStreamPathSend('viewer',path,new Uint8Array(512*1024),metadata,true);
@@ -904,7 +904,7 @@ test('busy transports retain useful upload work without waiting for a receiver t
 });
 
 test('a late successful transport completion reopens its capacity after fallback', async () => {
-  const c=context(['streamRelayDispatchWindow','boundedStreamPathSend']),timers=[],pending=[];
+  const c=context(['pruneStreamDispatches','streamRelayDispatchWindow','boundedStreamPathSend']),timers=[],pending=[];
   Object.assign(c,{streamPathDispatches:new Map(),setTimeout:fn=>{timers.push(fn);return timers.length},clearTimeout:()=>{}});
   const path={path:'direct:slow',send:()=>new Promise(r=>pending.push(r))};
   for(let i=0;i<2;i++){

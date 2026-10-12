@@ -1,5 +1,171 @@
 # Tracker v4 execution report
 
+## Current release, v105
+
+AVI playback starts from converted sections while later input and conversion
+remain unfinished. Chromium and Firefox local/withheld-tail browser checks pass;
+the detailed AVI and NKN v105 evidence follows the historical sections below.
+All 277 unit tests pass, all three inline scripts parse, and the actual pinned
+NKN SDK fixture passes six lifecycle checks. The release build tag is the only
+change from the unit-tested frozen core
+`244f9d28a46cc7dcb151b8087bb8ca040389bdcb13779206b6f1fc37478d57df`.
+
+## Final v105 default-network day test (pending)
+
+The immutable `2026-10-12-progressive-avi-lifetime-v105` source has SHA-256
+`c234e0d36a50ab6c6856f80f9b980f758c404a360b7ea5c60758b40c60811aec`.
+Its repaired NKN SDK lifecycle and progressive AVI changes are separate from
+the completed v104 hour observations below. A new detached six-context active
+test launched at 2026-10-12 20:52:04 UTC, PID/PGID **3542383**, with steady
+observation beginning **20:52:25.879 UTC**. The earliest full-day finish is
+**2026-10-13 20:52:26 UTC / 13:52 PDT**; acceptance remains **PENDING**.
+
+Chromium and Firefox each keep a fixed idle control and ETV seeder, with default
+privacy off. Both startup first/middle/last production chunk reads match the
+original file's Node SHA-256 values, both viewers are playing, and real source
+served/receiver byte counters increase. Initial startup samples have no page
+exceptions, renderer crashes or telemetry failures; this does not establish
+day-long success. Fresh receiver contexts replace completed transfers to keep
+requesting real bytes while source/idle pages remain open. Final acceptance
+requires the complete 86,400-second interval, timestamp/sample-coverage review,
+and repeated source presence/readability/hash proofs. Playback continuity is
+reported separately from source/tab survival.
+
+Exact HTML, harness snapshot/SHA, launch command, PID, streamed telemetry and
+status are under `/tmp/tracker-long-haul/final-v105-active-24h/`; status/cleanup
+instructions are in [long-haul.md](long-haul.md). Original baseline/v104 source
+lifetime cohorts and the v104 active signaling failure control remain running
+for comparison. Their observations are not relabeled as testing v105. The
+reported original renderer crash remains unconfirmed, and finite testing does
+not establish years of uninterrupted uptime.
+
+## Long-lived tab robustness, v104
+
+Executed 2026-10-12 against `2026-10-12-runtime-lifetime-v104`. This section validates frozen v104; later AVI functionality is documented
+separately. The original tab crash was not
+reproduced or conclusively attributed. Proven accumulation paths were repaired:
+NATS heartbeat ownership, Waku duplicate dials/overlapping pings, Nostr event and
+publication history, native route admission, media/model disposal, suspended
+runtime restoration, transient-map maintenance and MSE quota retry gating.
+
+| Run | Start UTC | Sustained interval | Source SHA-256 |
+|---|---|---|---|
+| Unmodified v103 | 2026-10-12T19:01:57.548Z | 3900.1s | `5f0acc2a75f119d52f187777cf2af63b40f305771732362a73019e4230863ff7` |
+| Patched core | 2026-10-12T19:23:02.287Z | 3900.1s | `2dae4f22af00e4865ee052edf1a7af8e9e2c05f24c5380a6a04b7d1c54bfab50` |
+| Native quota followup / controlled RTC | 2026-10-12T19:43:02.291Z | 1800 one-second samples | `778d7c3f976917a1604bde511487d638fa3f4d144d38593a9137b0e244f9200d` |
+| Validated v104 / screen followup + pending day soak | 2026-10-12T19:54:14.605878+00:00 (day run) | Screen 30min; day test still PENDING | `5ddf1d2d565781d867faf0082a041bfddf052424e3e100378f1ce34737f15bd2` |
+
+| Check | Result |
+|---|---|
+| Unmodified and patched core, six isolated contexts each | Both survive full 65-minute steady periods; no renderer crash, page exception or telemetry timeout |
+| Native quota followup controlled RTC ETV | 1800 one-second samples; 0 post-kickoff dynamic lower-band violations; 0 stalled observations; final playhead 1803.3s |
+| Native MSE quota retry comparison | Earlier 3900-sample RTC: at least 15,410 unique observed quota events; 1800-sample quota followup: at least 110. Event logs expose only the most recent six, so these are lower bounds, not exact totals |
+| Exact v104 screen cadence analysis | 182 ten-second observations; 1800.118s playhead progress; 0 unchanged intervals; 3 dynamic lower-band crossings in 181 guarded observations; pending peak 25,578B |
+| Source re-link / lifecycle | Chromium 7 and Firefox 5 relink checks pass; synthetic persisted suspend/restore passes both; actual BFCache navigation unavailable |
+| Short synthetic camera/microphone functional check | PASS: known 440Hz tone decoded, peak 0.279; dropped-head repair without generation restart, LIVE/file-proven RTC data route and concurrent ETV playback; not endurance |
+| Actual Waku SDK and browser discovery | Duplicate/unique dial and ping stress pass; two real filter/lightpush browser checks pass |
+| Actual global storage relays | Nostr 650,056-byte ciphertext and MQTT 64KiB retrieval pass; MQTT 650k candidate retention and baseline retrieval fail |
+| Public-relay media continuity | ETV SAFE repeatedly reaches zero in both hour runs. Earlier screen soak fails a stale-generation assertion after a legitimate budget restart; frontier starvation was separately found/fixed. Final screen followup PASS; full evidence below |
+| 24-hour seeding acceptance | PENDING: baseline PID 2797889, candidate PID 2797891; startup source proofs pass, final proof occurs only after the full day |
+| v104 default-network active-serving control | FAIL no-JS-exceptions objective: closed RTCPeerConnection setRemoteDescription page errors appeared within minutes. Lifetime remains observing; candidate PID 3170341, fixed source/idle pages; a repaired exact-source day run is required |
+| Full unit suite | 262/262 pass |
+
+| Run / Chromium scenario | JS heap min / max / final (MiB) | Active intervals min–max | Active WebSockets min–max |
+|---|---|---|---|
+| Baseline idle | 32.07 / 79.12 / 59.91 | 15–22 | 9–47 |
+| Baseline seed | 35.78 / 86.25 / 55.3 | 17–22 | 21–47 |
+| Baseline stream | 156.41 / 298.81 / 162.82 | 18–23 | 14–49 |
+| Patched core idle | 28.26 / 92.9 / 39.06 | 15–20 | 10–53 |
+| Patched core seed | 37.04 / 93.86 / 49.16 | 17–21 | 18–56 |
+| Patched core stream | 35.92 / 352.21 / 186.26 | 21–25 | 17–46 |
+
+The validated v104 HTML SHA is `5ddf1d2d565781d867faf0082a041bfddf052424e3e100378f1ce34737f15bd2`. The 65-minute patched-core run predates
+the final MQTT close-hook/Waku preflight generation corrections, MSE quota/
+cold-start/regrowth fixes, and live frontier latency estimator repair. Exact
+diffs and separate quota RTC / v104 screen 30min followups are retained under
+`/tmp/tracker-long-haul/final-v104/` and `/tmp/tracker-long-haul/final-live/`.
+The earlier controlled RTC run and intermediate 30-minute quota followup are
+preserved separately; they are not substituted for exact final-source evidence.
+
+The older baseline `passed:true` flag means survival only; both hour traces
+show public delivery stalls. The patched summary separates survival from playback
+continuity.
+
+Each hour run uses six isolated contexts: Chromium and Firefox idle rooms,
+seeders and actual encrypted public-relay ETV viewers. The file is
+2,736,439,118 bytes and is verified by the normal file workflow. No user browser
+session is touched, no clock is accelerated, and Chromium uses `--disable-gpu`.
+Native-resource weak references are pruned; NDJSON streams to disk; in-memory
+telemetry rings and host-family tables are capped. The reusable harness is
+[`long-haul-browser.mjs`](long-haul-browser.mjs), documented in
+[`long-haul.md`](long-haul.md).
+
+Healthy-link RTC checks use actual local WebRTC and controlled bandwidth/drop
+injection, rather than public carriers. SAFE above the advisory high band is
+intentional while native capacity remains; validation checks its dynamic lower
+band, continuous playback and physical byte/queue bounds. Quota event counts
+are observed unique lower bounds because each trace exposes only six recent
+events. Browser RSS includes all three contexts per engine and is not JS heap.
+Natural-GC peaks fell during the run; no percentage memory improvement is claimed.
+The overlapping runs share this host and public brokers and do not measure
+physical-device CGNAT behavior or establish years of uptime.
+
+The existing `live-media-browser.mjs` check failed its pre-overhaul icon/tooltip
+assertion before capture; that stale UI assertion is a harness limitation, not a
+passing live-stream check. The original real screen relay soak failed its stale-generation assertion after
+a legitimate budget restart and also exposed actual frontier starvation. The
+new screen followup exercises the repaired estimator and compares the generation
+active immediately before its short outage; its result is reported separately. Actual navigation could not enter BFCache in
+either engine; synthetic persisted restore and real reload/source recovery pass.
+Intermediate browser candidates were deliberately stopped when fixes landed and
+are archived, not counted as completed soaks. Raw evidence, source snapshots and
+summaries are under `/tmp/tracker-long-haul/`.
+
+The user's within-a-day seeding failure requires a full day of observation. The
+detached baseline/candidate runs launched 2026-10-12T19:54:14.605878+00:00; their
+steady periods start 2026-10-12T19:54:29.716Z /
+2026-10-12T19:54:30.152Z. They remain **PENDING**, not PASS.
+PIDs 2797889 / 2797891 have independent sessions and
+logs under `baseline-24h` / `candidate-24h`. Each browser has an idle control and
+an ETV seeder, privacy off; seeders invoke the production incoming-demand wake
+once to start deferred NKN/torrent adapters. NKN availability is distinct from
+lifetime. Startup first/middle/last canonical chunk reads match original Node
+disk SHA-256; final acceptance repeats these reads and requires source presence,
+readability and seeding after the entire 86,400-second period. Commands and
+run-specific stop/status instructions are in `long-haul.md` and each `launch.json`.
+The first brief day attempts were deliberately restarted to add these proofs and
+are archived as `*-24h-initial`; they do not satisfy day-long acceptance.
+
+A separate active-serving candidate run launched 2026-10-12T20:22:59.264621+00:00 (PID
+3170341) using the same frozen v104 source, default privacy off and ETV.
+Idle/seeder contexts stay fixed; completed receivers are replaced with fresh
+contexts so later legs request real bytes rather than replay cached data. The
+run records source served bytes and receiver leg bytes, and repeats disk-source
+proofs at completion. It exposed repeated closed-RTCPeerConnection signaling
+page exceptions within minutes and **fails** the no-JavaScript-exceptions
+objective. Lifetime observation remains running; a repaired exact-source
+followup is required. This failure is separate from the privacy-on core hour.
+The eight-second fixture passed two all-chunks receiver legs in each engine.
+Its EOF-only control separately fails: complete bytes stop just short of duration
+without native `ended`, so this test does not certify MSE end-of-stream behavior.
+The all-chunks replacement avoids mistaking planned viewer completion for a crash.
+
+Screen telemetry independently shows 182 observations,
+1800.118s progress across a nominal
+1810s ten-second cadence, no unchanged
+intervals and one generation. There are 3 dynamic lower-band
+crossings around 200–214s, before the explicit end outage; never-below-band
+behavior is therefore not established for public live delivery. The source
+journal peaks at 509,531B, viewer pending
+bytes at 25,578B. Cadence intervals are
+nominal because those STATE rows have no independent wall timestamps. The
+underlying screen harness's simple total-progress assertion is weak; these
+separate sampled progress and queue checks provide the stronger evidence.
+
+Concise performance artifacts are
+under [`.aiwg/reports`](../.aiwg/reports), [`.aiwg/testing`](../.aiwg/testing) and
+[`.aiwg/planning`](../.aiwg/planning).
+
 ## Relink verification progress, v103
 
 Executed 2026-10-12 against `2026-10-12-source-progress-v103`.
@@ -249,3 +415,110 @@ See `docs/migration-v3-v4.md` for its data compatibility and security consequenc
 Global capacity is live and self-reported. Browsers must remain open to serve;
 quota, eviction and relay availability still apply. Public shard routes expose
 capacity and pseudonyms, while room locators and file metadata stay private.
+
+## NKN connection lifetime v105 — 2026-10-12
+
+The privacy-off active ETV run exposed repeated unhandled closed-PC SDP errors.
+Its original log recorded messages without stacks. A separate browser lifecycle
+fixture, which closes only unconnected PCs after 750 ms, captured six errors
+inside the actual pinned `nkn-sdk@1.3.6` SDP callback. This establishes the SDK race
+in that fixture; the original natural errors have matching messages but no stack
+that conclusively assigns their owner. A separate 180-second natural baseline
+happened to produce no errors, so these short runs are not a statistical crash
+rate comparison.
+
+- The actual pinned SDK deterministic fixture fails without the adapter: two
+  ignored `setRemoteDescription` rejections escape after constructor PCs close.
+  The guarded fixture passes all six checks: 10,000 constructor/retry connect
+  attempts coalesce into owned SDK children, late node replies cannot revive a
+  closed owner, failed SDP retires only its child through one SDK backoff, reused
+  Peer wrappers preserve their replacement PC, retired callbacks stop, and
+  dependency shape changes fail explicitly.
+- The same browser closure fixture passes with the adapter: 100.066 seconds of
+  active observation, zero JS exceptions/crashes/stalls, 101.05 seconds of media
+  playback, and startup/final source chunk probes pass. The unguarded fixture
+  produced six SDK exceptions during 90.05 seconds of active observation.
+- A normal privacy-off Chromium ETV stream with direct routes allowed passes
+  330.107 seconds of active observation: zero exceptions/crashes/stalls, playback
+  advances from 1.03 to 331.16 seconds, 2,290 chunks / 1,200,275,278 bytes received,
+  and startup/final source probes pass. Both source and viewer connect to NKN.
+  This is active playback and lifecycle coverage, not a complete-file or
+  multi-year endurance result.
+- The independent actual NKN browser smoke passes connection, encrypted message
+  delivery with SDK ACK, and explicit close/reconnect rejection. `onConnect`
+  means any SDK child is ready; the fixture selects a common connected child
+  index on both peers. The earlier first-any-child send timed out and its failed
+  artifact is retained. Production sending is unchanged.
+- All 14 existing network lifetime tests pass. The SDK remains pinned and uses
+  the existing NKN WebRTC transport. An exploratory secure-WebSocket trial failed
+  because actual predecessors reported WSS unsupported; it was not enabled.
+
+Browser ETV snapshot SHA-256:
+`2f736b89674a1ec6f170b7902ec245112c0a03933cf18141550f8323f58e4d27`.
+Evidence, including baseline failures, stacks, immutable snapshots and JSON
+reports, is under `/tmp/tracker-long-haul/rtc-closed-audit/`. The adapter's app
+functions were frozen before these tests; later AVI/build-tag edits may change
+the complete page hash without changing this adapter. Reproduction commands are
+in `tests/README.md`.
+
+## Progressive AVI playback v105 — 2026-10-12
+
+AVI conversion now appends bounded FFmpeg/WASM sections into one native MSE
+player. Later sections convert while playback advances. Source frame windows
+drive timestamps; AAC priming edits use `delay_moov` so encoder padding does not
+accumulate across sections. Seek starts conversion at the chosen source window.
+X pauses playback and new work after the current bounded section settles.
+
+All four real-browser cases passed eight checks each:
+
+| Browser | Native local File | Remote prefix, tail withheld |
+| --- | --- | --- |
+| Chromium | PASS | PASS |
+| Firefox | PASS | PASS |
+
+Fixture: `/tmp/tracker-avi-test/progressive-300s.avi`, 31,954,858 bytes,
+300.041667 seconds, 320×180 MPEG-4 video and MP3 audio. Remote peers used real
+local WebRTC with authenticated encrypted chunks. The harness deliberately held
+back every chunk after the first four and overlapped initial cache writes to
+exercise the receive-prefix accounting race. Both receivers played beyond
+12 seconds with only 4/61 chunks received and conversion unfinished. More than
+twelve native section transitions retained one continuous buffered range,
+advancing decoded frames and audible Web Audio output. Closing/Resume preserved
+the same player; seeking to 120 seconds skipped intervening conversion; the final
+section reached native EOF. Actual teardown removed temporary plaintext and
+released its Web Lock. Page errors: zero in every case.
+
+The pre-fix v104 snapshot failed the withheld-tail test: after 15 seconds it had
+4/61 chunks but zero decoded frames and playback time zero. Unit coverage adds
+15 regressions for slow-encoder planning, AAC/source clock separation, stale seek
+output, paused conversion, bounded input, immutable OPFS chunks, startup orphan
+cleanup/active-tab protection, temporary-storage failure ownership, failed-engine
+relink recovery and overlapping first receive writes. Full unit suite: 277 passed.
+
+Browser proof core SHA-256:
+`244f9d28a46cc7dcb151b8087bb8ca040389bdcb13779206b6f1fc37478d57df`.
+Tagged v105 snapshot SHA-256:
+`c234e0d36a50ab6c6856f80f9b980f758c404a360b7ea5c60758b40c60811aec`.
+These differ only in `BUILD_ID`; the final local Firefox rerun used the tagged
+snapshot itself. JSON and log evidence is under `/tmp/tracker-long-haul/`:
+`avi-v105-final-local-chromium`, `avi-v105-final-remote-chromium`,
+`avi-v105-final-local-firefox`, `avi-v105-final-remote-firefox`,
+`avi-progressive-before`, and `avi-v105-all-unit.log`.
+
+Audio continuity is measured after the analyser's first audible sample. An
+initial local Firefox run failed because a newly created AudioContext produced
+117 ms of zero samples before starting, with a subsequent longest quiet interval
+of 43 ms. The corrected fixture records this initial context warmup separately
+and keeps the same 100 ms continuity assertion after audio starts. The original
+failed JSON was overwritten by its rerun; observed timing remains in the tool
+trace, not a preserved original artifact. All four final runs passed the native
+range/frame/audio checks; this does not establish sample-perfect audio fidelity.
+
+Unlocked remote inputs use ephemeral immutable OPFS chunk files. Native local
+Files, including verified plaintext sources for unlocked password-locked entries,
+mount without whole-file copies. Password-locked remote input never writes
+decrypted plaintext to OPFS. Without usable temporary storage, the input prefix
+is limited to the existing RAM byte budget; playback then asks the user to
+download and link a local source, keeping decoded media available. Slow devices
+or codecs may still rebuffer. These tests cover Chromium and Firefox on this
+host; they do not establish physical mobile/Safari behavior or years of uptime.

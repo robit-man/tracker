@@ -35,9 +35,8 @@ try{
     const cid=await sourceRow.getAttribute('data-cid');await sourceRow.locator('[data-stream]').click();
     if(i===0){
       await source.locator('#previewClose').click();
-      await source.waitForFunction(()=>document.querySelector('#previewStage video')?.readyState>=2,null,{timeout:180000});
-      const paused=await media(source);await delay(1500);assert.equal((await media(source)).video.time,paused.video.time);assert.equal(paused.video.paused,true);
-      await sourceRow.locator('[data-stream].resumeAvailable').click();check('closing during AVI conversion keeps the finished player paused until Resume');
+      await delay(1500);const paused=await media(source);await delay(1500);assert.equal((await media(source)).video.time,paused.video.time);assert.equal(paused.video.paused,true);
+      await sourceRow.locator('[data-stream].resumeAvailable').click();check('closing AVI before its first section keeps playback and further conversion paused until Resume');
     }
     result[`local${i}`]=await playing(source);check(`${path.basename(fixture)} decodes video locally`);
     await source.locator('#previewClose').click();

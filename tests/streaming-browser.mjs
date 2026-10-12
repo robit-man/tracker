@@ -21,6 +21,9 @@ const server=http.createServer((req,res)=>{if(req.url.startsWith('/mp4box/')){re
 const browser=await chromium.launch({headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-gpu',...(process.env.DEBUG_PORT?['--remote-debugging-port='+process.env.DEBUG_PORT]:[])]});
 try{
 const contexts=await Promise.all([browser.newContext(),browser.newContext()]);const [a,b]=await Promise.all(contexts.map(c=>c.newPage()));
+const injectNativeQuota=process.env.INJECT_NATIVE_QUOTA==='1';
+if(injectNativeQuota)await contexts[1].addInitScript(()=>{const append=SourceBuffer.prototype.appendBuffer;let rejected=null;window.__nativeQuotaFault={injected:0,retries:0,accepted:false};SourceBuffer.prototype.appendBuffer=function(buffer){const f=window.__nativeQuotaFault;if(!f.injected&&this.__trackKind==='V'&&this.buffered.length===0&&Number.isFinite(buffer.__mseEnd)){rejected=buffer;f.injected++;f.firstAt=performance.now();f.duration=buffer.__mseEnd-buffer.__mseStart;throw new DOMException('Harness: transient empty native buffer quota','QuotaExceededError')}if(buffer===rejected){f.retries++;f.retryAt=performance.now();const result=append.call(this,buffer);f.accepted=true;rejected=null;return result}return append.call(this,buffer)}});
+const lifetimeCdp=process.env.RECORD_LIFETIME==='1'?await contexts[1].newCDPSession(b):null;
 const errors=[];for(const [i,p]of[a,b].entries()){p.on('pageerror',e=>{errors.push(e.message);console.log('PAGEERROR',i,e.message)});p.on('console',m=>{if(m.type()==='error')console.log('ERROR',i,m.text().slice(0,300))});await p.goto(`http://127.0.0.1:${server.address().port}/#test-secret`,{waitUntil:'domcontentloaded'});await p.waitForFunction(()=>window.__ready)}
 const actors=await Promise.all([a,b].map(p=>p.evaluate(()=>window.__tracker.actor)));
 await b.evaluate(remote=>window.__tracker.rtc(remote,false),actors[0]);const offer=await a.evaluate(remote=>window.__tracker.rtc(remote,true),actors[1]);
@@ -38,10 +41,12 @@ for(let i=0;i<ticks;i++){
  if(!reserveGuard&&i===50){await a.evaluate(()=>{__link.pause=true});console.log('LINK outage')}
  if(i===65){await a.evaluate(()=>{__link.pause=false;__link.bps=8*1024*1024});console.log('LINK restored: 8 MiB/s')}
  if(!reserveGuard&&i===85){await b.evaluate(()=>{const p=__tracker.p;p.media.currentTime=Math.max(0,p.media.currentTime-3)});console.log('BUFFERED SEEK back 3s')}
- const stats=await b.evaluate(()=>__tracker.stats());samples.push({tick:i,...stats});console.log(JSON.stringify({tick:i,...stats}));if(stats.state==='error')break;
+ const stats=await b.evaluate(()=>__tracker.stats());if(lifetimeCdp&&i%30===0){const [heap,dom,nativeTracks]=await Promise.all([lifetimeCdp.send('Runtime.getHeapUsage'),lifetimeCdp.send('Memory.getDOMCounters'),b.evaluate(()=>[...(__tracker.p?.mp4TrackBuffers?.values()||[])].map(sb=>({kind:sb.__trackKind,capacityBytes:sb.__nativeCapacityBytes||0,journalEntries:sb.__mseJournal?.length||0,rejectedBytes:sb.__quotaBlock?.head?.byteLength||0,growthFailures:sb.__nativeGrowthFailures||0})))]);stats.lifetime={at:new Date().toISOString(),heap,dom,nativeTracks}}samples.push({tick:i,...stats});console.log(JSON.stringify({tick:i,...stats}));if(stats.state==='error')break;
 }
-fs.writeFileSync(resultPath,JSON.stringify({fixture,errors,samples},null,2));
+const nativeQuotaFault=injectNativeQuota?await b.evaluate(()=>window.__nativeQuotaFault):undefined;
+fs.writeFileSync(resultPath,JSON.stringify({fixture,errors,nativeQuotaFault,samples},null,2));
 assert.equal(errors.length,0,'no browser runtime errors');
+if(injectNativeQuota){assert.equal(nativeQuotaFault.injected,1);assert.equal(nativeQuotaFault.retries,1,'exact rejected fragment retried once');assert.equal(nativeQuotaFault.accepted,true,'transient native quota recovers');assert.ok(nativeQuotaFault.retryAt-nativeQuotaFault.firstAt>=nativeQuotaFault.duration*1000,'retry follows fragment service rather than an unchanged callback storm')}
 if(reserveGuard){
  const armed=samples.findIndex(s=>s.time>0&&s.band&&s.safe>=s.band.high);
  assert.ok(armed>=0,'reserve reaches its measured upper band');

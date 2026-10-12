@@ -1,3 +1,8 @@
+For elapsed-time Chrome/Firefox seeding and streaming tests, see the
+[browser lifetime soak guide](long-haul.md). It records browser survival,
+playback continuity, and retained resources separately, including pending
+24-hour runs. [Recorded results](results.md) describe each tested snapshot.
+
 Run the controller and MP4 fetch-planning regressions with Node:
 
 ```sh
@@ -39,8 +44,30 @@ checks seeking and saved-position resume. It also checks the download SVG's
 rotation direction. Supply short AVI fixtures with video and audio and a duration
 over ten seconds; an additional MP4 fixture checks the existing playback path.
 `BROWSER=firefox`, `BROWSER_EXECUTABLE`, and `RESULT` select the browser executable
-and JSON trace. Omit `TRACKER_HTML` to test the deployed site. AVI uses FFmpeg/WASM
-after acquiring the complete verified source; conversion is not progressive.
+and JSON trace. Omit `TRACKER_HTML` to test the deployed site. AVI uses bounded
+FFmpeg/WASM sections appended to one native MediaSource player. Conversion
+continues during playback, and seeks begin at the requested source window.
+
+Progressive AVI coverage with the receiving tail deliberately withheld:
+
+```sh
+node --test tests/avi-progressive.test.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps \
+  node tests/avi-progressive-browser.mjs /path/to/300-second.avi
+BROWSER=firefox AVI_CASE=local TRACKER_TEST_DEPS=/tmp/tracker-test-deps \
+  node tests/avi-progressive-browser.mjs /path/to/300-second.avi
+```
+
+This harness uses real local WebRTC, FFmpeg/WASM and native MSE. It checks early
+decoded frames before the whole source arrives, continuing sections on the same
+player, pause/Resume, direct seeks, natural EOF, and temporary input cleanup.
+Use a video longer than 125 seconds with audio. `AVI_CASE=local` tests a native
+local File; the default tests a remote prefix. `TRACKER_HTML` and `RESULT` select
+the source snapshot and JSON evidence. Unlocked remote inputs use ephemeral OPFS
+chunk files protected by per-input Web Locks; startup removes abandoned inputs.
+Locked files and browsers without temporary storage use a bounded RAM prefix,
+then ask for a downloaded and locally linked source to continue. Conversion
+speed depends on the device and codec; a codec slower than playback can rebuffer.
 
 Privacy and resumable media previews:
 
@@ -470,3 +497,22 @@ byte totals and verification speed, preserves the original content root, confirm
 seeding resumes, and verifies the progress and expiry blocks disappear. It saves
 dark/light screenshots during verification and a JSON report; `RESULT` changes the
 output path. `TRACKER_HTML` can select another app snapshot.
+
+### NKN connection lifetime
+
+Install the pinned SDK outside the repository, then exercise its actual child
+clients and RTC adapter with deterministic discovery/closure races:
+
+```sh
+npm install --prefix /tmp/tracker-nkn-deps nkn-sdk@1.3.6
+TRACKER_NKN_DEPS=/tmp/tracker-nkn-deps/node_modules node tests/nkn-sdk-lifetime.cjs
+NKN_BASELINE=1 TRACKER_NKN_DEPS=/tmp/tracker-nkn-deps/node_modules node tests/nkn-sdk-lifetime.cjs
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps node tests/nkn-lifetime-browser.mjs
+```
+
+The baseline command deliberately exits unsuccessfully: the unguarded pinned
+SDK ignores a rejected SDP promise after its peer closes. The guarded fixture
+checks late constructor replies, connect single-flight, owned SDK backoff,
+replacement-PC safety, shutdown and dependency shape checks. The browser smoke
+uses two independent contexts and actual public NKN WebRTC connections to verify
+encrypted delivery and explicit close. `RESULT` selects its JSON evidence path.
