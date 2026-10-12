@@ -462,6 +462,7 @@ Global storage coverage:
 node --test tests/global-storage.test.cjs
 TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML=index.html \
   node tests/global-storage-browser.mjs
+TRACKER_HTML=index.html node tests/global-legacy-browser.mjs
 ```
 
 The browser harness uses separate contexts and unrelated private rooms over real
@@ -482,6 +483,16 @@ isolated deployment if other active providers would affect placement assertions.
 Set `TRACKER_BEFORE_HTML=/path/to/v105.html` together with `TRACKER_HTML` to pin
 using the old app, then upgrade the same browser contexts. Existing encrypted
 copies must gain recovery metadata without re-uploading or relinking the file.
+
+The legacy harness persists unsigned file and folder records in the encrypted
+room database, reloads, and relinks the actual matching source through the UI.
+Two unrelated rooms retain files on one global provider. Both uploaders close
+before provider room changes, reloads, and paused-contribution reloads. Its full
+opaque inventory and byte accounting must survive. Fresh visitors then recover
+both folder listings and download byte-identical files. It also checks mobile
+fit and that provider descriptors reveal no room secrets or file identities.
+`BROWSER=firefox` selects Firefox. `EXPECT_LEGACY_REJECTION=1` with a v106 HTML
+override reproduces the original signed-metadata rejection instead.
 
 Force an individual global relay with the fixture harness:
 

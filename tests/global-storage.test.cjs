@@ -19,8 +19,8 @@ test('room privacy overrides direct global opt-in before any RTC signaling',asyn
 test('file lifecycle counts live global replicas separately from retained lease confirmations',async()=>{const c=await setup(),cid='file';c.globalMesh.records.set(cid,{target:3,placements:[{id:'online',until:Date.now()+10000},{id:'paused',until:Date.now()+10000},{id:'expired',until:Date.now()-1}]});c.globalLiveOffers=()=>[{id:'online'}];vm.runInContext(source('globalCopyHealth'),c);const health=c.globalCopyHealth(cid);assert.equal(health.confirmed,2);assert.equal(health.available,1);assert.equal(health.target,3)});
 
 async function catalogContext(){
- const c=await setup();c.secret='1234567890abcdef'.repeat(3);c.dec=new TextDecoder();c.catalog=new Map();c.catalogOperations=new Map();c.pendingCatalogOperations=new Map();c.revisionSlots=new Map();c.policyHistory=new Map();c.pendingPolicies=new Map();c.HASH_ALG='test-root';c.contentTotal=x=>x.totalChunks;c.saveState=async()=>{};c.renderAll=()=>{};c.renderDetails=()=>{};c.absorbV=()=>{};
- for(const n of ['signCatalogOperationV4','catalogShapeV4','catalogParentSafeV4','hasPermissionV4','acceptPolicyV4','initGlobalCatalog','globalCatalogWriter','globalCatalogWriteBody','globalCatalogAad','globalCatalogSnapshot','publishGlobalCatalog','acceptGlobalCatalog','syncGlobalCatalogs','recoverGlobalCatalogs','markGlobalCatalogDirty','validContentShape','mergeState','cmpV'])vm.runInContext(source(n),c);
+ const c=await setup();c.secret='1234567890abcdef'.repeat(3);c.dec=new TextDecoder();c.catalog=new Map();c.catalogOperations=new Map();c.pendingCatalogOperations=new Map();c.revisionSlots=new Map();c.policyHistory=new Map();c.pendingPolicies=new Map();c.HASH_ALG='test-root';c.contentTotal=x=>x.totalChunks;c.saveState=async()=>{};c.saveCatalogStateV4=async()=>{};c.aliasFor=a=>a;c.nextV=()=>({c:++c.clock,a:c.actor});c.clock=10;c.localHave=new Set();c.broadcast=async()=>{};c.msg=(type,body)=>({type,...body});c.renderAll=()=>{};c.renderDetails=()=>{};c.absorbV=()=>{};
+ for(const n of ['signCatalogOperationV4','catalogShapeV4','catalogParentSafeV4','hasPermissionV4','acceptPolicyV4','initGlobalCatalog','globalCatalogWriter','globalCatalogWriteBody','globalCatalogAad','globalCatalogEntries','prepareGlobalCatalog','globalCatalogSnapshot','publishGlobalCatalog','acceptGlobalCatalog','syncGlobalCatalogs','recoverGlobalCatalogs','markGlobalCatalogDirty','validContentShape','mergeState','cmpV'])vm.runInContext(source(n),c);
  await c.initGlobalCatalog();return c;
 }
 function memoryProvider(c){
@@ -88,4 +88,50 @@ test('a provider can read its own encrypted copies without sending to its own fi
 });
 test('retiring old catalog fingerprints bounds the cache after a multi-replica update',async()=>{
  const{writer,record,cid}=await retainedCatalog();for(let i=0;i<6143;i++)writer.globalMesh.catalogPublished.set('retired-'+i,{});const placements=['one','two','three'].map(id=>({id,until:Date.now()+10000}));writer.globalMesh.records.set(cid,{...record,placements});for(const p of placements)writer.globalMesh.offers.set(p.id,{catalog:1});writer.publishGlobalCatalog=async()=> 'stored-hash';writer.globalMesh.catalogQueue.add(cid);await writer.syncGlobalCatalogs();assert.equal(writer.globalMesh.catalogPublished.size,6144);for(const p of placements)assert.ok(writer.globalMesh.catalogPublished.has(cid+'|'+p.id));
+});
+
+test('a verified local source upgrades foreign legacy manifests and folder revisions for cold recovery',async()=>{
+ const {writer,provider,placement,record,object,cid,entry}=await retainedCatalog();
+ const legacyManifest={...writer.contents.get(cid),originActor:'legacy-author'};delete legacyManifest.proof;
+ const folder={id:'legacy-folder',kind:'folder',parent:null,name:'Legacy folder',v:{c:2,a:'legacy-author'}};
+ const legacyEntry={...entry,parent:folder.id,v:{c:3,a:'legacy-author'}};for(const k of ['proof','operationId','previousRevision','operationAt'])delete legacyEntry[k];
+ writer.contents.set(cid,legacyManifest);writer.catalog.set(folder.id,folder);writer.catalog.set(entry.id,legacyEntry);writer.catalogOperations.clear();writer.localHave.add(cid);
+ let saves=0;writer.saveCatalogStateV4=async()=>{saves++};
+ assert.throws(()=>writer.globalCatalogSnapshot(record),/Signed room metadata/);
+ await writer.prepareGlobalCatalog(cid);assert.equal(saves,1);assert.equal(writer.contents.get(cid).originActor,writer.actor);assert.equal(writer.contents.get(cid).root,legacyManifest.root);
+ assert.equal(writer.catalog.get(entry.id).v.a,writer.actor);assert.equal(writer.catalog.get(entry.id).previousRevision,'legacy:3:legacy-author');assert.ok(writer.catalog.get(folder.id).proof);
+ await writer.publishGlobalCatalog(record,placement);const packet=await provider.globalProviderOperation({type:'catalog-get',body:{object}}),visitor=await catalogContext();
+ await visitor.acceptGlobalCatalog(placement.id,object,packet.data,packet.hash);assert.equal(visitor.catalog.get(entry.id).name,entry.name);assert.equal(visitor.catalog.get(entry.id).parent,folder.id);assert.equal(visitor.catalog.get(folder.id).name,folder.name);
+ await writer.prepareGlobalCatalog(cid);assert.equal(saves,1);
+});
+
+test('legacy migration requires a verified source and never signs a tampered signed record',async()=>{
+ const {writer,cid,entry}=await retainedCatalog(),manifest=writer.contents.get(cid);
+ const legacy={...manifest};delete legacy.proof;writer.contents.set(cid,legacy);
+ await assert.rejects(writer.prepareGlobalCatalog(cid),/verified local source/);assert.equal(writer.contents.get(cid).proof,undefined);
+ writer.localHave.add(cid);writer.contents.set(cid,{...manifest,type:'forged/type'});await assert.rejects(writer.prepareGlobalCatalog(cid),/signature/);assert.equal(writer.contents.get(cid).type,'forged/type');
+ writer.contents.set(cid,manifest);writer.catalog.set(entry.id,{...entry,name:'forged name'});await assert.rejects(writer.prepareGlobalCatalog(cid),/signature/);
+ writer.catalog.set(entry.id,entry);writer.contents.set(cid,{...manifest,proof:null});await assert.rejects(writer.prepareGlobalCatalog(cid),/context/);
+});
+
+test('legacy migration preserves a valid original manifest when only its listing needs upgrading',async()=>{
+ const {writer,cid,entry}=await retainedCatalog(),manifest=writer.contents.get(cid),legacy={...entry};delete legacy.proof;writer.catalog.set(entry.id,legacy);writer.localHave.add(cid);
+ await writer.prepareGlobalCatalog(cid);assert.equal(writer.contents.get(cid),manifest);assert.ok(writer.catalog.get(entry.id).proof);assert.notEqual(writer.catalog.get(entry.id).operationId,entry.operationId);
+});
+
+test('unsigned metadata cannot be upgraded by an unavailable signer or a read-only room visitor',async()=>{
+ const {writer,cid}=await retainedCatalog(),manifest={...writer.contents.get(cid)},identity=writer.nodeIdentity;delete manifest.proof;writer.contents.set(cid,manifest);writer.localHave.add(cid);
+ writer.nodeIdentity=null;await assert.rejects(writer.prepareGlobalCatalog(cid),/signing identity/);writer.nodeIdentity=identity;for(const e of writer.catalog.values())delete e.proof;writer.ownerAnchor='n-'+'f'.repeat(64);await assert.rejects(writer.prepareGlobalCatalog(cid),/read-only/);assert.equal(writer.contents.get(cid).proof,undefined);
+});
+
+test('a verified file permalink without a listing gets its own signed recovery entry',async()=>{
+ const {writer,cid,record}=await retainedCatalog();writer.catalog.clear();writer.catalogOperations.clear();writer.localHave.add(cid);vm.runInContext(source('resourceEntryV4'),writer);
+ await writer.prepareGlobalCatalog(cid);const snapshot=writer.globalCatalogSnapshot(record);assert.equal(snapshot.entries.length,1);assert.equal(snapshot.entries[0].contentId,cid);assert.equal(snapshot.entries[0].previousRevision,null);assert.ok(snapshot.entries[0].proof);
+});
+
+test('provider reload replaces stale memory with every persisted blob and accounts ciphertext once',async()=>{
+ const c=await setup(),rows=[{id:'a'.repeat(64),stored:100,catalogSize:50,ready:true},{id:'b'.repeat(64),stored:200,catalogSize:70,ready:true},{id:'c'.repeat(64),stored:30,ready:false}];
+ c.globalMesh.objects.set('stale',{id:'stale',stored:999});c.globalMesh.used=999;c.globalMesh.config.enabled=false;c.globalDbRequest=async(s,mode,op)=>{assert.equal(s,'objects');assert.equal(mode,'readonly');return op({getAll:()=>rows})};
+ vm.runInContext(source('restoreGlobalProviderInventory'),c);await c.restoreGlobalProviderInventory();assert.equal(c.globalMesh.objects.size,3);assert.equal(c.globalMesh.objects.has('stale'),false);assert.equal(c.globalMesh.used,450);await c.restoreGlobalProviderInventory();assert.equal(c.globalMesh.used,450);assert.equal(c.globalMesh.config.enabled,false);
+ let finish;c.globalDbRequest=()=>new Promise(resolve=>finish=resolve);let current=true;const work=c.restoreGlobalProviderInventory(()=>current);current=false;finish([]);assert.equal(await work,false);assert.equal(c.globalMesh.objects.size,3);
 });

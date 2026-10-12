@@ -587,3 +587,50 @@ after roughly 53 minutes. No tab crash was observed at this checkpoint, but this
 fails its zero-exception acceptance criterion. Duration and the original seeding
 crash attribution remain unresolved. Original evidence is preserved in
 `/tmp/tracker-long-haul/final-v105-active-24h/run.log`; the run has not been stopped.
+
+## Legacy global retention and provider inventory v107 — 2026-10-12
+
+Build: `2026-10-12-global-legacy-inventory-v107`.
+Application SHA-256:
+`2ea9fa0ef74ac6e3fb6f3929f50ca0df28f11d08e7d0d9eec8cdca5807267209`.
+
+The v106 recovery gate rejected older local files and folders whose metadata
+predated signing. The uploader now prepares that metadata before placement:
+verified local sources adopt unsigned legacy manifests and revisions under the
+current signing identity. Valid original signatures remain intact. Invalid
+signatures, missing signing identities, and unauthorized writers remain rejected.
+File bytes still undergo complete root verification before provider commit.
+
+Provider initialization and tab takeover use the same full persisted-object
+restore, replacing stale memory and recalculating ciphertext accounting once.
+The contribution panel now lists stored opaque blobs, available counts, and
+encrypted sizes, including when contribution is paused. Rendering starts with
+20 entries and provides Show more. No private filenames or room identifiers
+are added to provider records or the provider inventory.
+
+Validation:
+
+- 298/298 unit tests pass, including legacy manifest/folder cold recovery,
+  preserving valid manifests, rejecting forged/null proofs, source/signing and
+  protected-room gates, file-only recovery entries, complete inventory reload,
+  idempotent byte accounting, and stale lifecycle reads.
+- The released v106 document reproduces the exact reported “Signed room
+  metadata is required for global recovery” error using the same browser fixture.
+- 6/6 legacy browser checks pass in both Chromium and Firefox over public relays:
+  two independent rooms retain files; every uploader closes; the sole provider
+  switches rooms, reloads, pauses and reloads, then resumes; fresh visitors recover
+  both folder listings and download files with matching SHA-256 hashes.
+- 12/12 existing global storage browser checks pass in each browser, including
+  cold recovery, replica failover, provider-tab takeover, shard navigation, mobile
+  layout, mutual direct-route upgrades, and provider-local retrieval.
+- All final browser runs use the application SHA above and report no page errors.
+  All three inline scripts parse; `git diff --check` passes.
+
+Evidence: `/tmp/tracker-global-legacy/release-baseline.{json,log}`,
+`final-{chromium,firefox}.{json,log}`, `final-full-{chromium,firefox}.{json,log}`,
+and `unit.log`. Early fixture attempts were
+corrected to expand the persisted folder, relink non-persisted browser File
+objects, disable native pickers in automation, and await the new room hash after
+hash-triggered navigation; they are not acceptance runs. This targeted validation
+does not establish long-duration seeding reliability or protection from browser
+storage eviction.
