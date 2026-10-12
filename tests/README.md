@@ -4,6 +4,23 @@ Run the controller and MP4 fetch-planning regressions with Node:
 node --test tests/streaming.test.cjs
 ```
 
+AVI compatibility playback, using two independent browser contexts and real
+encrypted public relays with direct ICE disabled:
+
+```sh
+TRACKER_TEST_DEPS=/tmp/tracker-test-deps TRACKER_HTML="$PWD/index.html" \
+  node tests/avi-playback-browser.mjs /path/to/mpeg4-mp3.avi /path/to/h264-mp3.avi
+```
+
+The harness verifies decoded frames and advancing playback on both the local
+source and receiving peer, closes the first player during codec loading, then
+checks seeking and saved-position resume. It also checks the download SVG's
+rotation direction. Supply short AVI fixtures with video and audio and a duration
+over ten seconds; an additional MP4 fixture checks the existing playback path.
+`BROWSER=firefox`, `BROWSER_EXECUTABLE`, and `RESULT` select the browser executable
+and JSON trace. Omit `TRACKER_HTML` to test the deployed site. AVI uses FFmpeg/WASM
+after acquiring the complete verified source; conversion is not progressive.
+
 Privacy and resumable media previews:
 
 ```sh

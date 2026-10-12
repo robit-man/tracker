@@ -60,7 +60,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
 .headerActions .iconAction{width:36px;height:36px}.headerActions .btn:nth-child(1){display:inline-flex}
 .actionsCell .iconAction,.unlockInline .iconAction{width:30px;min-width:30px;height:30px}.chev.iconAction{width:20px;min-width:20px;height:30px}.chev.iconAction svg{width:14px;height:14px}
 .mini.resumeAvailable{color:var(--good);border-color:var(--good);animation:resumePulse 1.6s ease-in-out infinite}@keyframes resumePulse{50%{background:#203d2b;box-shadow:0 0 8px rgba(103,211,145,.35)}}@media(prefers-reduced-motion:reduce){.mini.resumeAvailable{animation:none}}
-.mini.downloading.iconAction::before{display:none}.mini.downloading.iconAction svg,.sourceRecovery:disabled svg{animation:dlSpin 1.2s linear infinite}
+.mini.downloading.iconAction::before{display:none}.mini.downloading.iconAction svg,.sourceRecovery:disabled svg{animation:dlSpin 1.2s linear infinite reverse}
 .modeRow{grid-template-columns:repeat(3,minmax(0,1fr))}.mode.iconAction{width:100%;height:36px}
 .liveChoiceGrid{grid-template-columns:repeat(4,minmax(0,1fr))}.liveChoice.iconAction{width:100%;height:68px;min-height:68px}.liveChoice.iconAction svg{width:26px;height:26px}
 .actionTooltip{position:fixed;z-index:1000;width:max-content;max-width:min(280px,calc(100vw - 16px));padding:7px 9px;border:1px solid var(--line2);border-radius:4px;background:#171b20;color:var(--text);box-shadow:0 4px 16px #0008;font:11px/1.4 var(--mono);text-transform:none;letter-spacing:0;pointer-events:none;overflow-wrap:anywhere}
@@ -252,7 +252,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-11-privacy-resume-v97';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-11-avi-playback-v98';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -2937,6 +2937,7 @@ function cleanupPreview(){
   const p=activePreview,cid=p?.session?.cid;if(!p)return;
   savePreviewPosition(p,true);
   p.lifecycleClosed=true;
+  if(trackerFfmpegActiveJob?.preview===p){const ff=trackerFfmpegActiveJob.ff;trackerFfmpegActiveJob=null;trackerFfmpegPromise=null;ff.terminate();for(const u of ff.__trackerUrls||[])URL.revokeObjectURL(u)}
   if(p.playbackWatchdog)clearInterval(p.playbackWatchdog);
   if(p.decoderPump)clearInterval(p.decoderPump);
   if(p.decoderPromoteTimer)clearTimeout(p.decoderPromoteTimer);if(p.mseQuotaRetryTimer)clearTimeout(p.mseQuotaRetryTimer);
@@ -2970,7 +2971,7 @@ function cleanupPreview(){
   if(p.objectUrl)URL.revokeObjectURL(p.objectUrl);
   if(p.compatObjectUrl&&p.compatObjectUrl!==p.objectUrl)URL.revokeObjectURL(p.compatObjectUrl);
   if(p.mediaSourceUrl)URL.revokeObjectURL(p.mediaSourceUrl);
-  if(p.session){p.session.decoderHeadPin=null;p.session.receivingSince?.clear?.();p.session.decoderRepairNeeded?.clear?.()}p.parts=[];p.pending?.clear?.();p.mp4TrackBuffers=null;p.mediaSource=null;p.sourceBuffer=null;p.media=null;p.session=null;p.debug=null;
+  if(p.session){p.session.decoderHeadPin=null;p.session.receivingSince?.clear?.();p.session.decoderRepairNeeded?.clear?.()}p.parts=[];p.compatInputBlob=null;p.pending?.clear?.();p.mp4TrackBuffers=null;p.mediaSource=null;p.sourceBuffer=null;p.media=null;p.session=null;p.debug=null;
   activePreview=null;previewDebugOpen=false;
   $('#previewDebug')?.classList.remove('show');$('#previewDebugToggle')?.classList.remove('active');$('#previewDebugToggle')?.setAttribute('aria-pressed','false');
   $('#previewDiagLayer').textContent='NET — → DEC — → SEG — → MSE — → A/V — → PLAY —';
@@ -3003,7 +3004,7 @@ function attachPreviewPositionHandlers(p,el){
   for(const event of ['loadedmetadata','durationchange','canplay'])el.addEventListener(event,()=>{if(activePreview===p)restorePreviewPosition(p)});
   el.addEventListener('ended',()=>{if(activePreview===p){savePreviewPosition(p,false);renderTree()}})
 }
-function previewCanStayWarm(p=activePreview){return !!(p&&!p.lifecycleClosed&&['video','audio'].includes(p.kind)&&p.media&&!p.media.ended&&(p.session||p.objectUrl)&&p.session?.state!=='error')}
+function previewCanStayWarm(p=activePreview){return !!(p&&!p.lifecycleClosed&&['video','audio'].includes(p.kind)&&p.media&&!p.media.ended&&(p.session||p.objectUrl||p.compatInputBlob)&&p.session?.state!=='error')}
 async function closePreview(){
   const p=activePreview;
   if(previewCanStayWarm(p)){
@@ -3037,6 +3038,7 @@ async function reopenWarmPreview(entry,c){
   syncVisualViewport();$('#previewModal').classList.add('show');$('#previewName').textContent=p.name;
   $('#previewMeta').textContent=`${p.mime} · ${fmtBytes(visibleSize(entry,c))} · ${seedCount(c.id)} source${seedCount(c.id)===1?'':'s'}`;
   if(s){startPlaybackWatchdog(p);if(s.state==='downloading'){ensureStreamHorizon('resume',true);scheduleDecoderPromotion(s,0);if(s.local)s.localPump?.();else{wakeTransferTransports(true);announceStreamDemand(s).catch(()=>{});scheduleSession(s,0)}}}
+  else{$('#previewState').textContent=p.mode==='compat'?(p.compatPlaybackReady?'READY · COMPAT':'CONVERTING'):'LOCAL FILE';$('#previewState').className='previewBadge good'}
   savePreviewPosition(p,false);renderTree();refreshPreviewStats(true);
   const q=p.media?.play();q?.catch?.(()=>{p.autoplayBlocked=true;refreshPreviewStats()});return true
 }
@@ -3046,7 +3048,7 @@ async function openPreview(entry){
   // leave already-playable A/V paused. Background opens retain the auto gate.
   const userRequestedPlayback=!!navigator.userActivation?.isActive;
   const c=contents.get(entry.contentId);if(!c)return;if(activePreview?.c?.id===c.id&&activePreview.hiddenAt){if(await reopenWarmPreview(entry,c))return}if(!await requireUnlocked(entry))return;cleanupPreview();syncVisualViewport();const kind=previewKind(entry,c),name=visibleName(entry),mime=inferMime(name,visibleType(entry,c));activePreview={entry,c,kind,name,mime,resumeTime:previewBookmarks.get(c.id)?.time??null,resumeRate:previewBookmarks.get(c.id)?.rate||1,userPlayRequested:userRequestedPlayback,mode:'buffer',parts:(kind==='video'||kind==='audio')?[]:new Array(contentTotal(c)),pending:new Map(),appendIndex:0,appending:false,allReceived:false,session:null,objectUrl:null,mediaSourceUrl:null,threeCleanup:null,hiddenAt:0};previewDebugState(activePreview);$('#previewName').textContent=name;$('#previewMeta').textContent=`${mime} · ${fmtBytes(visibleSize(entry,c))} · ${seedCount(c.id)} source${seedCount(c.id)===1?'':'s'}`;$('#previewStage').innerHTML='<div class="previewEmpty">Preparing peer stream…</div>';$('#previewModal').classList.add('show');$('#previewState').textContent='PREPARING';refreshPreviewStats();
-  const p=activePreview;savePreviewPosition(p,false);renderTree();const f=await getReadableFile(c.id);if(activePreview!==p||p.lifecycleClosed)return;if(f){await renderPreviewBlob(f);$('#previewState').textContent='LOCAL FILE';$('#previewState').className='previewBadge good';$('#previewProgressBar').style.width='100%';return}
+  const p=activePreview;savePreviewPosition(p,false);renderTree();const f=await getReadableFile(c.id);if(activePreview!==p||p.lifecycleClosed)return;if(f){await renderPreviewBlob(f);if(activePreview!==p||p.lifecycleClosed||p.mode==='compat')return;$('#previewState').textContent='LOCAL FILE';$('#previewState').className='previewBadge good';$('#previewProgressBar').style.width='100%';return}
   if(localHave.has(c.id)){await previewFromLocalChunks(entry,c);return}
   await startRemotePreview(entry,c)
 }
@@ -3488,18 +3490,52 @@ async function trackerFfmpeg(){
   })().catch(e=>{trackerFfmpegPromise=null;throw e});return trackerFfmpegPromise
 }
 async function materializeCompatInput(p){
-  const s=p?.session,c=p?.c;if(!p||!s||!c)throw Error('compatibility stream unavailable');const ext=extOf(p.name)||'bin',simple=`tracker-input.${ext}`;
+  const s=p?.session,c=p?.c;if(!p||!c)throw Error('compatibility stream unavailable');const ext=extOf(p.name)||'bin',simple=`tracker-input.${ext}`;
+  if(p.compatInputBlob)return new File([p.compatInputBlob],simple,{type:p.mime||p.compatInputBlob.type||'application/octet-stream'});
   /* Local, unlocked sources can be mounted without copying the whole file. */
   if(!c.locked){const f=await getReadableFile(c.id).catch(()=>null);if(f)return new File([f],simple,{type:p.mime||f.type||'application/octet-stream',lastModified:f.lastModified||Date.now()})}
-  if(!s.networkComplete)throw Error('compatibility playback requires the complete verified source file');
+  if(!s?.networkComplete)throw Error('compatibility playback requires the complete verified source file');
   const parts=[];for(let i=0;i<s.total;i++){let canonical=s.decoderHot?.get(i)||await loadStreamCachedChunk(s,i);if(!canonical)canonical=await readLocalChunk(c.id,i);if(!canonical)throw Error(`compatibility source chunk ${i} unavailable`);parts.push(new Blob([await canonicalToPlain(c,i,canonical)]));if(i%16===15){const tag=$('#previewState');if(tag&&activePreview===p)tag.textContent=`ASSEMBLING ${Math.round((i+1)/s.total*100)}%`;await new Promise(r=>setTimeout(r,0))}}return new File(parts,simple,{type:p.mime||'application/octet-stream'})
 }
-async function setCompatPlaybackBlob(p,blob,mime){if(!p?.media)throw Error('media element unavailable');if(p.compatObjectUrl)URL.revokeObjectURL(p.compatObjectUrl);const u=URL.createObjectURL(blob);p.compatObjectUrl=u;p.objectUrl=u;p.compatPlaybackReady=true;p.media.src=u;p.media.preload='auto';p.media.load();const ok=await new Promise(resolve=>{let done=false;const finish=v=>{if(done)return;done=true;clearTimeout(t);p.media.removeEventListener('canplay',yes);p.media.removeEventListener('error',no);resolve(v)},yes=()=>finish(true),no=()=>finish(false),t=setTimeout(()=>finish(p.media.readyState>=2),5000);p.media.addEventListener('canplay',yes,{once:true});p.media.addEventListener('error',no,{once:true})});if(!ok)throw Error(`browser rejected ${mime||'compatibility output'}`);try{await p.media.play()}catch(_){}markPreviewPlayable();return true}
+async function setCompatPlaybackBlob(p,blob,mime){if(activePreview!==p||p.lifecycleClosed)return false;const el=p?.media;if(!el)throw Error('media element unavailable');if(p.compatObjectUrl)URL.revokeObjectURL(p.compatObjectUrl);const u=URL.createObjectURL(blob);p.compatObjectUrl=u;p.objectUrl=u;el.src=u;el.preload='auto';el.load();const ok=await new Promise(resolve=>{let done=false;const finish=v=>{if(done)return;done=true;clearTimeout(t);el.removeEventListener('canplay',yes);el.removeEventListener('error',no);resolve(v)},yes=()=>finish(true),no=()=>finish(false),t=setTimeout(()=>finish(el.readyState>=2),5000);el.addEventListener('canplay',yes,{once:true});el.addEventListener('error',no,{once:true})});if(activePreview!==p||p.lifecycleClosed)return false;if(!ok)throw Error(`browser rejected ${mime||'compatibility output'}`);p.compatPlaybackReady=true;restorePreviewPosition(p);if(!p.hiddenAt&&p.session?.state!=='paused'&&p.wantPlayback!==false){try{await el.play()}catch(_){p.autoplayBlocked=true}}markPreviewPlayable();return true}
 async function compatTranscodePlayback(p){
   if(!p||p.mode!=='compat'||!p.compatNeedsTranscode)return false;if(p.compatTranscodePromise)return p.compatTranscodePromise;
-  p.compatTranscodePromise=(async()=>{const tag=$('#previewState');if(tag){tag.textContent='LOADING CODEC';tag.className='previewBadge warn'}previewDebugEvent('COMPAT TRANSCODE',`${extOf(p.name).toUpperCase()} · loading FFmpeg/WASM`,'warn',p.session);const ff=await trackerFfmpeg(),input=await materializeCompatInput(p),jobId=crypto.randomUUID().slice(0,8),mount=`/tracker-${jobId}`,inputName=input.name.replace(/[^a-zA-Z0-9._-]/g,'_'),inputPath=`${mount}/${inputName}`;let mounted=false,written=false,out='';trackerFfmpegActiveJob={preview:p,label:'TRANSCODING',progress:0,lastLog:''};try{await ff.createDir(mount);try{const ok=await ff.mount('WORKERFS',{files:[input]},mount);mounted=ok!==false}catch(e){console.warn('FFmpeg WORKERFS unavailable; falling back to MEMFS',e)}if(!mounted){await ff.writeFile(inputName,new Uint8Array(await input.arrayBuffer()));written=true}
-      const src=mounted?inputPath:inputName;if(p.kind==='audio'){out=`tracker-${jobId}.m4a`;let rc=await ff.exec(['-i',src,'-map','0:a:0?','-vn','-c:a','aac','-b:a','192k','-movflags','+faststart',out]);if(rc!==0){out=`tracker-${jobId}.mp3`;rc=await ff.exec(['-i',src,'-map','0:a:0?','-vn','-c:a','libmp3lame','-q:a','2',out]);if(rc!==0)throw Error('FFmpeg could not convert this audio codec')}const data=await ff.readFile(out),blob=new Blob([data],{type:out.endsWith('.mp3')?'audio/mpeg':'audio/mp4'});await setCompatPlaybackBlob(p,blob,blob.type)}else{out=`tracker-${jobId}.mp4`;let rc=await ff.exec(['-i',src,'-map','0:v:0?','-map','0:a:0?','-sn','-dn','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart',out]);if(rc!==0){out=`tracker-${jobId}.webm`;rc=await ff.exec(['-i',src,'-map','0:v:0?','-map','0:a:0?','-sn','-dn','-c:v','libvpx','-deadline','realtime','-cpu-used','8','-c:a','libopus','-b:a','128k',out]);if(rc!==0)throw Error('FFmpeg could not convert this video codec')}const data=await ff.readFile(out),blob=new Blob([data],{type:out.endsWith('.webm')?'video/webm':'video/mp4'});await setCompatPlaybackBlob(p,blob,blob.type)}p.compatTranscoded=true;p.allReceived=true;if(p.session){p.session.state='complete';clearTimeout(p.session.timer);sessionBySid.delete(p.session.sid)}if(tag&&activePreview===p){tag.textContent='LIVE · COMPAT';tag.className='previewBadge good'}const bar=$('#previewProgressBar');if(bar&&activePreview===p)bar.style.width='100%';previewDebugEvent('COMPAT READY',`${extOf(p.name).toUpperCase()} → ${out.split('.').pop().toUpperCase()}`,'info',p.session);return true
-    }finally{trackerFfmpegActiveJob=null;try{if(out)await ff.deleteFile(out)}catch(_){}try{if(mounted)await ff.unmount(mount)}catch(_){}try{if(written)await ff.deleteFile(inputName)}catch(_){}try{await ff.deleteDir(mount)}catch(_){}}})().catch(e=>{p.compatTranscodePromise=null;previewDebugEvent('COMPAT ERROR',String(e?.message||e),'bad',p.session);showPreviewError(`Compatibility playback failed: ${e?.message||e}`);throw e});return p.compatTranscodePromise
+  p.compatTranscodePromise=(async()=>{
+    const tag=$('#previewState');if(tag){tag.textContent='LOADING CODEC';tag.className='previewBadge warn'}
+    previewDebugEvent('COMPAT TRANSCODE',`${extOf(p.name).toUpperCase()} · loading FFmpeg/WASM`,'warn',p.session);
+    const ff=await trackerFfmpeg();if(activePreview!==p||p.lifecycleClosed)return false;
+    const job={preview:p,ff,label:'TRANSCODING',progress:0,lastLog:''};trackerFfmpegActiveJob=job;
+    const jobId=crypto.randomUUID().slice(0,8),mount=`/tracker-${jobId}`;let mounted=false,written=false,out='',inputName='';
+    try{
+      const input=await materializeCompatInput(p);if(activePreview!==p||p.lifecycleClosed)return false;
+      inputName=input.name.replace(/[^a-zA-Z0-9._-]/g,'_');await ff.createDir(mount);
+      try{mounted=(await ff.mount('WORKERFS',{files:[input]},mount))!==false}catch(e){console.warn('FFmpeg WORKERFS unavailable; falling back to MEMFS',e)}
+      if(!mounted){await ff.writeFile(inputName,new Uint8Array(await input.arrayBuffer()));written=true}
+      const src=mounted?`${mount}/${inputName}`:inputName;
+      if(p.kind==='audio'){
+        out=`tracker-${jobId}.m4a`;let rc=await ff.exec(['-i',src,'-map','0:a:0?','-vn','-c:a','aac','-b:a','192k','-movflags','+faststart',out]);
+        if(rc!==0){await ff.deleteFile(out).catch(()=>{});out=`tracker-${jobId}.mp3`;rc=await ff.exec(['-i',src,'-map','0:a:0?','-vn','-c:a','libmp3lame','-q:a','2',out]);if(rc!==0)throw Error('FFmpeg could not convert this audio codec')}
+      }else{
+        out=`tracker-${jobId}.mp4`;let rc=await ff.exec(['-i',src,'-map','0:v:0?','-map','0:a:0?','-sn','-dn','-c:v','libx264','-preset','ultrafast','-crf','23','-pix_fmt','yuv420p','-c:a','aac','-b:a','160k','-movflags','+faststart',out]);
+        if(rc!==0){await ff.deleteFile(out).catch(()=>{});out=`tracker-${jobId}.webm`;rc=await ff.exec(['-i',src,'-map','0:v:0?','-map','0:a:0?','-sn','-dn','-c:v','libvpx','-deadline','realtime','-cpu-used','8','-c:a','libopus','-b:a','128k',out]);if(rc!==0)throw Error('FFmpeg could not convert this video codec')}
+      }
+      if(activePreview!==p||p.lifecycleClosed)return false;
+      const data=await ff.readFile(out),mime=out.endsWith('.mp3')?'audio/mpeg':out.endsWith('.webm')?'video/webm':p.kind==='audio'?'audio/mp4':'video/mp4';
+      if(!await setCompatPlaybackBlob(p,new Blob([data],{type:mime}),mime))return false;
+      p.compatTranscoded=true;p.allReceived=true;
+      if(p.session){if(p.session.state==='paused')p.session.pausedState='complete';else p.session.state='complete';clearTimeout(p.session.timer);sessionBySid.delete(p.session.sid)}
+      if(tag&&activePreview===p){tag.textContent=p.hiddenAt?'PAUSED':'READY · COMPAT';tag.className='previewBadge good'}
+      const bar=$('#previewProgressBar');if(bar&&activePreview===p)bar.style.width='100%';
+      previewDebugEvent('COMPAT READY',`${extOf(p.name).toUpperCase()} → ${out.split('.').pop().toUpperCase()}`,'info',p.session);return true
+    }finally{
+      if(trackerFfmpegActiveJob===job)trackerFfmpegActiveJob=null;
+      try{if(out)await ff.deleteFile(out)}catch(_){}try{if(mounted)await ff.unmount(mount)}catch(_){}
+      try{if(written)await ff.deleteFile(inputName)}catch(_){}try{await ff.deleteDir(mount)}catch(_){}
+    }
+  })().catch(e=>{
+    p.compatTranscodePromise=null;if(activePreview!==p||p.lifecycleClosed)return false;
+    const message=String(e?.message||e);previewDebugEvent('COMPAT ERROR',message,'bad',p.session);showPreviewError(`Compatibility playback failed: ${message}`);throw e
+  });return p.compatTranscodePromise
 }
 function startCompatMedia(el,p,reason=''){
   p.mode='compat';p.compatReason=reason;p.compatNeedsTranscode=compatNeedsTranscode(p);
@@ -3513,16 +3549,17 @@ function startCompatMedia(el,p,reason=''){
   el.removeAttribute('src');el.load?.();
   previewDebugEvent('COMPAT FETCH',reason+' · complete verified source required','warn',p.session);
   const tag=$('#previewState');if(tag){tag.textContent='COMPAT · FETCHING';tag.className='previewBadge'}
-  if(p.session){ensureStreamHorizon('compat',true);pumpCompatMedia(false).catch(e=>showPreviewError(e.message||e))}
+  if(p.session)ensureStreamHorizon('compat',true);
+  if(p.session||p.compatInputBlob)pumpCompatMedia(false).catch(e=>{if(activePreview===p&&!p.lifecycleClosed)showPreviewError(e.message||e)})
   return true;
 }
 async function pumpCompatMedia(force=false){
   const p=activePreview,s=p?.session,el=p?.media;
-  if(!p||p.mode!=='compat'||!el||!s||p.compatRefreshing||p.compatPlaybackReady)return;
+  if(!p||p.mode!=='compat'||!el||(!s&&!p.compatInputBlob)||p.compatRefreshing||p.compatPlaybackReady)return;
   /* Native buffered ranges describe a Blob's declared duration even when its
      sample payloads are absent. Replacing that Blob every few chunks resets the
      decoder and SAFE. Compatibility playback loads one complete verified file. */
-  if(!s.networkComplete){const tag=$('#previewState');if(tag)tag.textContent=`COMPAT · FETCHING ${Math.round((s.receivedCount||0)/Math.max(1,s.total)*100)}%`;return}
+  if(!p.compatInputBlob&&!s?.networkComplete){const tag=$('#previewState');if(tag)tag.textContent=`COMPAT · FETCHING ${Math.round((s.receivedCount||0)/Math.max(1,s.total)*100)}%`;return}
   p.compatRefreshing=true;
   try{
     if(p.compatNeedsTranscode){await compatTranscodePlayback(p);return}
@@ -3565,9 +3602,13 @@ async function startRemotePreview(entry,c){
 async function previewFromLocalChunks(entry,c){
   const p=activePreview;if(!p)return;const timed=['video','audio'].includes(activePreview.kind);if(timed)await initStreamingMedia();if(activePreview!==p||p.lifecycleClosed)return;const total=contentTotal(c),sid='local-'+crypto.randomUUID(),sess={sid,mode:'stream',cid:c.id,entryId:entry.id,total,chunkSize:contentChunkSize(c),receivedBits:new Uint8Array(Math.ceil(total/8)),receivedCount:0,bytesReceived:0,holders:new Set([actor]),inflight:new Map(),inflightByPeer:new Map(),retry:[],priority:[],cursor:0,streamRequestLimit:timed?Math.min(total,STREAM_INITIAL_CHUNKS):total,providerBytes:new Map(),providerStarted:new Map([[actor,performance.now()]]),providerLastAt:new Map([[actor,performance.now()]]),providerPenalty:new Map(),binaryProven:new Set([actor]),dataProven:new Set([actor]),pathStats:new Map(),started:performance.now(),lastByteAt:0,lastRouteRecoveryAt:0,timer:null,state:'downloading',waitingForRoute:false,playbackStarted:false,sink:{kind:'preview-local'},receiving:new Set(),decoderFedBits:new Uint8Array(Math.ceil(total/8)),decoderUrgent:new Set(),decoderHot:new Map(),decoderFeedCursor:0,mp4NextChunk:0,mp4SequentialCursor:0,decoderAnchor:0,decoderLimit:timed?Math.min(total,STREAM_INITIAL_CHUNKS):total,streamCached:new Set(),decoderFedCount:0,decoderRefillActive:true,rxPrefix:0,networkComplete:false,local:true};activePreview.session=sess;previewDebugEvent('LOCAL STREAM',`${sess.total} chunks`,'info',sess);primeStreamSession(sess,activePreview);ensureStreamHorizon('startup',true);$('#previewState').textContent=timed?'LOCAL STREAM':'LOCAL PREVIEW';const pump=async()=>{if(sess.localPumping||!activePreview||activePreview.session!==sess||sess.state!=='downloading')return;sess.localPumping=true;try{let n=0;while(n<STREAM_STARTUP_LANES*2&&activePreview===p&&sess.state==='downloading'){const i=nextChunkFor(sess);if(i==null)break;const canonical=await readLocalChunk(c.id,i);if(!canonical)throw Error('local preview chunk missing');await storeReceivedChunk(sess,i,canonical);bitSet(sess.receivedBits,i);sess.receivedCount++;sess.bytesReceived+=canonical.length;if(i===(sess.rxPrefix||0)){let rp=sess.rxPrefix||0;while(rp<sess.total&&bitHas(sess.receivedBits,rp))rp++;sess.rxPrefix=rp;}sess.providerLastAt=sess.providerLastAt||new Map();sess.providerLastAt.set(actor,performance.now());noteFileTraffic(c.id,canonical.length);n++;await new Promise(r=>setTimeout(r,0))}if(sess.receivedCount>=total){sess.networkComplete=true;if(activePreview.mode==='compat'){sess.state='complete';await finishPreviewSession(sess)}else if((sess.decoderFedCount||0)>=total){sess.state='complete';activePreview.allReceived=true;if(activePreview.mode==='mp4box'){try{activePreview.mp4box?.flush?.()}catch(_){}}else if(activePreview.mode==='mse')pumpMsePreview();else if(activePreview.mode==='compat')await pumpCompatMedia(true);else await renderPreviewBlob(new Blob(activePreview.parts,{type:activePreview.mime}))}else{sess.state='downloading';promoteStreamCacheToDecoder(sess).catch(()=>{})}refreshPreviewStats()}else{const ceiling=Math.min(total,sess.streamRequestLimit||STREAM_INITIAL_CHUNKS),more=sess.priority?.some(i=>!bitHas(sess.receivedBits,i))||sess.cursor<ceiling;if(more)setTimeout(()=>sess.localPump?.(),0)}}finally{sess.localPumping=false}};sess.localPump=()=>pump().catch(e=>showPreviewError(e.message||e));activePreview.localPump=sess.localPump;sess.localPump()
 }
-async function finishPreviewSession(s){const p=activePreview;if(!p||p.session!==s)return;p.allReceived=true;if(p.mode==='mse-error')return;if(p.mode==='mp4box'){try{p.mp4box?.flush?.()}catch(_){}$('#previewState').textContent='LIVE · COMPLETE';$('#previewState').className='previewBadge good'}else if(p.mode==='mse'){pumpMsePreview();$('#previewState').textContent='LIVE · COMPLETE';$('#previewState').className='previewBadge good'}else if(p.mode==='compat'){await pumpCompatMedia(true);$('#previewState').textContent=s.playbackStarted?'LIVE · COMPLETE':'READY';$('#previewState').className='previewBadge good'}else{await renderPreviewBlob(new Blob(p.parts,{type:p.mime}));$('#previewState').textContent='READY';$('#previewState').className='previewBadge good'}sessionBySid.delete(s.sid)}
+async function finishPreviewSession(s){const p=activePreview;if(!p||p.session!==s)return;p.allReceived=true;if(p.mode==='mse-error')return;if(p.mode==='mp4box'){try{p.mp4box?.flush?.()}catch(_){}$('#previewState').textContent='LIVE · COMPLETE';$('#previewState').className='previewBadge good'}else if(p.mode==='mse'){pumpMsePreview();$('#previewState').textContent='LIVE · COMPLETE';$('#previewState').className='previewBadge good'}else if(p.mode==='compat'){await pumpCompatMedia(true);if(activePreview!==p||p.lifecycleClosed)return;$('#previewState').textContent=s.playbackStarted?'LIVE · COMPLETE':'READY';$('#previewState').className='previewBadge good'}else{await renderPreviewBlob(new Blob(p.parts,{type:p.mime}));if(activePreview!==p||p.lifecycleClosed)return;$('#previewState').textContent='READY';$('#previewState').className='previewBadge good'}sessionBySid.delete(s.sid)}
 async function renderPreviewBlob(blob){
-  const p=activePreview;if(!p)return;if(p.objectUrl)URL.revokeObjectURL(p.objectUrl);const url=URL.createObjectURL(blob);p.objectUrl=url;const stage=$('#previewStage');
+  const p=activePreview;if(!p)return;
+  /* Local files bypass acquisition, but unsupported containers still need the
+     same decoder used for complete, verified peer transfers. */
+  if(['video','audio'].includes(p.kind)&&compatNeedsTranscode(p)){p.compatInputBlob=blob;await initStreamingMedia();if(activePreview===p&&!p.lifecycleClosed)await pumpCompatMedia(true);return}
+  if(p.objectUrl)URL.revokeObjectURL(p.objectUrl);const url=URL.createObjectURL(blob);p.objectUrl=url;const stage=$('#previewStage');
   if(p.kind==='image'){stage.innerHTML='<img alt="preview">';stage.querySelector('img').src=url}
   else if(p.kind==='video'||p.kind==='audio'){const el=document.createElement(p.kind);el.controls=true;el.autoplay=true;el.playsInline=true;el.src=url;el.addEventListener('error',()=>showPreviewError(`This browser cannot decode ${p.mime}. The peer transfer succeeded; use GET or a browser with the required container/codec support.`),{once:true});if(p.kind==='video'){el.style.width='100%';el.style.height='100%';el.style.objectFit='contain'}else el.style.width='min(860px,90%)';stage.replaceChildren(el);p.media=el;attachPreviewPositionHandlers(p,el)}
   else if(p.kind==='pdf'){stage.innerHTML=`<iframe title="PDF preview" src="${url}"></iframe>`}
