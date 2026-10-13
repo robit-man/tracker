@@ -8,6 +8,10 @@ function fixture(){
   storageConfig:{enabled:false,allocationGB:5,mode:'Balanced',profile:'volunteer',retentionDays:30},storageQuota:{quota:0,usage:0,persisted:false},contents:new Map([[cid,{id:cid,size:1e6}]]),catalog:new Map(),catalogOperations:new Map(),retainedFiles:new Map(),retentionRequests:new Map(),peerStorageOffers:new Map(),sessions:new Map(),sessionBySid:new Map(),selectedSeeds:new Set(),cachedComplete:new Set(),localHave:new Set(),sourceClaims:new Set(),
   navigator:{storage:{}},renderInterface:()=>{},renderAll:()=>{},renderTree:()=>{},renderStorageHealth:()=>{},recordResourceEvent:()=>{},syncStorageControls:()=>{},refreshStorageQuota:async()=>{},broadcastAvailability:async()=>{},publishStorageOffer:async()=>{},saveState:async()=>{},processRetentionQueue:async()=>{},sendActorIngress:async(a,m)=>messages.push([a,m]),msg:(type,data)=>({type,...data}),putKV:async(k,v)=>writes.push([k,v]),profileFor:a=>({alias:a}),resourceEntry:id=>({id,contentId:id})});
  for(const n of ['retentionTarget','validStorageConfig','retainedBytes','retainedStoredBytes','storageEffectiveBytes','storageProviderAvailable','liveStorageOffers','persistStoragePreferences','handleStorageOffer','sendRetentionStatus','queueRetainedFile','handleStoragePin','retentionPinMessage','handleStorageStatus','saveStorageControls','maintainRetentionRequests'])vm.runInContext(source(n),c);
+ // Exercise the production semantic storage handler behind the UI adapter.
+ c.commandBool={};c.commandRegister=(_name,_properties,_required,handler)=>{c.configureStorage=handler};
+ vm.runInContext(require('./v4-helper.cjs').html.split('\n').find(line=>line.startsWith("commandRegister('storage.configure'")),c);
+ c.commandUI=async(name,args)=>{assert.equal(name,'storage.configure');return{ok:true,result:await c.configureStorage(args)}};
  c.messages=messages;c.writes=writes;return c;
 }
 test('free contribution defaults off and stored settings have bounded valid values',()=>{

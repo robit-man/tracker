@@ -1,0 +1,16 @@
+{
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "files": [
+    {
+      "file": "mobile-files.png",
+      "viewportWidth": 320,
+      "harness": "live-media-browser.mjs"
+    },
+    {
+      "file": "mobile-storage.png",
+      "viewportWidth": 390,
+      "harness": "browser-storage-browser.mjs"
+    }
+  ],
+  "review": "Visually inspected; only synthetic filenames and public room hashes are visible. No invitation URLs or capture of the user desktop."
+}

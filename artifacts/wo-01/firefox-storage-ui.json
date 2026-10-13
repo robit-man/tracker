@@ -1,0 +1,18 @@
+{
+  "browser": "firefox",
+  "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "checks": [
+    "measured encrypted byte counts include both rooms without decrypting another room’s names",
+    "cancelled clear leaves inventory and cached bytes intact",
+    "an open room lease prevents cross-tab cache deletion",
+    "closed-room cache can be removed while its encrypted room catalog survives",
+    "selective clearing removes only chosen chunks and preserves another cached file and disk source",
+    "provider ciphertext, legacy records and OPFS transcoding inputs appear without reading legacy whole-file values",
+    "bulk file-cache clearing preserves provider blobs, identity and room metadata",
+    "storage modules wrap at 320–1440px without horizontal overflow",
+    "selected provider blob deletion removes ciphertext and descriptor atomically and updates offered capacity",
+    "cleared sources withdraw after reload while identity, catalogs, preferences and both themes remain intact"
+  ],
+  "errors": [],
+  "passed": true
+}

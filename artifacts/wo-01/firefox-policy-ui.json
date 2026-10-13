@@ -1,0 +1,21 @@
+{
+  "browser": "firefox",
+  "live": false,
+  "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "checks": [
+    "sidebar retains the room badge and ordered Privacy, Disclaimer and Download source actions",
+    "native modal exposes the complete architecture, link capability, storage and network visibility explanations",
+    "icon tooltip is rendered inside the native dialog top layer",
+    "explanation reflects and controls the existing connection privacy policy",
+    "native focus containment, Escape and focus return work without changing room navigation",
+    "disclaimer covers personal responsibility, jurisdiction, conditional legal protections and primary-source references",
+    "cross-references switch explanations with only one modal open",
+    "source downloads from both the sidebar and dialog are byte-identical index.html without room credentials or referrer",
+    "failed source retrieval reports the error, restores controls, and retries without downloading an error page",
+    "download resolves the deployment index from shard and index.html routes",
+    "both full-page modals scroll and contain content at 320–1440px, with mobile focus return",
+    "explanations inherit dark and light themes"
+  ],
+  "errors": [],
+  "passed": true
+}

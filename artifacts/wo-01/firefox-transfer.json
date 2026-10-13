@@ -1,0 +1,17 @@
+{
+  "engine": "firefox",
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "sourceArtifact": "artifacts/wo-01/source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz",
+  "faultSha256": "b4c8de190f2741034afb1565dfc3cc5aa52670983b91aa4b2beb3f2712022842",
+  "started": "2026-10-13T19:10:45.492Z",
+  "checks": [
+    "Pausing actual transfer stops further acquisition, fences the job and frees its worker",
+    "Reload preserves pause; resuming the same job acquires and independently verifies byte-identical content",
+    "Cancelling actual acquisition stops its job and demand, removes owned partial bytes, and cannot publish a completed source after delayed packets arrive"
+  ],
+  "errors": [],
+  "pausedBytes": 524288,
+  "bytes": 12582912,
+  "passed": true,
+  "ended": "2026-10-13T19:12:07.920Z"
+}

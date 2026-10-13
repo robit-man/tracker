@@ -1,0 +1,44 @@
+[
+  {
+    "size": 0,
+    "chunkSize": 524288,
+    "total": 1,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "canonicalRoot": "5273992a3bf3c6680927acf72dd681c7b4b4af8c5f9c31dae8050676fe6f63de"
+  },
+  {
+    "size": 1,
+    "chunkSize": 524288,
+    "total": 1,
+    "sha256": "ca358758f6d27e6cf45272937977a748fd88391db679ceda7dc7bf1f005ee879",
+    "canonicalRoot": "15b48154848ffdad24ef3a05be666cce2eb8aa360ff3c3c881e96ede1ad2e624"
+  },
+  {
+    "size": 524287,
+    "chunkSize": 524288,
+    "total": 1,
+    "sha256": "109952260e4ad67ee76a1ae680f646f39bf9061f110503178574617a54741cd8",
+    "canonicalRoot": "5039098000b240cb722fe9158611555f29348bcef92df94b76bb3307067a8499"
+  },
+  {
+    "size": 524288,
+    "chunkSize": 524288,
+    "total": 1,
+    "sha256": "e76b1a7d767af38dc9ecef3747e0fceb43280a70696c6ca4fa4487752b5668f8",
+    "canonicalRoot": "b9df19e678308ad03688de24079448bf083359b875593edd36eeef02a5866d99"
+  },
+  {
+    "size": 524289,
+    "chunkSize": 524288,
+    "total": 2,
+    "sha256": "7e0925ae6a90d9b27c69ac45f3c73e0c3b74f12b253ee6750d754918cc6dcfd5",
+    "canonicalRoot": "896ee9230b5a0675888738da95e495ba1ebe18f40e0bf32f4e52a3d932de7d16"
+  },
+  {
+    "size": 650000,
+    "chunkSize": 524288,
+    "total": 2,
+    "sha256": "718e06c733cb51ca786c73ad3b5b0f8f2a3456d9a2ec7fe093bd5474522bae5d",
+    "canonicalRoot": "4d9c205e0dd623c74e94a84735a88b589e15553cce52cc09fd2cee8a98ae7ee8"
+  }
+]

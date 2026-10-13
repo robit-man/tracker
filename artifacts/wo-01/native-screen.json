@@ -1,0 +1,58 @@
+{
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "started": "2026-10-13T19:13:13.673Z",
+  "htmlOverride": true,
+  "relayOnly": true,
+  "errors": [],
+  "url": "https://robit-man.github.io/tracker/#[redacted]",
+  "capture": [
+    {
+      "kind": "video",
+      "settings": {
+        "aspectRatio": 1.7777777777777777,
+        "cursor": "always",
+        "deviceId": "screen:402:0",
+        "displaySurface": "monitor",
+        "frameRate": 30,
+        "height": 720,
+        "logicalSurface": true,
+        "resizeMode": "crop-and-scale",
+        "width": 1280
+      }
+    }
+  ],
+  "start": {
+    "time": 1.0191,
+    "width": 1280,
+    "height": 720,
+    "route": "relay:nats · 1.96s buffered · 8/9 chunks"
+  },
+  "end": {
+    "time": 7.0255,
+    "width": 1280,
+    "height": 720,
+    "route": "relay:nats · 2.24s buffered · 25/25 chunks"
+  },
+  "mobileHeader": [
+    {
+      "name": "Share room link",
+      "left": 159,
+      "right": 199,
+      "visible": true
+    },
+    {
+      "name": "Privacy off · allow direct peer connections",
+      "left": 204,
+      "right": 244,
+      "visible": true
+    },
+    {
+      "name": "Switch to light mode",
+      "left": 249,
+      "right": 289,
+      "visible": true
+    }
+  ],
+  "passed": true,
+  "ended": "2026-10-13T19:13:31.629Z"
+}

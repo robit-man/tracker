@@ -1,0 +1,98 @@
+{
+  "browser": "chromium",
+  "htmlOverride": true,
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "checks": [
+    "unrelated rooms discover collective relay-only offers and aggregate each provider once",
+    "global retention transfers actual ciphertext to two providers across independent shards",
+    "file lifecycle includes confirmed global replicas and their requested target",
+    "global providers store opaque encrypted bytes without the private catalog or file identity",
+    "provider consent and retained encrypted objects survive reload",
+    "a fresh browser discovers the private room file after every original room peer has left and both providers reload",
+    "the normal file download action retrieves byte-identical content with the uploader gone and one replica paused",
+    "direct shard paths reload and the storage index fits mobile screens",
+    "recent rooms persist, navigate and remove per deployment while global contribution stays active",
+    "one provider tab advertises each allocation and a waiting tab takes over its retained objects",
+    "mutual direct-route opt-in upgrades bulk ciphertext delivery while keeping relays available",
+    "a provider entering the private room recovers and verifies its own opaque copy with every other browser context closed"
+  ],
+  "errors": [],
+  "cid": "f-4f77262652885675f39b43cd31b3ba98aa0499887505991686bdf949334c631d",
+  "room": "https://robit-man.github.io/tracker/qa-global-e5ac416ae5284da0/#[redacted]",
+  "recovery": {
+    "ready": true,
+    "recovered": 2,
+    "queued": 1,
+    "recovering": false,
+    "syncing": false,
+    "error": ""
+  },
+  "transport": [
+    {
+      "id": "g-04be83a40daee3ce9335a936c138b6c16b745b0ad475cfb0fbef611477a71596",
+      "tx": {
+        "nats": 62940,
+        "mqtt": 35873,
+        "nostr": 42661,
+        "bc": 39860,
+        "direct": 7656
+      },
+      "rx": {
+        "nats": 52954,
+        "mqtt": 1669,
+        "nostr": 1483591,
+        "bc": 0,
+        "direct": 1481338
+      },
+      "direct": [
+        {
+          "id": "g-5af9e7b9e9b6db77226b94a040b8c4b16ae2b41d416ba7f30fe71a8c707f3065",
+          "state": "open"
+        }
+      ]
+    },
+    {
+      "id": "g-f84de63b4aecc0ed7d4aa5b7b829f10e76f4c08f0bc0ce4cf54216f490ce35ca",
+      "tx": {
+        "nats": 41584,
+        "mqtt": 6864,
+        "nostr": 4620,
+        "bc": 9414,
+        "direct": 0
+      },
+      "rx": {
+        "nats": 45618,
+        "mqtt": 2194,
+        "nostr": 46808,
+        "bc": 0,
+        "direct": 0
+      },
+      "direct": []
+    },
+    {
+      "id": "g-5af9e7b9e9b6db77226b94a040b8c4b16ae2b41d416ba7f30fe71a8c707f3065",
+      "tx": {
+        "nats": 34555,
+        "mqtt": 47496,
+        "nostr": 1536478,
+        "bc": 29906,
+        "direct": 1516403
+      },
+      "rx": {
+        "nats": 22483,
+        "mqtt": 2881,
+        "nostr": 37785,
+        "bc": 0,
+        "direct": 4865
+      },
+      "direct": [
+        {
+          "id": "g-04be83a40daee3ce9335a936c138b6c16b745b0ad475cfb0fbef611477a71596",
+          "state": "open"
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "ended": "2026-10-13T19:10:44.092Z"
+}

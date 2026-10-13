@@ -1,0 +1,15 @@
+{
+  "engine": "chromium",
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "baselineSha256": "c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7",
+  "sourceArtifact": "artifacts/wo-01/source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz",
+  "baselineArtifact": "artifacts/wo-01/source-c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7.html.gz",
+  "started": "2026-10-13T19:10:05.345Z",
+  "checks": [
+    "Original published HTML signs and verifies a retained file and pins its existing owner identity",
+    "Candidate preserves v4 bytes, signed catalog, owner anchor and identity; agent starts denied and explicit approval exposes verified original bytes"
+  ],
+  "errors": [],
+  "passed": true,
+  "ended": "2026-10-13T19:10:08.491Z"
+}

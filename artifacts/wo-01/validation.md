@@ -1,0 +1,94 @@
+# WO-01 validation
+
+Publication gate: **PASS**.
+
+Exact implementation HTML SHA-256: `e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc`. Build: `2026-10-13-command-engine-v110`.
+Baseline HTML SHA-256: `c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7` (published documentation commit 6975601, unchanged application).
+Executed evidence interval: 2026-10-13T19:06:57.033Z through 2026-10-13T19:13:31.629Z. Generated 2026-10-13T19:17:04.706Z.
+Node v24.14.0; Playwright 1.64.0; Chromium 156.0.8078.4; Firefox 157.0; Linux 6.11.0-29-generic; CPU FFmpeg 6.1.1.
+Pinned test dependencies and exact run commands: [run.md](run.md), [test lockfile](../../tests/dependencies/package-lock.json).
+
+The exact tested document is stored in [its gzip archive](source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz); baseline is archived separately.
+All unit tests, browser artifacts and source hashes are checked by [the gate](gate.json). A spec/document audit is not a feature test.
+
+## Requirement and acceptance traceability
+
+| ID | Implementation / nearby tagged comments | Executed tests | Evidence | Result |
+|---|---|---|---|---|
+| WO-01-R01 | TrackerCore / commandRegister / commandManifest / TrackerAgent; action-parity.json | inventory; core units; browser; native screen; storage/policy UI | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [units](units.json), [native-screen](native-screen.json), [chromium-storage-ui](chromium-storage-ui.json), [firefox-storage-ui](firefox-storage-ui.json), [chromium-policy-ui](chromium-policy-ui.json), [firefox-policy-ui](firefox-policy-ui.json) | PASS |
+| WO-01-R02 | commandUI / addFilesImpl / requestFile / commandDownload / commandCatalogMutation / commandCaptureWork | browser; transfer; storage; native screen; source-link; AVI | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-transfer](chromium-transfer.json), [firefox-transfer](firefox-transfer.json), [chromium-storage](chromium-storage.json), [firefox-storage](firefox-storage.json), [native-screen](native-screen.json), [chromium-source-link](chromium-source-link.json), [firefox-source-link](firefox-source-link.json), [chromium-avi](chromium-avi.json), [firefox-avi](firefox-avi.json) | PASS |
+| WO-01-R03 | commandValidate / commandAuthorize / commandPreflight / commandRefreshAuthority / commandGuard / commandApplyGuards | malformed/prototype/foreign-handle units; protected writer; actual commit revocation; opaque storage permissions | [units](units.json), [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-capture](chromium-capture.json), [firefox-capture](firefox-capture.json) | PASS |
+| WO-01-R04 | commandJoin / commandBridgeCall / commandLeave / owned-parent MessagePort binding | four contexts/fifth rejected; child File/bytes/native output; child reload; 100 teardowns per browser | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-resources](chromium-resources.json) | PASS |
+| WO-01-R05 | commandImportSource / commandStageUpload / commandUpload / commandUploadLockPlan / addFilesImpl | deterministic vectors; stream/native inputs; local-default upload; process kill, plain and locked | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-process-crash](chromium-process-crash.json), [firefox-process-crash](firefox-process-crash.json), [chromium-process-crash-locked](chromium-process-crash-locked.json), [firefox-process-crash-locked](firefox-process-crash-locked.json) | PASS |
+| WO-01-R06 | commandDownload / finishDownload / commandRelinkWork / commandWorkFor / transfers.* / jobs.* | real pause/worker release/reload/resume/cancel; wrong source; independent relay bytes; frontier loss and SAFE | [chromium-transfer](chromium-transfer.json), [firefox-transfer](firefox-transfer.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-media-fixture.mp4](chromium-media-fixture.mp4.json), [firefox-media-fixture.mp4](firefox-media-fixture.mp4.json), [chromium-media-tail.mp4](chromium-media-tail.mp4.json), [firefox-media-tail.mp4](firefox-media-tail.mp4.json), [chromium-source-link](chromium-source-link.json), [firefox-source-link](firefox-source-link.json) | PASS |
+| WO-01-R07 | commandCatalogMutationImpl / signCatalogOperationV4 / catalogParentSafeV4 / original v4 revision history | protected writer/forged handle/cycle; signed rename/move/delete/restore; out-of-order/tombstone units | [units](units.json), [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json) | PASS |
+| WO-01-R08 | commandInputRequired / commandSyncInteraction / commandCaptureWork / commandImportDestination / trusted permission binding | denied and pending capture; late accepted tracks; real Canvas/WebAudio relay; native Xvfb capture; disk permissions | [chromium-capture](chromium-capture.json), [firefox-capture](firefox-capture.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [native-screen](native-screen.json) | PASS |
+| WO-01-R09 | commandWriteRecord / commandAtomicRecords / commandPrepareCatalogReceipt / commandWithPublication / saveState / pending publication guards | real transaction abort; receipt failure; background-save race; process kill; provider rejection callback; clear retry | [units](units.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-storage](chromium-storage.json), [firefox-storage](firefox-storage.json), [chromium-process-crash](chromium-process-crash.json), [firefox-process-crash](firefox-process-crash.json), [chromium-process-crash-locked](chromium-process-crash-locked.json), [firefox-process-crash-locked](firefox-process-crash-locked.json) | PASS |
+| WO-01-R10 | COMMAND_LIMITS / commandNetworkReady / system.health / commandPage / commandWakeWaitingJobs / lifecycle teardown | offline local operations; same-job network recovery; 1000 reads; 100 teardowns; baseline heap/RSS/event-loop comparison | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-resources](chromium-resources.json) | PASS |
+| WO-01-R11 | inline core; shared UI handlers; preview intent/bookmarks; Browser storage; Privacy explanation; commandFetchSource | actual old HTML upgrade; both themes/four widths; exact raw source; MP4/AVI; global cold recovery; relink/native permissions | [chromium-upgrade](chromium-upgrade.json), [firefox-upgrade](firefox-upgrade.json), [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-storage-ui](chromium-storage-ui.json), [firefox-storage-ui](firefox-storage-ui.json), [chromium-policy-ui](chromium-policy-ui.json), [firefox-policy-ui](firefox-policy-ui.json), [chromium-avi](chromium-avi.json), [firefox-avi](firefox-avi.json), [chromium-media-fixture.mp4](chromium-media-fixture.mp4.json), [firefox-media-fixture.mp4](firefox-media-fixture.mp4.json), [chromium-media-tail.mp4](chromium-media-tail.mp4.json), [firefox-media-tail.mp4](firefox-media-tail.mp4.json), [global-ui](global-ui.json), [chromium-source-link](chromium-source-link.json), [firefox-source-link](firefox-source-link.json) | PASS |
+| WO-01-R12 | TrackerAgent usage comment; tests/wo-01-examples.mjs: runExamples | all nine examples execute with a real consenting provider; examples release owned inputs | [chromium-storage](chromium-storage.json), [firefox-storage](firefox-storage.json) | PASS |
+| WO-01-A01 | TrackerCore and complete action matrix | manifest/schemas and action inventory; independent UI/API business families; explicit presentation/consent exceptions | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [units](units.json), [native-screen](native-screen.json), [chromium-storage-ui](chromium-storage-ui.json), [firefox-storage-ui](firefox-storage-ui.json), [chromium-policy-ui](chromium-policy-ui.json), [firefox-policy-ui](firefox-policy-ui.json), [chromium-source-link](chromium-source-link.json), [firefox-source-link](firefox-source-link.json) | PASS |
+| WO-01-A02 | commandValidate / commandAuthorize / commandCatalogMutationImpl | ungranted protected visitor; forged context/handle; unknown property; cyclic move; CID-preserving rename | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json) | PASS |
+| WO-01-A03 | commandJoin / commandLeave / commandNetworkReady | current plus three/fifth rejected; child restart and cleanup; explicit local/network readiness while offline | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-resources](chromium-resources.json) | PASS |
+| WO-01-A04 | commandUpload / atomic acceptance / commandDownload / source and lock recovery | 650000 bytes; stable operation retry; independently checked canonical/plain roots; actual SIGKILL checkpoint and one publication | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-process-crash](chromium-process-crash.json), [firefox-process-crash](firefox-process-crash.json), [chromium-process-crash-locked](chromium-process-crash-locked.json), [firefox-process-crash-locked](firefox-process-crash-locked.json) | PASS |
+| WO-01-A05 | transfers.* / jobs.* / media.* / existing adaptive SAFE controller | real transfer pause/reload/resume/cancel; bookmark close/resume; actual decoder-front packet drop; dynamic SAFE lower band | [chromium-transfer](chromium-transfer.json), [firefox-transfer](firefox-transfer.json), [chromium-media-fixture.mp4](chromium-media-fixture.mp4.json), [firefox-media-fixture.mp4](firefox-media-fixture.mp4.json), [chromium-media-tail.mp4](chromium-media-tail.mp4.json), [firefox-media-tail.mp4](firefox-media-tail.mp4.json) | PASS |
+| WO-01-A06 | commandCatalogMutation / saveState / browserStorageTransaction / storage.clear / durable receipts | actual signed publication and cache deletion abort; no source leak; stable failed retry; unrelated identity/catalog/native file retained | [units](units.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-storage](chromium-storage.json), [firefox-storage](firefox-storage.json), [chromium-storage-ui](chromium-storage-ui.json), [firefox-storage-ui](firefox-storage-ui.json) | PASS |
+| WO-01-A07 | capture/native-input bindings and resumable interactions | capture denied/pending/stopped; actual authorized fixture media; real native capture; denied file permission and actual native writer bytes | [chromium-capture](chromium-capture.json), [firefox-capture](firefox-capture.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [native-screen](native-screen.json) | PASS |
+| WO-01-A08 | bounded manifest/state/rooms; runExamples | 1000 command reads and 100 teardowns in each engine; nine examples; both themes and four widths; bounded usage | [chromium-acceptance](chromium-acceptance.json), [firefox-acceptance](firefox-acceptance.json), [chromium-boundaries](chromium-boundaries.json), [firefox-boundaries](firefox-boundaries.json), [chromium-storage](chromium-storage.json), [firefox-storage](firefox-storage.json), [chromium-resources](chromium-resources.json) | PASS |
+
+## Execution artifacts
+
+| Artifact | Exact current HTML | Result |
+|---|---|---|
+| [units](units.json) | yes | PASS |
+| [chromium-resources](chromium-resources.json) | yes | PASS |
+| [native-screen](native-screen.json) | yes | PASS |
+| [global-ui](global-ui.json) | yes | PASS |
+| [chromium-avi](chromium-avi.json) | yes | PASS |
+| [chromium-source-link](chromium-source-link.json) | yes | PASS |
+| [chromium-storage-ui](chromium-storage-ui.json) | yes | PASS |
+| [chromium-policy-ui](chromium-policy-ui.json) | yes | PASS |
+| [firefox-avi](firefox-avi.json) | yes | PASS |
+| [firefox-source-link](firefox-source-link.json) | yes | PASS |
+| [firefox-storage-ui](firefox-storage-ui.json) | yes | PASS |
+| [firefox-policy-ui](firefox-policy-ui.json) | yes | PASS |
+| [chromium-acceptance](chromium-acceptance.json) | yes | PASS |
+| [chromium-boundaries](chromium-boundaries.json) | yes | PASS |
+| [chromium-transfer](chromium-transfer.json) | yes | PASS |
+| [chromium-capture](chromium-capture.json) | yes | PASS |
+| [chromium-storage](chromium-storage.json) | yes | PASS |
+| [chromium-upgrade](chromium-upgrade.json) | yes | PASS |
+| [chromium-process-crash](chromium-process-crash.json) | yes | PASS |
+| [chromium-process-crash-locked](chromium-process-crash-locked.json) | yes | PASS |
+| [chromium-media-fixture.mp4](chromium-media-fixture.mp4.json) | yes | PASS |
+| [chromium-media-tail.mp4](chromium-media-tail.mp4.json) | yes | PASS |
+| [firefox-acceptance](firefox-acceptance.json) | yes | PASS |
+| [firefox-boundaries](firefox-boundaries.json) | yes | PASS |
+| [firefox-transfer](firefox-transfer.json) | yes | PASS |
+| [firefox-capture](firefox-capture.json) | yes | PASS |
+| [firefox-storage](firefox-storage.json) | yes | PASS |
+| [firefox-upgrade](firefox-upgrade.json) | yes | PASS |
+| [firefox-process-crash](firefox-process-crash.json) | yes | PASS |
+| [firefox-process-crash-locked](firefox-process-crash-locked.json) | yes | PASS |
+| [firefox-media-fixture.mp4](firefox-media-fixture.mp4.json) | yes | PASS |
+| [firefox-media-tail.mp4](firefox-media-tail.mp4.json) | yes | PASS |
+
+## Commit, recovery and measured limits
+
+The room database remains version 4. New private records use encrypted existing kv keys with schema/revision/fence envelopes. Job schema 2 separates ownership generations from progress revisions and authenticates both as AAD; the loader can migrate experimental schema-1 jobs by CAS. Public catalog signatures, immutable content IDs, original room derivation and provider opaque-object wire messages remain unchanged. Actual original-HTML upgrade tests preserve identity, owner anchor, catalog and verified bytes.
+
+Native Files are ephemeral; default API upload stages verified encrypted local bytes before completing. Restart renews ephemeral inputs explicitly. Locked upload recovery preserves its persisted wrapped key/nonce plan and original ciphertext root. Final verification and metadata IDB oncomplete precede completed status; native download close follows verified acquisition. Browser handoff is reported separately from OS-confirmed save.
+
+Resource evidence separates five warmup iterations from 100 teardowns. The bounded state, heap/RSS and event-loop observations are in chromium-resources.json; they establish this workload only, not a year-long stability guarantee. Metadata pages cap at 100 items / 64 KiB, byte reads at 524288 bytes, saved sources/credentials and rooms have explicit caps, and terminal jobs can be acknowledged. IPFS pin/retrieve/release checks committed postconditions; retrieving after selective cache clear rebuilds bytes from the real encrypted blockstore. No fixed playback buffer target was introduced; media tests record the dynamically measured band and actual advancing frames.
+
+Capture consent remains native. Visible-room preauthorized MediaStream inputs and trusted OS capture work; a hidden room cannot silently supply an OS gesture or magically transfer a MediaStream through a MessagePort. Browser-only presentation requires a rendering browser. Relay services may be degraded independently; offline local operations remain usable. Storage eviction, disk loss and explicit clearing are different from a process restart.
+
+[Action parity](action-parity.json) covers 85 static buttons and 44 groups including delegated actions, keyboard/native controls, trusted consent, presentation and status-only exceptions. The inventory assertion checks selectors and the browser tests exercise semantic families with actual persisted/peer effects; it does not infer success from a click, toast or resolved callback. The operator-local diagnostics/console are not a sandbox against same-origin JavaScript.
+
+[Degraded-mode boundaries](degraded-modes.md) describe permission, network, quota, provider, codec, native output and resource limits. [Independent vectors](vectors.json) record both hashes, sizes and canonical chunk dimensions. Privacy now explains local agent journals/native export plaintext; providers still receive opaque encrypted objects.
+
+## Failed intermediate runs and harness corrections
+
+Historical diagnostics remain failed in diagnostics/. A native cache transaction was aborted twice, masking its quota error; the commit wrapper now preserves the original error, with unit and real-IDB tests. Source seed-salt background saves could publish pending upload state; the short publication queue and pending-snapshot filters close that race. Progress revisions were incorrectly used as ownership fences; generation fences now remain stable through progress. Explicit media pause now sets intent synchronously before deferred native events. Expected provider rejections are carried outside the Web Locks callback to avoid Firefox page-error reporting while preserving the actual RPC error.
+
+An earlier resource harness wrote localStorage in the initial opaque about:blank page; both baseline and candidate failed that harness setup. It now initializes only its HTTPS test documents, and baseline failures remain recorded. Asynchronous UI operations require awaiting visible completion. The command harness also replaced Promise-truthiness readiness with explicit polling for the actual signed revision. The old icon regression assumed the pre-overhaul interface; it now checks accessible named navigation and labelled controls separately from centered icon-only actions. These corrections do not fabricate application outcomes. A single SDK stream-closing error in an intermediate core run remains recorded; final results include teardown checks and do not reclassify that earlier failure as a pass.

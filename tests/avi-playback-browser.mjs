@@ -1,4 +1,5 @@
 // Real AVI decoding locally and after an encrypted transfer through public brokers.
+import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,7 +8,7 @@ const require=createRequire(path.join(process.env.TRACKER_TEST_DEPS||process.cwd
 const browserName=process.env.BROWSER||'chromium',site='https://robit-man.github.io/tracker/';
 const fixtures=process.argv.slice(2);assert.ok(fixtures.length,'Supply real AVI fixtures');
 const html=process.env.TRACKER_HTML&&fs.readFileSync(process.env.TRACKER_HTML,'utf8');
-const result={browser:browserName,htmlOverride:!!html,fixtures,checks:[],errors:[]};
+const result={appSha256:html?createHash('sha256').update(html).digest('hex'):null,started:new Date().toISOString(),browser:browserName,htmlOverride:!!html,fixtures,checks:[],errors:[]};
 const browser=await require('playwright')[browserName].launch({executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:browserName==='chromium'?['--no-sandbox','--disable-gpu','--autoplay-policy=no-user-gesture-required']:[],firefoxUserPrefs:{'media.autoplay.default':0,'layers.acceleration.disabled':true}});
 const pages=[];let timer;
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
@@ -45,7 +46,7 @@ try{
     check(`${path.basename(fixture)} transfers through encrypted relays and decodes on the receiving peer`);
     const v=viewer.locator('#previewStage video');await v.evaluate(el=>el.currentTime=7);
     await viewer.waitForFunction(()=>document.querySelector('#previewStage video').currentTime>8,null,{timeout:30000});await viewer.locator('#previewClose').click();
-    const held=await media(viewer);await delay(1000);assert.equal((await media(viewer)).video.time,held.video.time);await row.locator('[data-stream].resumeAvailable').click();
+    await viewer.waitForFunction(()=>PrivateTrackerMesh.preview().hidden&&document.querySelector('#previewStage video').paused);const held=await media(viewer);await delay(1000);assert.equal((await media(viewer)).video.time,held.video.time);await row.locator('[data-stream].resumeAvailable').click();
     await viewer.waitForFunction(t=>document.querySelector('#previewStage video').currentTime>t+.5,held.video.time,{timeout:30000});await viewer.locator('#previewClose').click();check('media seeks and resumes at its saved position');
   }
   // Render the same downloading SVG and CSS as the file action, without affecting transfers.
@@ -53,4 +54,4 @@ try{
   assert.equal(result.spinner.direction,'reverse');check('download SVG rotates counterclockwise with its arrowheads');
   assert.deepEqual(result.errors,[]);result.passed=true;
 }catch(e){result.failure=e.message;result.states=await Promise.all(pages.map(p=>media(p).catch(()=>null)));throw e}
-finally{clearInterval(timer);fs.writeFileSync(process.env.RESULT||'/tmp/tracker-avi-browser.json',JSON.stringify(result,null,2));await browser.close()}
+finally{clearInterval(timer);await browser.close();result.ended=new Date().toISOString();if(result.errors.length)result.passed=false;fs.writeFileSync(process.env.RESULT||'/tmp/tracker-avi-browser.json',JSON.stringify(result,null,2))}

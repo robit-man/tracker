@@ -9,13 +9,14 @@ function stream(...tracks){return {getTracks:()=>tracks,getVideoTracks:()=>track
 function harness(){
  const nodes=new Map(),sent=[],toasts=[];let nextId=0;
  const c=vm.createContext({localLive:null,liveCaptureRequest:0,liveLowLatency:false,actor:'source',liveMedia:new Map(),navigator:{mediaDevices:{}},crypto:{randomUUID:()=>String(++nextId)},Date,console,
-  privacyRtcAvailable:()=>true,privacyPcAllowed:()=>true,privacyCandidateIsRelay:()=>true,
+  commandStopPendingCaptures:()=>{},privacyRtcAvailable:()=>true,privacyPcAllowed:()=>true,privacyCandidateIsRelay:()=>true,
   LIVE_HEARTBEAT_MS:4000,setInterval:()=>1,clearInterval:()=>{},
   $:q=>{if(!nodes.has(q))nodes.set(q,{textContent:'',dataset:{},classList:{add(){},remove(){}}});return nodes.get(q)},
   liveCaptureConstraints:mode=>({audio:mode!=='video',video:mode!=='audio'}),liveRecorderMime:()=> 'video/webm',
   liveEntryFromLocal:()=>({id:c.localLive.id,mode:c.localLive.mode}),closeLivePublisherPeer:()=>{},closeLiveViewer:()=>{},renderAll:()=>{},renderTree:()=>{},openLocalLivePreview:()=>{},wakeTransferTransports:()=>{},
   sendLiveAnnouncement:async()=>sent.push({type:'live-announce',id:c.localLive.id,mode:c.localLive.mode}),msg:(type,data)=>({type,...data}),broadcast:async m=>sent.push(m),toast:(...args)=>toasts.push(args),esc:s=>String(s)});
- for(const name of ['liveModeLabel','captureLiveStream','startLiveMedia','stopLiveMedia'])vm.runInContext(source(name),c);
+ for(const name of ['liveModeLabel','captureLiveStream','startLiveMediaImpl','stopLiveMedia'])vm.runInContext(source(name),c);
+ c.startLiveMedia=c.startLiveMediaImpl;
  return {c,nodes,sent,toasts};
 }
 test('screen capture invokes the browser picker immediately and requests optional surface audio',async()=>{

@@ -1,0 +1,24 @@
+{
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "started": "2026-10-13T19:08:23.751Z",
+  "htmlOverride": true,
+  "browser": "chromium",
+  "relayOnly": true,
+  "checks": [
+    "unrelated room member has link action",
+    "same-size wrong content rejected by full hash",
+    "matching renamed copy seeds the original listing without changing publisher",
+    "returning browser sees a blinking relink cue on its orphaned listing",
+    "third peer receives identical bytes over encrypted relays with original uploader closed",
+    "native file handle persists and restores seeding after reload",
+    "returning to the tab automatically restores an accessible saved handle and clears its blinking fallback"
+  ],
+  "errors": [],
+  "url": "https://robit-man.github.io/tracker/#[redacted]",
+  "cid": "f-532a6ec5c9c07bd276790673a9d2465928905fc4ef4bd28a040fec9c085d84bc",
+  "sha256": "47cd35feeb7e977b41715385705e082b66efcbe8bbfb63280d2470bfc57bb35b",
+  "receivedBytes": 1100000,
+  "served": "2.05 MB",
+  "passed": true,
+  "ended": "2026-10-13T19:08:45.141Z"
+}

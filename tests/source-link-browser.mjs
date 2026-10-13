@@ -7,7 +7,7 @@ import {randomBytes,createHash} from 'node:crypto';
 const require=createRequire(path.join(process.env.TRACKER_TEST_DEPS||process.cwd(),'package.json'));
 const browserName=process.env.BROWSER||'chromium',browserType=require('playwright')[browserName];
 const site='https://robit-man.github.io/tracker/',html=process.env.TRACKER_HTML&&fs.readFileSync(process.env.TRACKER_HTML,'utf8'),out=process.env.RESULT||'/tmp/tracker-source-link.json';
-const result={htmlOverride:!!html,browser:browserName,relayOnly:true,checks:[],errors:[]};
+const result={appSha256:html?createHash('sha256').update(html).digest('hex'):null,started:new Date().toISOString(),htmlOverride:!!html,browser:browserName,relayOnly:true,checks:[],errors:[]};
 const browser=await browserType.launch({executablePath:process.env.BROWSER_EXECUTABLE||undefined,args:browserName==='chromium'?['--no-sandbox','--disable-gpu','--disable-background-timer-throttling','--disable-renderer-backgrounding']:[]});
 async function peer(role){
  const context=await browser.newContext({acceptDownloads:true});if(html)await context.route(site,r=>r.fulfill({contentType:'text/html',body:html}));
@@ -73,4 +73,4 @@ try{
   result.checks.push('returning to the tab automatically restores an accessible saved handle and clears its blinking fallback');
  }
  assert.deepEqual(result.errors,[]);result.passed=true;console.log(JSON.stringify(result,null,2));
-}catch(e){result.failure=e.message;result.states=await Promise.all(browser.contexts().flatMap(c=>c.pages()).map(p=>p.evaluate(()=>({net:PrivateTrackerMesh.status(),nats:PrivateTrackerMesh.nats(),relayActors:PrivateTrackerMesh.relayActors(),routes:PrivateTrackerMesh.routes(),files:PrivateTrackerMesh.cleanup(),extra:PrivateTrackerMesh.decentralized()})).catch(()=>null)));throw e}finally{fs.writeFileSync(out,JSON.stringify(result,null,2));await browser.close()}
+}catch(e){result.failure=e.message;result.states=await Promise.all(browser.contexts().flatMap(c=>c.pages()).map(p=>p.evaluate(()=>({net:PrivateTrackerMesh.status(),nats:PrivateTrackerMesh.nats(),relayActors:PrivateTrackerMesh.relayActors(),routes:PrivateTrackerMesh.routes(),files:PrivateTrackerMesh.cleanup(),extra:PrivateTrackerMesh.decentralized()})).catch(()=>null)));throw e}finally{await browser.close();result.ended=new Date().toISOString();if(result.errors.length)result.passed=false;fs.writeFileSync(out,JSON.stringify(result,null,2));assert.deepEqual(result.errors,[])}

@@ -1,0 +1,606 @@
+{
+  "order": "WO-01",
+  "schema": 1,
+  "staticButtons": 85,
+  "unclassifiedStaticButtons": [],
+  "contextMenus": 0,
+  "notes": "No contextmenu business handler exists. Declarative and dynamic selectors, native events, keyboard mutations, trusted consent and public console security are classified separately. This inventory is a coverage map, not evidence that a test passed.",
+  "actions": [
+    {
+      "selectors": [
+        "#filesBtn",
+        "#folderBtn",
+        "#lockedBtn",
+        "#workflowUpload",
+        "#fileInput",
+        "#folderInput",
+        "#lockedInput",
+        "window:drop"
+      ],
+      "commands": [
+        "files.upload"
+      ],
+      "adapter": "pickFiles/pickFolder/submitLockSetup/addFiles",
+      "kind": "authorized-input",
+      "notes": "Picker/drop supplies File/password; UI explicitly requests ephemeral durability for an ordinary File and local for a persistent handle. API defaults to local."
+    },
+    {
+      "selectors": [
+        "[data-relink]",
+        "[data-reauth]",
+        "[data-resource-relink]"
+      ],
+      "commands": [
+        "sources.relink"
+      ],
+      "adapter": "relinkSource/reauthorizeSource/submitSourceLink",
+      "kind": "authorized-input",
+      "notes": "Existing canonical root must match; selection never deletes or replaces disk bytes."
+    },
+    {
+      "selectors": [
+        "[data-unlock-submit]",
+        "keyboard:unlock-enter"
+      ],
+      "commands": [
+        "files.unlock"
+      ],
+      "adapter": "commandImportCredential + commandUI",
+      "kind": "authorized-input",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "[data-download]",
+        "[data-resource-download]"
+      ],
+      "commands": [
+        "files.download"
+      ],
+      "adapter": "requestFile",
+      "kind": "authorized-input",
+      "notes": "Destination consent begins in the native gesture; accepted jobs verify canonical bytes before closing the destination or handing off a browser download."
+    },
+    {
+      "selectors": [
+        "[data-seed]",
+        "[data-resource-seed]",
+        "[data-modal-seed]",
+        "[data-mode]"
+      ],
+      "commands": [
+        "seeding.set"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#privacyBtn",
+        "#settingsPrivacy",
+        "#privacyNoticeToggle"
+      ],
+      "commands": [
+        "privacy.set"
+      ],
+      "adapter": "commandUI + renderPrivacyMode",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#theme-toggle",
+        "#settingsTheme"
+      ],
+      "commands": [
+        "settings.set"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#shareBtn",
+        "#settingsShare",
+        "#workflowShare"
+      ],
+      "commands": [
+        "ui.dialog",
+        "rooms.share"
+      ],
+      "adapter": "commandUI + openRoomShare",
+      "kind": "export",
+      "notes": "Share dialog requires rooms.share scope. Room/file invitations remain full-room capabilities."
+    },
+    {
+      "selectors": [
+        "[data-file-link]",
+        "[data-resource-link]",
+        "#workflowLink"
+      ],
+      "commands": [
+        "rooms.share"
+      ],
+      "adapter": "copyFileLink + commandUI",
+      "kind": "export",
+      "notes": "Clipboard is a user-agent export adapter; credentials are released after copying."
+    },
+    {
+      "selectors": [
+        "#roomShareCopy",
+        "#roomShareDownload"
+      ],
+      "commands": [
+        "rooms.share"
+      ],
+      "adapter": "copyRoomShareLink/downloadRoomQr",
+      "kind": "presentation",
+      "notes": "Formats/copies the already explicitly exported invitation from the share dialog; agent uses rooms.share and exportCredential."
+    },
+    {
+      "selectors": [
+        "[data-stream]",
+        "#previewClose",
+        "keyboard:preview-escape",
+        "#previewModal:backdrop"
+      ],
+      "commands": [
+        "media.open",
+        "media.close"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "native:media-play",
+        "native:media-pause",
+        "native:media-seek",
+        "native:media-rate"
+      ],
+      "commands": [
+        "media.play",
+        "media.pause",
+        "media.seek",
+        "media.rate"
+      ],
+      "adapter": "attachPreviewPositionHandlers",
+      "kind": "native-control",
+      "notes": "Native controls dispatch explicit targets, suppress identical assignments, and share bookmark commits. Decoder/watchdog internals are autonomous, not extra user commands."
+    },
+    {
+      "selectors": [
+        "#previewDebugToggle",
+        "#previewTheater",
+        "#previewFullscreen"
+      ],
+      "commands": [
+        "ui.previewLayout"
+      ],
+      "adapter": "commandUI",
+      "kind": "presentation",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#screenShareBtn",
+        "[data-live-mode]"
+      ],
+      "commands": [
+        "live.start",
+        "live.watch"
+      ],
+      "adapter": "startLiveMedia + commandUI",
+      "kind": "authorized-input",
+      "notes": "Capture consent begins synchronously from a trusted gesture. Already-authorized MediaStream inputs use importCapture; no agent silently starts an OS picker."
+    },
+    {
+      "selectors": [
+        "#liveStopBtn",
+        "[data-live-stop]"
+      ],
+      "commands": [
+        "live.stop"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "[data-live-watch]",
+        "[data-live-preview]"
+      ],
+      "commands": [
+        "live.watch"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#liveViewerClose",
+        "#liveViewerModal:backdrop"
+      ],
+      "commands": [
+        "live.unwatch"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#liveLatencySetup",
+        "#liveLatencyToggle"
+      ],
+      "commands": [
+        "live.latency"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "[data-transfer-toggle]",
+        "[data-transfer-stop]",
+        "[data-transfer-restart]"
+      ],
+      "commands": [
+        "transfers.pause",
+        "transfers.resume",
+        "transfers.cancel",
+        "transfers.restart"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#pinSubmit"
+      ],
+      "commands": [
+        "retention.request",
+        "global.pin"
+      ],
+      "adapter": "submitKeepAvailable + commandUI",
+      "kind": "authorized-input",
+      "notes": "Scope/targets/days are explicit DOM input adapters; the handlers choose targets from arguments, never selectedId."
+    },
+    {
+      "selectors": [
+        "[data-release]"
+      ],
+      "commands": [
+        "retention.release"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "[data-global-retrieve]"
+      ],
+      "commands": [
+        "global.retrieve"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "[data-ipfs-pin]",
+        "[data-ipfs-retrieve]",
+        "[data-ipfs-release]"
+      ],
+      "commands": [
+        "ipfs.pin",
+        "ipfs.retrieve",
+        "ipfs.release"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#storage-save",
+        "#storage-enabled",
+        "#lease-save"
+      ],
+      "commands": [
+        "storage.configure"
+      ],
+      "adapter": "saveStorageControls/saveLeasePreferences + commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#global-save",
+        "#global-enabled"
+      ],
+      "commands": [
+        "global.configure"
+      ],
+      "adapter": "saveGlobalStorageControls + commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#global-persist"
+      ],
+      "commands": [
+        "storage.persist"
+      ],
+      "adapter": "commandUI",
+      "kind": "authorized-input",
+      "notes": "Browser decides persistence permission; result reports actual grant, not indefinite storage."
+    },
+    {
+      "selectors": [
+        "#browserStorageRefresh",
+        "#browserStorageMore"
+      ],
+      "commands": [
+        "storage.inspect"
+      ],
+      "adapter": "refreshBrowserStorage/renderBrowserStorage",
+      "kind": "read-adapter",
+      "notes": "Scanning/list pagination only; same bounded inventory and safe-clear protection rules."
+    },
+    {
+      "selectors": [
+        "#browserStorageClearCache",
+        "#browserStorageClearSelected",
+        "[data-browser-storage-clear]"
+      ],
+      "commands": [
+        "storage.clear"
+      ],
+      "adapter": "confirmBrowserStorageClear + commandUI",
+      "kind": "authorized-input",
+      "notes": "User confirmation supplies item IDs; handler checks protected/active ownership before scoped deletion."
+    },
+    {
+      "selectors": [
+        "[data-forget-room]"
+      ],
+      "commands": [
+        "rooms.forget"
+      ],
+      "adapter": "commandUI",
+      "kind": "command",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "[data-view]"
+      ],
+      "commands": [
+        "ui.navigate"
+      ],
+      "adapter": "commandUI",
+      "kind": "presentation",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#privacyNoticeBtn",
+        "#disclaimerBtn",
+        "[data-policy-open]"
+      ],
+      "commands": [
+        "help.privacy",
+        "help.disclaimer"
+      ],
+      "adapter": "openPolicyNotice",
+      "kind": "presentation",
+      "notes": "Both use the same native notice renderer; no room data is mutated."
+    },
+    {
+      "selectors": [
+        "#downloadSourceBtn",
+        "[data-download-source]"
+      ],
+      "commands": [
+        "system.source"
+      ],
+      "adapter": "downloadApplicationSource/commandFetchSource",
+      "kind": "public-read",
+      "notes": "Public static source fetch is bounded and shared with system.source; never serializes DOM or room credentials and remains usable without room readiness."
+    },
+    {
+      "selectors": [
+        "#agentAccessButton"
+      ],
+      "commands": [
+        "ui.dialog"
+      ],
+      "adapter": "commandOpenAccess",
+      "kind": "presentation",
+      "notes": ""
+    },
+    {
+      "selectors": [
+        "#agentAccessSave"
+      ],
+      "commands": [],
+      "adapter": "local approval binding",
+      "kind": "trusted-consent",
+      "notes": "Deliberate authority bootstrap exception: only a trusted local user event changes the agent grant. A command cannot approve itself. Encryption/CAS writes and revocation hooks are documented at the binding."
+    },
+    {
+      "selectors": [
+        "#agentAccessCapture"
+      ],
+      "commands": [
+        "live.start",
+        "interactions.get"
+      ],
+      "adapter": "native permission interaction binding",
+      "kind": "trusted-consent",
+      "notes": "Only trusted local UI can call OS/browser permission prompts; agent observes the same principal-bound interaction/job and can supply preauthorized native inputs."
+    },
+    {
+      "selectors": [
+        "#globalRefresh",
+        "#providerRefresh"
+      ],
+      "commands": [
+        "global.index",
+        "retention.status"
+      ],
+      "adapter": "discovery query/render",
+      "kind": "read-adapter",
+      "notes": "Rebroadcasts existing consent-governed offers and refreshes cached discovery. No pin, payment, allocation or catalog mutation occurs."
+    },
+    {
+      "selectors": [
+        "#lease-preview"
+      ],
+      "commands": [
+        "settings.get"
+      ],
+      "adapter": "copyLeasePreferences",
+      "kind": "public-read",
+      "notes": "Copies local lease preferences only; does not request storage or grant room authority."
+    },
+    {
+      "selectors": [
+        "#globalInventoryMore"
+      ],
+      "commands": [
+        "global.inventory"
+      ],
+      "adapter": "renderGlobalInventory",
+      "kind": "presentation",
+      "notes": "Reveal the next local inventory page."
+    },
+    {
+      "selectors": [
+        "#fileLinkRetry",
+        "#fileLinkBack"
+      ],
+      "commands": [
+        "files.stat",
+        "ui.navigate"
+      ],
+      "adapter": "startFileLocator/backToRoom",
+      "kind": "presentation",
+      "notes": "Retry existing read/discovery or return to the same room; no byte or catalog mutation."
+    },
+    {
+      "selectors": [
+        "#menu-button",
+        "#scrim",
+        "[data-filter]",
+        "[data-resource-tab]",
+        "#search",
+        "#nav-search",
+        "[data-toggle]",
+        "[data-unlock]",
+        "[data-unlock-title]",
+        "[data-select-resource]",
+        "[data-keep]",
+        "[data-provider-request]",
+        "[data-global-keep]",
+        "[data-global-shard]",
+        "[data-transfer-open]"
+      ],
+      "commands": [
+        "ui.navigate",
+        "ui.select",
+        "ui.dialog",
+        "files.list",
+        "files.search"
+      ],
+      "adapter": "local navigation/selection/form renderer",
+      "kind": "presentation",
+      "notes": "Only selects, filters, expands, navigates or opens a form. Any subsequent business operation dispatches the command recorded above."
+    },
+    {
+      "selectors": [
+        "#tabOverview",
+        "#tabShards",
+        "#tabActivity",
+        "#tabSettings",
+        "#roomShareClose",
+        "#liveSetupClose",
+        "#transferClose",
+        "#lockSetupClose",
+        "#lockChooseBtn",
+        "#liveMediaBtn",
+        "#pinClose",
+        "#pinCancel",
+        "[data-policy-close]",
+        "[data-modal-dismiss]",
+        "[data-agent-close]"
+      ],
+      "commands": [
+        "ui.dialog"
+      ],
+      "adapter": "local dialog/form/focus renderer",
+      "kind": "presentation",
+      "notes": "Opening/closing forms, choosing a source and dismissing prompts do not start a transfer/capture. lockChooseBtn gathers password and calls the authorized upload adapter after source selection."
+    },
+    {
+      "selectors": [
+        "keyboard:dialog-escape",
+        "keyboard:dialog-tab",
+        "keyboard:resource-arrows",
+        "keyboard:nav-slash",
+        "pointer:tooltip",
+        "viewport:resize",
+        "pinch:gesture"
+      ],
+      "commands": [
+        "ui.dialog",
+        "ui.previewLayout"
+      ],
+      "adapter": "initDialogNavigation/initPolicyNotices/tooltip/viewport handlers",
+      "kind": "presentation",
+      "notes": "Focus, tooltips, viewport and menu controls only; preview Escape and Enter-to-unlock mutations are separately mapped above."
+    },
+    {
+      "selectors": [
+        "TrackerSecurity.identity",
+        "TrackerSecurity.protect",
+        "TrackerSecurity.grant",
+        "TrackerSecurity.revoke",
+        "TrackerSecurity.policy"
+      ],
+      "commands": [
+        "security.identity",
+        "security.protect",
+        "security.grant",
+        "security.revoke",
+        "security.policy"
+      ],
+      "adapter": "shared semantic trusted-console adapters",
+      "kind": "trusted-local",
+      "notes": "Compatibility API is a local console binding, not an untrusted RPC authority or a same-origin JavaScript sandbox."
+    },
+    {
+      "selectors": [
+        "status:source-verification"
+      ],
+      "commands": [
+        "sources.verify",
+        "jobs.get"
+      ],
+      "adapter": "renderSourceRecovery",
+      "kind": "status-only",
+      "notes": "Disabled sourceRecovery verification indicator reports work in progress; it is not an invokable action."
+    }
+  ]
+}

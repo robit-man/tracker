@@ -1,0 +1,569 @@
+{
+  "order": "WO-01",
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "baselineSha256": "c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7",
+  "generated": "2026-10-13T19:17:04.706Z",
+  "passed": true,
+  "records": [
+    {
+      "name": "units",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:09:31.420Z",
+      "ended": "2026-10-13T19:09:34.196Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-resources",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:07:46.001Z",
+      "ended": "2026-10-13T19:08:19.829Z",
+      "reason": null
+    },
+    {
+      "name": "native-screen",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:13:13.673Z",
+      "ended": "2026-10-13T19:13:31.629Z",
+      "reason": null
+    },
+    {
+      "name": "global-ui",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": null,
+      "ended": "2026-10-13T19:10:44.092Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-avi",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:06.038Z",
+      "ended": "2026-10-13T19:08:23.479Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-source-link",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:23.751Z",
+      "ended": "2026-10-13T19:08:45.141Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-storage-ui",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": null,
+      "ended": null,
+      "reason": null
+    },
+    {
+      "name": "chromium-policy-ui",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": null,
+      "ended": null,
+      "reason": null
+    },
+    {
+      "name": "firefox-avi",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:09:16.450Z",
+      "ended": "2026-10-13T19:09:36.532Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-source-link",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:09:36.791Z",
+      "ended": "2026-10-13T19:10:02.362Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-storage-ui",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": null,
+      "ended": null,
+      "reason": null
+    },
+    {
+      "name": "firefox-policy-ui",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": null,
+      "ended": null,
+      "reason": null
+    },
+    {
+      "name": "chromium-acceptance",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:07:46.008Z",
+      "ended": "2026-10-13T19:08:05.273Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-boundaries",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:07:45.802Z",
+      "ended": "2026-10-13T19:08:21.227Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-transfer",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:05.397Z",
+      "ended": "2026-10-13T19:09:39.302Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-capture",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:09:39.419Z",
+      "ended": "2026-10-13T19:10:05.268Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-storage",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:06:57.033Z",
+      "ended": "2026-10-13T19:07:30.668Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-upgrade",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:10:05.345Z",
+      "ended": "2026-10-13T19:10:08.491Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-process-crash",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:07:45.818Z",
+      "ended": "2026-10-13T19:07:54.343Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-process-crash-locked",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:07:54.418Z",
+      "ended": "2026-10-13T19:08:05.788Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-media-fixture.mp4",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:07:45.839Z",
+      "ended": "2026-10-13T19:09:27.872Z",
+      "reason": null
+    },
+    {
+      "name": "chromium-media-tail.mp4",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:09:27.987Z",
+      "ended": "2026-10-13T19:10:59.954Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-acceptance",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:10:08.783Z",
+      "ended": "2026-10-13T19:10:45.380Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-boundaries",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:21.321Z",
+      "ended": "2026-10-13T19:09:03.014Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-transfer",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:10:45.492Z",
+      "ended": "2026-10-13T19:12:07.920Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-capture",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:12:08.036Z",
+      "ended": "2026-10-13T19:12:39.109Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-storage",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:27.316Z",
+      "ended": "2026-10-13T19:09:19.752Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-upgrade",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:12:39.186Z",
+      "ended": "2026-10-13T19:12:45.835Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-process-crash",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:05.869Z",
+      "ended": "2026-10-13T19:08:15.352Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-process-crash-locked",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:08:15.427Z",
+      "ended": "2026-10-13T19:08:27.615Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-media-fixture.mp4",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:11:00.052Z",
+      "ended": "2026-10-13T19:12:03.882Z",
+      "reason": null
+    },
+    {
+      "name": "firefox-media-tail.mp4",
+      "status": "PASS",
+      "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+      "started": "2026-10-13T19:12:03.988Z",
+      "ended": "2026-10-13T19:13:31.424Z",
+      "reason": null
+    }
+  ],
+  "requirements": [
+    {
+      "id": "WO-01-R01",
+      "symbol": "TrackerCore / commandRegister / commandManifest / TrackerAgent; action-parity.json",
+      "test": "inventory; core units; browser; native screen; storage/policy UI",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "units",
+        "native-screen",
+        "chromium-storage-ui",
+        "firefox-storage-ui",
+        "chromium-policy-ui",
+        "firefox-policy-ui"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R02",
+      "symbol": "commandUI / addFilesImpl / requestFile / commandDownload / commandCatalogMutation / commandCaptureWork",
+      "test": "browser; transfer; storage; native screen; source-link; AVI",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-transfer",
+        "firefox-transfer",
+        "chromium-storage",
+        "firefox-storage",
+        "native-screen",
+        "chromium-source-link",
+        "firefox-source-link",
+        "chromium-avi",
+        "firefox-avi"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R03",
+      "symbol": "commandValidate / commandAuthorize / commandPreflight / commandRefreshAuthority / commandGuard / commandApplyGuards",
+      "test": "malformed/prototype/foreign-handle units; protected writer; actual commit revocation; opaque storage permissions",
+      "evidence": [
+        "units",
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-capture",
+        "firefox-capture"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R04",
+      "symbol": "commandJoin / commandBridgeCall / commandLeave / owned-parent MessagePort binding",
+      "test": "four contexts/fifth rejected; child File/bytes/native output; child reload; 100 teardowns per browser",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-resources"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R05",
+      "symbol": "commandImportSource / commandStageUpload / commandUpload / commandUploadLockPlan / addFilesImpl",
+      "test": "deterministic vectors; stream/native inputs; local-default upload; process kill, plain and locked",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-process-crash",
+        "firefox-process-crash",
+        "chromium-process-crash-locked",
+        "firefox-process-crash-locked"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R06",
+      "symbol": "commandDownload / finishDownload / commandRelinkWork / commandWorkFor / transfers.* / jobs.*",
+      "test": "real pause/worker release/reload/resume/cancel; wrong source; independent relay bytes; frontier loss and SAFE",
+      "evidence": [
+        "chromium-transfer",
+        "firefox-transfer",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-media-fixture.mp4",
+        "firefox-media-fixture.mp4",
+        "chromium-media-tail.mp4",
+        "firefox-media-tail.mp4",
+        "chromium-source-link",
+        "firefox-source-link"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R07",
+      "symbol": "commandCatalogMutationImpl / signCatalogOperationV4 / catalogParentSafeV4 / original v4 revision history",
+      "test": "protected writer/forged handle/cycle; signed rename/move/delete/restore; out-of-order/tombstone units",
+      "evidence": [
+        "units",
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R08",
+      "symbol": "commandInputRequired / commandSyncInteraction / commandCaptureWork / commandImportDestination / trusted permission binding",
+      "test": "denied and pending capture; late accepted tracks; real Canvas/WebAudio relay; native Xvfb capture; disk permissions",
+      "evidence": [
+        "chromium-capture",
+        "firefox-capture",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "native-screen"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R09",
+      "symbol": "commandWriteRecord / commandAtomicRecords / commandPrepareCatalogReceipt / commandWithPublication / saveState / pending publication guards",
+      "test": "real transaction abort; receipt failure; background-save race; process kill; provider rejection callback; clear retry",
+      "evidence": [
+        "units",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-storage",
+        "firefox-storage",
+        "chromium-process-crash",
+        "firefox-process-crash",
+        "chromium-process-crash-locked",
+        "firefox-process-crash-locked"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R10",
+      "symbol": "COMMAND_LIMITS / commandNetworkReady / system.health / commandPage / commandWakeWaitingJobs / lifecycle teardown",
+      "test": "offline local operations; same-job network recovery; 1000 reads; 100 teardowns; baseline heap/RSS/event-loop comparison",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-resources"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R11",
+      "symbol": "inline core; shared UI handlers; preview intent/bookmarks; Browser storage; Privacy explanation; commandFetchSource",
+      "test": "actual old HTML upgrade; both themes/four widths; exact raw source; MP4/AVI; global cold recovery; relink/native permissions",
+      "evidence": [
+        "chromium-upgrade",
+        "firefox-upgrade",
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-storage-ui",
+        "firefox-storage-ui",
+        "chromium-policy-ui",
+        "firefox-policy-ui",
+        "chromium-avi",
+        "firefox-avi",
+        "chromium-media-fixture.mp4",
+        "firefox-media-fixture.mp4",
+        "chromium-media-tail.mp4",
+        "firefox-media-tail.mp4",
+        "global-ui",
+        "chromium-source-link",
+        "firefox-source-link"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-R12",
+      "symbol": "TrackerAgent usage comment; tests/wo-01-examples.mjs: runExamples",
+      "test": "all nine examples execute with a real consenting provider; examples release owned inputs",
+      "evidence": [
+        "chromium-storage",
+        "firefox-storage"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A01",
+      "symbol": "TrackerCore and complete action matrix",
+      "test": "manifest/schemas and action inventory; independent UI/API business families; explicit presentation/consent exceptions",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "units",
+        "native-screen",
+        "chromium-storage-ui",
+        "firefox-storage-ui",
+        "chromium-policy-ui",
+        "firefox-policy-ui",
+        "chromium-source-link",
+        "firefox-source-link"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A02",
+      "symbol": "commandValidate / commandAuthorize / commandCatalogMutationImpl",
+      "test": "ungranted protected visitor; forged context/handle; unknown property; cyclic move; CID-preserving rename",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A03",
+      "symbol": "commandJoin / commandLeave / commandNetworkReady",
+      "test": "current plus three/fifth rejected; child restart and cleanup; explicit local/network readiness while offline",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-resources"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A04",
+      "symbol": "commandUpload / atomic acceptance / commandDownload / source and lock recovery",
+      "test": "650000 bytes; stable operation retry; independently checked canonical/plain roots; actual SIGKILL checkpoint and one publication",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-process-crash",
+        "firefox-process-crash",
+        "chromium-process-crash-locked",
+        "firefox-process-crash-locked"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A05",
+      "symbol": "transfers.* / jobs.* / media.* / existing adaptive SAFE controller",
+      "test": "real transfer pause/reload/resume/cancel; bookmark close/resume; actual decoder-front packet drop; dynamic SAFE lower band",
+      "evidence": [
+        "chromium-transfer",
+        "firefox-transfer",
+        "chromium-media-fixture.mp4",
+        "firefox-media-fixture.mp4",
+        "chromium-media-tail.mp4",
+        "firefox-media-tail.mp4"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A06",
+      "symbol": "commandCatalogMutation / saveState / browserStorageTransaction / storage.clear / durable receipts",
+      "test": "actual signed publication and cache deletion abort; no source leak; stable failed retry; unrelated identity/catalog/native file retained",
+      "evidence": [
+        "units",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-storage",
+        "firefox-storage",
+        "chromium-storage-ui",
+        "firefox-storage-ui"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A07",
+      "symbol": "capture/native-input bindings and resumable interactions",
+      "test": "capture denied/pending/stopped; actual authorized fixture media; real native capture; denied file permission and actual native writer bytes",
+      "evidence": [
+        "chromium-capture",
+        "firefox-capture",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "native-screen"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "WO-01-A08",
+      "symbol": "bounded manifest/state/rooms; runExamples",
+      "test": "1000 command reads and 100 teardowns in each engine; nine examples; both themes and four widths; bounded usage",
+      "evidence": [
+        "chromium-acceptance",
+        "firefox-acceptance",
+        "chromium-boundaries",
+        "firefox-boundaries",
+        "chromium-storage",
+        "firefox-storage",
+        "chromium-resources"
+      ],
+      "status": "PASS"
+    }
+  ]
+}

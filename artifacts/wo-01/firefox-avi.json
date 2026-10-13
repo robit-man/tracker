@@ -1,0 +1,113 @@
+{
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "started": "2026-10-13T19:09:16.450Z",
+  "browser": "firefox",
+  "htmlOverride": true,
+  "fixtures": [
+    "/tmp/tracker-wo01-media/compat.avi"
+  ],
+  "checks": [
+    "closing AVI before its first section keeps playback and further conversion paused until Resume",
+    "compat.avi decodes video locally",
+    "compat.avi transfers through encrypted relays and decodes on the receiving peer",
+    "media seeks and resumes at its saved position",
+    "download SVG rotates counterclockwise with its arrowheads"
+  ],
+  "errors": [],
+  "url": "https://robit-man.github.io/tracker/#[redacted]",
+  "local0": {
+    "url": "https://robit-man.github.io/tracker/#[redacted]",
+    "actor": "bb23aaa9-e414-4701-82a1-2fe8dc622e35",
+    "room": "ROOM 9C732FB39E",
+    "peers": {
+      "d3e5353c-a3ee-40bb-bacc-63a3b08b7605": {
+        "planes": {
+          "nats": 1791918565720,
+          "nats-presence": 1791918561293
+        },
+        "nknAddr": "",
+        "lastSeen": 1791918565720
+      }
+    },
+    "preview": {
+      "cid": "f-b2c91e3148230a8ca74039f8d6a9a0a342606cd3d2dce538db08dadcbf9ffc2c",
+      "hidden": false,
+      "time": 2.511224
+    },
+    "state": "PLAYING · TRANSCODING",
+    "stage": "",
+    "video": {
+      "time": 2.511224,
+      "duration": 18.041666666666668,
+      "paused": false,
+      "ready": 3,
+      "width": 320,
+      "height": 240,
+      "frames": 60
+    },
+    "routes": {
+      "nats": "ready",
+      "nats-relay": "on",
+      "libp2p": "connecting",
+      "ipfs": "local",
+      "waku": "loading"
+    },
+    "privacy": {
+      "enabled": true,
+      "rtc": false,
+      "policy": "relay"
+    }
+  },
+  "remote0": {
+    "url": "https://robit-man.github.io/tracker/#[redacted]",
+    "actor": "d3e5353c-a3ee-40bb-bacc-63a3b08b7605",
+    "room": "ROOM 9C732FB39E",
+    "peers": {
+      "bb23aaa9-e414-4701-82a1-2fe8dc622e35": {
+        "planes": {
+          "nats": 1791918572513
+        },
+        "nknAddr": "",
+        "lastSeen": 1791918572513
+      }
+    },
+    "preview": {
+      "cid": "f-b2c91e3148230a8ca74039f8d6a9a0a342606cd3d2dce538db08dadcbf9ffc2c",
+      "hidden": false,
+      "state": "complete",
+      "time": 2.509115,
+      "received": 5,
+      "bytes": 2233062,
+      "sid": "1c5b1b16-55da-4cc8-95e9-d9e421a0d175"
+    },
+    "state": "COMPLETE",
+    "stage": "",
+    "video": {
+      "time": 2.509115,
+      "duration": 18.041666666666668,
+      "paused": false,
+      "ready": 3,
+      "width": 320,
+      "height": 240,
+      "frames": 60
+    },
+    "routes": {
+      "nats": "ready",
+      "nats-relay": "on",
+      "libp2p": "connecting",
+      "ipfs": "local",
+      "waku": "loading"
+    },
+    "privacy": {
+      "enabled": true,
+      "rtc": false,
+      "policy": "relay"
+    }
+  },
+  "spinner": {
+    "animation": "dlSpin",
+    "direction": "reverse"
+  },
+  "passed": true,
+  "ended": "2026-10-13T19:09:36.532Z"
+}

@@ -1,0 +1,31 @@
+{
+  "order": "WO-01",
+  "case": "WO-01-A04",
+  "engine": "chromium",
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "started": "2026-10-13T19:07:45.818Z",
+  "size": 33554432,
+  "locked": false,
+  "sourceArtifact": "artifacts/wo-01/source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz",
+  "checkpoint": {
+    "type": "checkpoint",
+    "jobId": "job-137e1577-28a3-4deb-94ea-b540f2a55dda",
+    "phase": "staging",
+    "bytes": 524288,
+    "revision": 4,
+    "cid": "f-2f38ab7fbd6068e57dac3c6cb5595e01e2184dfc9de267ed489730a5150aa66c"
+  },
+  "completed": {
+    "type": "completed",
+    "jobId": "job-137e1577-28a3-4deb-94ea-b540f2a55dda",
+    "cid": "f-2f38ab7fbd6068e57dac3c6cb5595e01e2184dfc9de267ed489730a5150aa66c",
+    "root": "2f38ab7fbd6068e57dac3c6cb5595e01e2184dfc9de267ed489730a5150aa66c",
+    "sha256": "b1ef2080b7d65133586bd09a53db3aa0839754e9e256e7958f953604ebcc5783",
+    "canonicalRootFromBytes": null,
+    "entries": 1,
+    "nodeId": "n-acc3dd0ca053add7822db64416e29b2f142219a3cca5ee6bd569d1a621b0e3f9",
+    "restoredState": "waiting_source"
+  },
+  "passed": true,
+  "ended": "2026-10-13T19:07:54.343Z"
+}

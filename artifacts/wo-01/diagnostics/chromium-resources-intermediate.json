@@ -1,0 +1,348 @@
+{
+  "started": "2026-10-13T18:37:06.343Z",
+  "node": "v24.14.0",
+  "browser": "chromium",
+  "baseline": {
+    "sourceArtifact": "artifacts/wo-01/source-c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7.html.gz",
+    "sha256": "c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7",
+    "measurements": {
+      "warm": {
+        "heap": 12580704,
+        "dom": {
+          "documents": 1,
+          "nodes": 2239,
+          "jsEventListeners": 172
+        },
+        "rss": 538308608,
+        "delay": {
+          "mean": 3.1400000005960464,
+          "p99": 83.19999998807907
+        },
+        "frames": 0,
+        "usage": null
+      },
+      "samples": [
+        {
+          "heap": 25715060,
+          "dom": {
+            "documents": 1,
+            "nodes": 2286,
+            "jsEventListeners": 713
+          },
+          "rss": 586047488,
+          "delay": {
+            "mean": 0.15499999970197678,
+            "p99": 1.7000000178813934
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 26532056,
+          "dom": {
+            "documents": 1,
+            "nodes": 2286,
+            "jsEventListeners": 839
+          },
+          "rss": 622768128,
+          "delay": {
+            "mean": 0.18499999940395356,
+            "p99": 2.0999999940395355
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 26966588,
+          "dom": {
+            "documents": 1,
+            "nodes": 2286,
+            "jsEventListeners": 771
+          },
+          "rss": 656359424,
+          "delay": {
+            "mean": 0.31000000014901163,
+            "p99": 6.700000017881393
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 27887768,
+          "dom": {
+            "documents": 1,
+            "nodes": 2286,
+            "jsEventListeners": 840
+          },
+          "rss": 696315904,
+          "delay": {
+            "mean": 0.20500000044703484,
+            "p99": 3.5
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 28366312,
+          "dom": {
+            "documents": 1,
+            "nodes": 2305,
+            "jsEventListeners": 865
+          },
+          "rss": 735686656,
+          "delay": {
+            "mean": 0.08999999985098839,
+            "p99": 0.20000001788139343
+          },
+          "frames": 0,
+          "usage": null
+        }
+      ],
+      "end": {
+        "heap": 28386052,
+        "dom": {
+          "documents": 1,
+          "nodes": 2286,
+          "jsEventListeners": 845
+        },
+        "rss": 732938240,
+        "delay": {
+          "mean": 0.07999999970197677,
+          "p99": 0.20000001788139343
+        },
+        "frames": 0,
+        "usage": null
+      },
+      "heapGrowth": 15805348,
+      "rssGrowth": 194629632,
+      "errors": [
+        "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
+      ]
+    }
+  },
+  "candidate": {
+    "sourceArtifact": "artifacts/wo-01/source-6fbeb705b35ef0a2e358ec8a9c804c1a79f899738eed78c9f14cbeaf3f6c9633.html.gz",
+    "sha256": "6fbeb705b35ef0a2e358ec8a9c804c1a79f899738eed78c9f14cbeaf3f6c9633",
+    "measurements": {
+      "warm": {
+        "heap": 18769916,
+        "dom": {
+          "documents": 1,
+          "nodes": 2352,
+          "jsEventListeners": 225
+        },
+        "rss": 560775168,
+        "delay": {
+          "mean": 1.8950000002980232,
+          "p99": 14.099999994039536
+        },
+        "frames": 0,
+        "usage": {
+          "requests": 11,
+          "rejected": 0,
+          "active": 1,
+          "peakActive": 1,
+          "contexts": 1,
+          "sources": 0,
+          "jobs": 0,
+          "byteHandles": 0,
+          "destinations": 0,
+          "cursors": 0,
+          "interactions": 0,
+          "queuedJobs": 0,
+          "runningJobs": 0,
+          "events": 10
+        }
+      },
+      "samples": [
+        {
+          "heap": 26761164,
+          "dom": {
+            "documents": 1,
+            "nodes": 2352,
+            "jsEventListeners": 967
+          },
+          "rss": 618172416,
+          "delay": {
+            "mean": 0.13249999955296515,
+            "p99": 1.7999999821186066
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 52,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 50
+          }
+        },
+        {
+          "heap": 29213408,
+          "dom": {
+            "documents": 1,
+            "nodes": 2363,
+            "jsEventListeners": 1155
+          },
+          "rss": 655273984,
+          "delay": {
+            "mean": 0.15500000044703482,
+            "p99": 1.4000000059604645
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 93,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 90
+          }
+        },
+        {
+          "heap": 30037056,
+          "dom": {
+            "documents": 1,
+            "nodes": 2352,
+            "jsEventListeners": 1453
+          },
+          "rss": 704557056,
+          "delay": {
+            "mean": 0.22000000029802322,
+            "p99": 3
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 134,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 128
+          }
+        },
+        {
+          "heap": 30564760,
+          "dom": {
+            "documents": 1,
+            "nodes": 2352,
+            "jsEventListeners": 1556
+          },
+          "rss": 755908608,
+          "delay": {
+            "mean": 0.23250000029802323,
+            "p99": 1.600000023841858
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 175,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 128
+          }
+        },
+        {
+          "heap": 30948104,
+          "dom": {
+            "documents": 1,
+            "nodes": 2352,
+            "jsEventListeners": 1557
+          },
+          "rss": 787226624,
+          "delay": {
+            "mean": 0.29249999970197677,
+            "p99": 2.9000000059604645
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 216,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 128
+          }
+        }
+      ],
+      "end": {
+        "heap": 31066568,
+        "dom": {
+          "documents": 1,
+          "nodes": 2352,
+          "jsEventListeners": 1555
+        },
+        "rss": 784629760,
+        "delay": {
+          "mean": 0.2674999997019768,
+          "p99": 4.299999982118607
+        },
+        "frames": 0,
+        "usage": {
+          "requests": 217,
+          "rejected": 0,
+          "active": 1,
+          "peakActive": 1,
+          "contexts": 1,
+          "sources": 0,
+          "jobs": 0,
+          "byteHandles": 0,
+          "destinations": 0,
+          "cursors": 0,
+          "interactions": 0,
+          "queuedJobs": 0,
+          "runningJobs": 0,
+          "events": 128
+        }
+      },
+      "heapGrowth": 12296652,
+      "rssGrowth": 223854592,
+      "errors": [
+        "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
+      ]
+    }
+  },
+  "failure": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   \"Failed to read the 'localStorage' property from 'Window': Access is denied for this document.\"\n+ ]\n- []\n\n    at file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-01-resources.mjs:12:347",
+  "ended": "2026-10-13T18:37:40.223Z"
+}

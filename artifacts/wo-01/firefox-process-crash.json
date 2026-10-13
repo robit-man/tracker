@@ -1,0 +1,31 @@
+{
+  "order": "WO-01",
+  "case": "WO-01-A04",
+  "engine": "firefox",
+  "appSha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+  "started": "2026-10-13T19:08:05.869Z",
+  "size": 33554432,
+  "locked": false,
+  "sourceArtifact": "artifacts/wo-01/source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz",
+  "checkpoint": {
+    "type": "checkpoint",
+    "jobId": "job-bd1b4152-7dfa-4664-a7d6-44a95c2594cc",
+    "phase": "staging",
+    "bytes": 524288,
+    "revision": 3,
+    "cid": "f-2f38ab7fbd6068e57dac3c6cb5595e01e2184dfc9de267ed489730a5150aa66c"
+  },
+  "completed": {
+    "type": "completed",
+    "jobId": "job-bd1b4152-7dfa-4664-a7d6-44a95c2594cc",
+    "cid": "f-2f38ab7fbd6068e57dac3c6cb5595e01e2184dfc9de267ed489730a5150aa66c",
+    "root": "2f38ab7fbd6068e57dac3c6cb5595e01e2184dfc9de267ed489730a5150aa66c",
+    "sha256": "b1ef2080b7d65133586bd09a53db3aa0839754e9e256e7958f953604ebcc5783",
+    "canonicalRootFromBytes": null,
+    "entries": 1,
+    "nodeId": "n-ef1bcd6e02281db3ad051c84ff43889cd8542cc5536cc31406e6f4aff4883d29",
+    "restoredState": "waiting_source"
+  },
+  "passed": true,
+  "ended": "2026-10-13T19:08:15.352Z"
+}

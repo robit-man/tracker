@@ -1,0 +1,18 @@
+{
+  "engine": "chromium",
+  "appSha256": "bd282369e89a58bbc31f2b66c4ecda8a856d8c1505b51740f37146452ef5fe9a",
+  "sourceArtifact": "artifacts/wo-01/source-bd282369e89a58bbc31f2b66c4ecda8a856d8c1505b51740f37146452ef5fe9a.html.gz",
+  "started": "2026-10-13T18:38:19.597Z",
+  "checks": [
+    "API global.pin confirms actual ciphertext plus signed private recovery metadata; provider sees only opaque inventory",
+    "Fresh room automatically recovers its file with uploader page closed, then API retrieves byte-identical content",
+    "Original owner releases its opaque provider object through the shared command",
+    "API IPFS pin/status/release persists real encrypted blocks and reports local durability",
+    "Room retention request/status/release uses real acquisition and preserves bytes when releasing a lease",
+    "Aborted cache-clear transaction preserves complete verified bytes; stable retry preserves the failed outcome",
+    "Selective browser cache clear removes bytes while preserving catalog and signing identity"
+  ],
+  "errors": [],
+  "failure": "AssertionError [ERR_ASSERTION]: system.source: {\"code\":\"OFFLINE\",\"message\":\"Source request failed (404).\",\"retryable\":true,\"details\":{}}\n\nfalse !== true\n\n    at invoke (file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-01-examples.mjs:9:123)\n    at async runExamples (file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-01-examples.mjs:22:12)\n    at async file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-01-storage.mjs:26:18",
+  "ended": "2026-10-13T18:38:48.153Z"
+}

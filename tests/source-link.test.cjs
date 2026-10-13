@@ -13,7 +13,7 @@ function source(name){
 function fixture(){
  const writes=[],messages=[],c=vm.createContext({crypto,Uint8Array,TextEncoder,performance,enc:new TextEncoder(),CHUNK_SIZE:512*1024,
   contents:new Map(),catalog:new Map(),sourceFiles:new Map(),sourceHandles:new Map(),sourceStamps:new Map(),sourceVerifyProgress:new Map(),
-  localHave:new Set(),sourceClaims:new Set(),sourceNeedsAuth:new Set(),sourceMissing:new Set(),sourceVerifying:new Set(),selectedSeeds:new Set(),cachedComplete:new Set(),
+  commandPublicationTail:Promise.resolve(),commandPublicationOwner:null,commandPublicationPending:0,commandPendingCids:new Set(),localHave:new Set(),sourceClaims:new Set(),sourceNeedsAuth:new Set(),sourceMissing:new Set(),sourceVerifying:new Set(),selectedSeeds:new Set(),cachedComplete:new Set(),
   unlockedKeys:new Map(),unlockedMeta:new Map(),unlockRows:new Set(),selectedId:null,seedMode:'selected',window:{},
   sha256Bytes:async value=>new Uint8Array(await crypto.subtle.digest('SHA-256',typeof value==='string'?new TextEncoder().encode(value):value)),
   concatBytes:(a,b)=>{const out=new Uint8Array(a.length+b.length);out.set(a);out.set(b,a.length);return out},
@@ -21,13 +21,15 @@ function fixture(){
   aesEncryptKey:async(key,plain,iv,aad)=>new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(aad)},key,plain)),
   verificationYield:async()=>{},setTimeout:()=>1,scheduleDownloadRowRender:()=>{},renderDetails:()=>{},renderTree:()=>{},renderAll:()=>{},
   fmtBytes:n=>String(n),fmtRate:n=>String(n),esc:s=>s,visibleName:e=>e.name,toast:s=>messages.push(s),
-  idbDel:async(store,cid)=>writes.push(['delete',store,cid]),idbGet:async()=>null,
+  idbPut:async(store,cid,handle)=>{c.sourceHandles.set(cid,handle);writes.push(['handle',cid,handle])},idbDel:async(store,cid)=>writes.push(['delete',store,cid]),idbGet:async()=>null,
   persistHandle:async(cid,h)=>{c.sourceHandles.set(cid,h);writes.push(['handle',cid,h])},
   saveState:async()=>writes.push(['save']),seedSaltFor:cid=>writes.push(['salt',cid]),
   broadcastAvailability:async()=>writes.push(['advertise',[...c.localHave].filter(cid=>c.seedEnabled(cid))])
  });
- for(const name of ['swarmInit','swarmStep','hashFileStreamingMain','hashLockedFileStreamingMain','sourceStamp','seedEnabled','sourceLinkActions','sourceVerificationMarkup','verifySourceCandidate','linkVerifiedSource','pickSourceFile','reauthorizeSource','relinkSource'])vm.runInContext(source(name),c);
+ for(const name of ['commandWithPublication','swarmInit','swarmStep','hashFileStreamingMain','hashLockedFileStreamingMain','sourceStamp','seedEnabled','sourceLinkActions','sourceVerificationMarkup','verifySourceCandidate','linkVerifiedSource','pickSourceFile','reauthorizeSource','relinkSource'])vm.runInContext(source(name),c);
  c.hashFileStreaming=c.hashFileStreamingMain;c.hashLockedFileStreaming=c.hashLockedFileStreamingMain;
+ // The picker is now a semantic adapter; retain real hashing/persistence in this unit fixture.
+ c.submitSourceLink=(cid,file,handle)=>c.linkVerifiedSource(cid,file,handle);
  c.writes=writes;c.messages=messages;
  return c;
 }
@@ -145,3 +147,6 @@ test('completion cleanup from an earlier attempt cannot erase a new verification
  const fresh={fraction:.1,done:1,total:good.size,started:performance.now()+1};c.sourceVerifyProgress.set(cid,fresh);
  timers[0]();assert.equal(c.sourceVerifyProgress.get(cid),fresh);
 });
+
+// WO-01: committed availability must not race a pending metadata transaction.
+test('an upload awaiting catalog commit cannot advertise its source',()=>{const c=fixture();c.localHave.add('pending');c.selectedSeeds.add('pending');c.commandPendingCids.add('pending');assert.equal(c.seedEnabled('pending'),false);c.commandPendingCids.delete('pending');assert.equal(c.seedEnabled('pending'),true)});
