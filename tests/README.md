@@ -615,3 +615,23 @@ The optional `PROFILE` mode uses an explicitly supplied **copy** of a Chromium
 profile, with `ROOM_STATE` pointing to a private JSON file containing its room URL.
 It verifies repeated reloads, the resumed incomplete download, bounded post-GC
 heap/DOM, and read-only inventory of the supplied cache. It contains no clear action.
+
+### Privacy/disclaimer dialogs and raw source
+
+`node tests/policy-notices-browser.mjs` exercises the local app snapshot in an
+isolated Chromium context; use `BROWSER=firefox` for Firefox. It verifies the
+sidebar actions, native full-page modal access, focus containment and return,
+Escape, cross-links, the existing privacy toggle, primary legal references,
+320–1440px layouts, and dark/light rendering. Downloaded `index.html` must match
+the supplied snapshot byte for byte and contain no generated room secret. The
+harness also checks a failed source response and retry, missing referrer, and
+source resolution from a storage-shard path. `TRACKER_HTML`, `TRACKER_TEST_DEPS`,
+`OUT` and `SITE` configure snapshots, dependencies and artifacts. `LIVE=1` skips
+HTML interception and error injection, validates the deployed document against
+the local snapshot, and exercises the actual source endpoint.
+
+The notices explain room-link capabilities (including the room access in file
+links), local disk/cache/plaintext conversion boundaries, room versus blind
+global providers, routing metadata, dependencies, and the static-host trust
+boundary. Legal references are general information with explicit jurisdictional
+and statutory conditions; the notice does not claim blanket host immunity.
