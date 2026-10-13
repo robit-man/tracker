@@ -1,0 +1,344 @@
+{
+  "started": "2026-10-13T21:29:48.176Z",
+  "node": "v24.14.0",
+  "browser": "chromium",
+  "baseline": {
+    "sourceArtifact": "artifacts/wo-02/regressions/source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz",
+    "sha256": "e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc",
+    "measurements": {
+      "warm": {
+        "heap": 17617224,
+        "dom": {
+          "documents": 1,
+          "nodes": 2344,
+          "jsEventListeners": 211
+        },
+        "rss": 554446848,
+        "delay": {
+          "mean": 1.8425000004470349,
+          "p99": 12.599999994039536
+        },
+        "frames": 0,
+        "usage": null
+      },
+      "samples": [
+        {
+          "heap": 26370808,
+          "dom": {
+            "documents": 1,
+            "nodes": 2333,
+            "jsEventListeners": 880
+          },
+          "rss": 612966400,
+          "delay": {
+            "mean": 0.575,
+            "p99": 12.299999982118607
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 27128836,
+          "dom": {
+            "documents": 1,
+            "nodes": 2333,
+            "jsEventListeners": 1050
+          },
+          "rss": 645156864,
+          "delay": {
+            "mean": 0.17750000059604645,
+            "p99": 2.2999999821186066
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 28139656,
+          "dom": {
+            "documents": 1,
+            "nodes": 2333,
+            "jsEventListeners": 1140
+          },
+          "rss": 695107584,
+          "delay": {
+            "mean": 0.23249999955296516,
+            "p99": 3.7000000178813934
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 29127256,
+          "dom": {
+            "documents": 1,
+            "nodes": 2333,
+            "jsEventListeners": 1278
+          },
+          "rss": 744030208,
+          "delay": {
+            "mean": 0.11500000059604645,
+            "p99": 0.6000000238418579
+          },
+          "frames": 0,
+          "usage": null
+        },
+        {
+          "heap": 29229536,
+          "dom": {
+            "documents": 1,
+            "nodes": 2333,
+            "jsEventListeners": 1110
+          },
+          "rss": 766332928,
+          "delay": {
+            "mean": 0.11500000059604645,
+            "p99": 0.9000000059604645
+          },
+          "frames": 0,
+          "usage": null
+        }
+      ],
+      "end": {
+        "heap": 29218068,
+        "dom": {
+          "documents": 1,
+          "nodes": 2333,
+          "jsEventListeners": 1053
+        },
+        "rss": 763809792,
+        "delay": {
+          "mean": 0.10500000044703484,
+          "p99": 0.20000001788139343
+        },
+        "frames": 0,
+        "usage": null
+      },
+      "heapGrowth": 11600844,
+      "rssGrowth": 209362944,
+      "errors": []
+    }
+  },
+  "candidate": {
+    "sourceArtifact": "artifacts/wo-02/regressions/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+    "sha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+    "measurements": {
+      "warm": {
+        "heap": 20797284,
+        "dom": {
+          "documents": 1,
+          "nodes": 3106,
+          "jsEventListeners": 235
+        },
+        "rss": 551596032,
+        "delay": {
+          "mean": 0.3624999992549419,
+          "p99": 7.700000017881393
+        },
+        "frames": 0,
+        "usage": {
+          "requests": 11,
+          "rejected": 0,
+          "active": 1,
+          "peakActive": 1,
+          "contexts": 1,
+          "sources": 0,
+          "jobs": 0,
+          "byteHandles": 0,
+          "destinations": 0,
+          "cursors": 0,
+          "interactions": 0,
+          "queuedJobs": 0,
+          "runningJobs": 0,
+          "events": 10
+        }
+      },
+      "samples": [
+        {
+          "heap": 26077596,
+          "dom": {
+            "documents": 1,
+            "nodes": 3106,
+            "jsEventListeners": 886
+          },
+          "rss": 625803264,
+          "delay": {
+            "mean": 0.23999999985098838,
+            "p99": 2.9000000059604645
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 52,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 50
+          }
+        },
+        {
+          "heap": 27764356,
+          "dom": {
+            "documents": 1,
+            "nodes": 3106,
+            "jsEventListeners": 1284
+          },
+          "rss": 674381824,
+          "delay": {
+            "mean": 0.27999999970197675,
+            "p99": 3.699999988079071
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 93,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 90
+          }
+        },
+        {
+          "heap": 28219448,
+          "dom": {
+            "documents": 1,
+            "nodes": 3106,
+            "jsEventListeners": 1353
+          },
+          "rss": 741126144,
+          "delay": {
+            "mean": 0.23999999985098838,
+            "p99": 5.300000011920929
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 134,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 128
+          }
+        },
+        {
+          "heap": 29133820,
+          "dom": {
+            "documents": 1,
+            "nodes": 3106,
+            "jsEventListeners": 1185
+          },
+          "rss": 772153344,
+          "delay": {
+            "mean": 0.13250000029802322,
+            "p99": 0.7000000178813934
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 175,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 128
+          }
+        },
+        {
+          "heap": 28447760,
+          "dom": {
+            "documents": 1,
+            "nodes": 3106,
+            "jsEventListeners": 1016
+          },
+          "rss": 765743104,
+          "delay": {
+            "mean": 0.0875,
+            "p99": 0.20000001788139343
+          },
+          "frames": 0,
+          "usage": {
+            "requests": 216,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 0,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 128
+          }
+        }
+      ],
+      "end": {
+        "heap": 28501632,
+        "dom": {
+          "documents": 1,
+          "nodes": 3106,
+          "jsEventListeners": 1020
+        },
+        "rss": 765747200,
+        "delay": {
+          "mean": 0.09250000044703484,
+          "p99": 0.20000001788139343
+        },
+        "frames": 0,
+        "usage": {
+          "requests": 217,
+          "rejected": 0,
+          "active": 1,
+          "peakActive": 1,
+          "contexts": 1,
+          "sources": 0,
+          "jobs": 0,
+          "byteHandles": 0,
+          "destinations": 0,
+          "cursors": 0,
+          "interactions": 0,
+          "queuedJobs": 0,
+          "runningJobs": 0,
+          "events": 128
+        }
+      },
+      "heapGrowth": 7704348,
+      "rssGrowth": 214151168,
+      "errors": []
+    }
+  },
+  "passed": true,
+  "ended": "2026-10-13T21:30:22.138Z"
+}

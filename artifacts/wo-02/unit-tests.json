@@ -1,0 +1,13 @@
+{
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "started": "2026-10-13T21:27:53.151965+00:00",
+  "ended": "2026-10-13T21:27:56.008120+00:00",
+  "node": "v24.14.0",
+  "order": "WO-02",
+  "tests": 322,
+  "pass": 322,
+  "fail": 0,
+  "passed": true,
+  "command": "node --test tests/*.test.cjs",
+  "log": "artifacts/wo-02/node-tests.log"
+}

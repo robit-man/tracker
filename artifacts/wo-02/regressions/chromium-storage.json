@@ -1,0 +1,31 @@
+{
+  "engine": "chromium",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "sourceArtifact": "artifacts/wo-02/regressions/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "started": "2026-10-13T21:30:49.161Z",
+  "checks": [
+    "API global.pin confirms actual ciphertext plus signed private recovery metadata; provider sees only opaque inventory",
+    "Fresh room automatically recovers its file with uploader page closed, then API retrieves byte-identical content",
+    "Original owner releases its opaque provider object through the shared command",
+    "IPFS retrieve rebuilds the cleared room cache from actual encrypted blockstore data and independently verified bytes",
+    "API IPFS pin/status/release persists real encrypted blocks and reports local durability",
+    "Room retention request/status/release uses real acquisition and preserves bytes when releasing a lease",
+    "Aborted cache-clear transaction preserves complete verified bytes; stable retry preserves the failed outcome",
+    "Selective browser cache clear removes bytes while preserving catalog and signing identity",
+    "All nine documented facade examples execute against real storage and peer routes"
+  ],
+  "errors": [],
+  "examples": [
+    "joining",
+    "listing",
+    "uploading",
+    "downloading",
+    "verifying",
+    "pinning",
+    "releasing",
+    "relinking",
+    "raw-source"
+  ],
+  "passed": true,
+  "ended": "2026-10-13T21:31:20.051Z"
+}

@@ -1,0 +1,240 @@
+{
+  "order": "WO-02",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "generatedAt": "2026-10-13T21:46:06.143Z",
+  "passed": true,
+  "checks": [
+    {
+      "artifact": "unit-tests.json",
+      "passed": true
+    },
+    {
+      "artifact": "action-inventory.json",
+      "passed": true
+    },
+    {
+      "artifact": "embedded-discovery.json",
+      "passed": true
+    },
+    {
+      "artifact": "chromium-agent-acceptance.json",
+      "passed": true
+    },
+    {
+      "artifact": "chromium-keyboard.json",
+      "passed": true
+    },
+    {
+      "artifact": "chromium-binding-process-crash.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/chromium-core.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/chromium-boundaries.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/chromium-storage.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/chromium-capture.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/chromium-media-fixture.mp4.json",
+      "passed": true
+    },
+    {
+      "artifact": "firefox-agent-acceptance.json",
+      "passed": true
+    },
+    {
+      "artifact": "firefox-keyboard.json",
+      "passed": true
+    },
+    {
+      "artifact": "firefox-binding-process-crash.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/firefox-core.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/firefox-boundaries.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/firefox-storage.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/firefox-capture.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/firefox-media-fixture.mp4.json",
+      "passed": true
+    },
+    {
+      "artifact": "regressions/chromium-resources.json",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A01-discovery",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A01-examples",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A02-data",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A02-canaries",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A03",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-pin",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-peer",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-source-leave",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-readiness",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A05-window",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A06",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A07",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A08",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "binding-process-kill",
+      "engine": "chromium",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A01-discovery",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A01-examples",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A02-data",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A02-canaries",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A03",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-pin",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-peer",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-source-leave",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A04-readiness",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A05-window",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A06",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A07",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "WO-02-A08",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "case": "binding-process-kill",
+      "engine": "firefox",
+      "passed": true
+    },
+    {
+      "sourceArchive": "artifacts/wo-02/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+      "passed": true
+    },
+    {
+      "sourceArchive": "artifacts/wo-02/regressions/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+      "passed": true
+    },
+    {
+      "sourceArchive": "artifacts/wo-02/regressions/source-e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.html.gz",
+      "passed": true
+    }
+  ]
+}

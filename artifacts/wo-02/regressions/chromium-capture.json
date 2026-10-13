@@ -1,0 +1,18 @@
+{
+  "engine": "chromium",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "started": "2026-10-13T21:31:20.152Z",
+  "checks": [
+    "Native browser consent is structured, observable and dismissible without starting a picker",
+    "Denied browser-capture boundary produces retryable input_required and releases its private capture handle",
+    "Stopping a pending native picker frees the worker and stops a late accepted stream before publishing",
+    "screen relays real encoded fixture media, supports low latency and stops its tracks",
+    "av relays real encoded fixture media, supports low latency and stops its tracks",
+    "audio relays real encoded fixture media, supports low latency and stops its tracks",
+    "Revoking local agent authority stops an ongoing agent-owned capture"
+  ],
+  "errors": [],
+  "sourceArtifact": "artifacts/wo-02/regressions/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "passed": true,
+  "ended": "2026-10-13T21:31:46.855Z"
+}

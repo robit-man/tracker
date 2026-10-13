@@ -1,0 +1,35 @@
+{
+  "order": "WO-02",
+  "engine": "chromium",
+  "node": "v24.14.0",
+  "appSha256": "b5c3dd981dcb4304cbf2f0c9c765b62e900b0b67ac7d6f2fa654d3e1082dbf65",
+  "sourceArtifact": "artifacts/wo-02/source-b5c3dd981dcb4304cbf2f0c9c765b62e900b0b67ac7d6f2fa654d3e1082dbf65.html.gz",
+  "started": "2026-10-13T21:09:26.679Z",
+  "checks": [
+    {
+      "id": "WO-02-A01-discovery",
+      "detail": "95 real descriptors match public embedded metadata; ?agent=1 preserves fragment; no implicit authority"
+    },
+    {
+      "id": "WO-02-A02-data",
+      "detail": "Prompt-like filename stays signed data; projected resource contains provenance and no instruction authority"
+    },
+    {
+      "id": "WO-02-A04-pin",
+      "detail": "Documented pin confirms actual independent ciphertext and private catalog retention; provider has no room catalog"
+    },
+    {
+      "id": "WO-02-A04-peer",
+      "detail": "Independent peer downloads and relinks identical multi-chunk bytes; room retention reports verified independent copy"
+    }
+  ],
+  "errors": [],
+  "browser": "156.0.8078.4",
+  "transferred": {
+    "bytes": 650000,
+    "sha256": "718e06c733cb51ca786c73ad3b5b0f8f2a3456d9a2ec7fe093bd5474522bae5d"
+  },
+  "failure": "TypeError: Cannot read properties of undefined (reading 'length')\n    at file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-02-browser.mjs:25:1255",
+  "ended": "2026-10-13T21:09:42.916Z",
+  "passed": false
+}

@@ -1,0 +1,137 @@
+{
+  "order": "WO-02",
+  "engine": "chromium",
+  "node": "v24.14.0",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "sourceArtifact": "artifacts/wo-02/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "started": "2026-10-13T21:29:28.240Z",
+  "checks": [
+    {
+      "id": "WO-02-A01-discovery",
+      "detail": "95 real descriptors match public embedded metadata; ?agent=1 preserves fragment; no implicit authority"
+    },
+    {
+      "id": "WO-02-A02-data",
+      "detail": "Prompt-like filename stays signed data; projected resource contains provenance and no instruction authority"
+    },
+    {
+      "id": "WO-02-A04-pin",
+      "detail": "Documented pin confirms actual independent ciphertext and private catalog retention; provider has no room catalog"
+    },
+    {
+      "id": "WO-02-A04-peer",
+      "detail": "Independent peer downloads and relinks identical multi-chunk bytes; room retention reports verified independent copy"
+    },
+    {
+      "id": "WO-02-A03",
+      "detail": "250 normal signed entries paginate with stable ASCII order and bounded projections; changed permissions expire cursors"
+    },
+    {
+      "id": "WO-02-A05-window",
+      "detail": "Trusted exact-window binding handles native File and bytes with separate principal; duplicate mutation has one effect; forged origin/source/nonce/room/script and sibling handles cause zero effects"
+    },
+    {
+      "id": "WO-02-A02-canaries",
+      "detail": "Grant changes clear principal unlock knowledge; locked names, credential/path and room-secret canaries absent from discovery/help/resources/errors/state"
+    },
+    {
+      "id": "WO-02-A01-examples",
+      "detail": "Every documented helper runs: upload/verify/download/pin/relink/pages/link export/native continuation/source/pause/same-job resume/cancel"
+    },
+    {
+      "id": "WO-02-A06",
+      "detail": "Normal JS/events work with no native API; minimal observer sees all 95 real schemas and callbacks retain authorization/cancellation"
+    },
+    {
+      "id": "WO-02-A07",
+      "detail": "Native focus restored for 100 dialog cycles; labeled inspectors fit 320/390/800/1440 in both themes and malformed JSON stays a structured error"
+    },
+    {
+      "id": "WO-02-A08",
+      "detail": "1000 correlated events/discovery calls keep active=0, replies<=128 and listener counts unchanged; owned room leaves cleanly"
+    },
+    {
+      "id": "WO-02-A04-source-leave",
+      "detail": "Source stops advertising unique content: download reports waiting_source and frees worker; same job recovers after source returns"
+    },
+    {
+      "id": "WO-02-A04-readiness",
+      "detail": "Independent verified retention and explicit offline readiness remain distinct from successful transport"
+    }
+  ],
+  "errors": [],
+  "browser": "156.0.8078.4",
+  "transferred": {
+    "bytes": 650000,
+    "sha256": "718e06c733cb51ca786c73ad3b5b0f8f2a3456d9a2ec7fe093bd5474522bae5d"
+  },
+  "layouts": [
+    {
+      "theme": "dark",
+      "width": 320,
+      "scroll": 320,
+      "inspector": 292,
+      "labels": true
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "scroll": 390,
+      "inspector": 362,
+      "labels": true
+    },
+    {
+      "theme": "dark",
+      "width": 800,
+      "scroll": 800,
+      "inspector": 760,
+      "labels": true
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "scroll": 1440,
+      "inspector": 1063.1875,
+      "labels": true
+    },
+    {
+      "theme": "light",
+      "width": 320,
+      "scroll": 320,
+      "inspector": 292,
+      "labels": true
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "scroll": 390,
+      "inspector": 362,
+      "labels": true
+    },
+    {
+      "theme": "light",
+      "width": 800,
+      "scroll": 800,
+      "inspector": 760,
+      "labels": true
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "scroll": 1440,
+      "inspector": 1063.1875,
+      "labels": true
+    }
+  ],
+  "usage": {
+    "activeRequests": 0,
+    "peakRequests": 10,
+    "rememberedRequests": 128,
+    "bindings": 0,
+    "pendingBindings": 0,
+    "nativeTools": 0,
+    "nativeStatus": "unavailable"
+  },
+  "passed": true,
+  "ended": "2026-10-13T21:30:00.884Z"
+}

@@ -1,0 +1,158 @@
+{
+  "order": "WO-01",
+  "live": false,
+  "engine": "firefox",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "started": "2026-10-13T21:29:48.182Z",
+  "checks": [
+    {
+      "id": "WO-01-A01",
+      "detail": "Bounded manifest discovers real closed input/output schemas; default agent denies authority"
+    },
+    {
+      "id": "WO-01-R03-manifest-isolation",
+      "detail": "Public descriptors cannot mutate registry authorization or validation"
+    },
+    {
+      "id": "WO-01-A04",
+      "detail": "API stages and verifies 650000 bytes; stable retries produce one logical job/publication"
+    },
+    {
+      "id": "WO-01-R07-history",
+      "detail": "Move, tombstone and signed restoration preserve immutable content and explicit parent"
+    },
+    {
+      "id": "WO-01-A02",
+      "detail": "Unknown properties, foreign source authority and cyclic moves reject; signed rename preserves CID"
+    },
+    {
+      "id": "WO-01-A03",
+      "detail": "Current plus three owned room peers; fifth denied; foreign context routes and explicit leave clean up"
+    },
+    {
+      "id": "WO-01-R04-room-io",
+      "detail": "Owned room accepts a real File, persists it, and returns bounded byte ranges through its scoped bridge without leaking its catalog into the visible room"
+    },
+    {
+      "id": "WO-01-A04-relay",
+      "detail": "Independent peer retrieves byte-identical data over real encrypted relay paths with direct routes disabled"
+    },
+    {
+      "id": "WO-01-A06-offline-job",
+      "detail": "Unavailable network releases its worker; offline local publication succeeds; same download job resumes to verified relay bytes"
+    },
+    {
+      "id": "WO-01-A04-reload",
+      "detail": "Committed job/verified bytes and local grant survive reload"
+    },
+    {
+      "id": "WO-01-A07",
+      "detail": "Browser screen capture reports resumable input_required without fabricating a stream"
+    },
+    {
+      "id": "WO-01-A08",
+      "detail": "1000 bounded state reads and both themes at four viewport widths"
+    }
+  ],
+  "errors": [],
+  "sourceArtifact": "artifacts/wo-02/regressions/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "commandNames": [
+    "bindings.close",
+    "bindings.create",
+    "bindings.get",
+    "bindings.list",
+    "credentials.release",
+    "entries.delete",
+    "entries.move",
+    "entries.rename",
+    "entries.restore",
+    "files.download",
+    "files.list",
+    "files.lock",
+    "files.lockStatus",
+    "files.search",
+    "files.stat",
+    "files.unlock",
+    "files.upload",
+    "folders.create",
+    "global.configure",
+    "global.index",
+    "global.inventory",
+    "global.pin",
+    "global.release",
+    "global.retrieve",
+    "help.disclaimer",
+    "help.privacy",
+    "interactions.ack",
+    "interactions.get",
+    "interactions.list",
+    "ipfs.pin",
+    "ipfs.release",
+    "ipfs.retrieve",
+    "ipfs.status",
+    "jobs.ack",
+    "jobs.cancel",
+    "jobs.get",
+    "jobs.list",
+    "jobs.pause",
+    "jobs.resume",
+    "live.latency",
+    "live.list",
+    "live.start",
+    "live.stop",
+    "live.unwatch",
+    "live.watch",
+    "media.close",
+    "media.open",
+    "media.pause",
+    "media.play",
+    "media.rate",
+    "media.seek",
+    "media.state",
+    "privacy.get",
+    "privacy.set",
+    "retention.release",
+    "retention.request",
+    "retention.status",
+    "rooms.create",
+    "rooms.forget",
+    "rooms.join",
+    "rooms.leave",
+    "rooms.recent",
+    "rooms.share",
+    "security.grant",
+    "security.identity",
+    "security.policy",
+    "security.protect",
+    "security.revoke",
+    "seeding.get",
+    "seeding.set",
+    "settings.get",
+    "settings.set",
+    "sources.register",
+    "sources.release",
+    "sources.relink",
+    "sources.remove",
+    "sources.verify",
+    "storage.clear",
+    "storage.configure",
+    "storage.inspect",
+    "storage.persist",
+    "system.health",
+    "system.manifest",
+    "system.source",
+    "system.state",
+    "transfers.cancel",
+    "transfers.get",
+    "transfers.list",
+    "transfers.pause",
+    "transfers.restart",
+    "transfers.resume",
+    "ui.dialog",
+    "ui.navigate",
+    "ui.previewLayout",
+    "ui.select"
+  ],
+  "passed": true,
+  "ended": "2026-10-13T21:30:25.453Z"
+}

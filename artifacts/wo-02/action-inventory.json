@@ -1,0 +1,10 @@
+{
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "started": "2026-10-13T21:27:53.151965+00:00",
+  "ended": "2026-10-13T21:27:56.008120+00:00",
+  "node": "v24.14.0",
+  "order": "WO-02",
+  "command": "node tests/wo-02-inventory.mjs",
+  "output": "PASS full static/delegated action inventory: 133 buttons, 49 action groups",
+  "passed": true
+}

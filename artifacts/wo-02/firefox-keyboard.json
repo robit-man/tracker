@@ -1,0 +1,15 @@
+{
+  "order": "WO-02",
+  "case": "WO-02-A07",
+  "engine": "firefox",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "sourceArtifact": "artifacts/wo-02/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "started": "2026-10-13T21:39:44.600Z",
+  "checks": [
+    "Enter opens native consent dialog; Tab remains within it; Escape closes and restores original control without granting authority",
+    "Keyboard state/inspector actions retain authorization checks; headings and native fields expose accessible names"
+  ],
+  "errors": [],
+  "passed": true,
+  "ended": "2026-10-13T21:39:47.966Z"
+}

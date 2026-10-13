@@ -1,0 +1,29 @@
+{
+  "order": "WO-02",
+  "engine": "firefox",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "sourceArtifact": "artifacts/wo-02/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "started": "2026-10-13T21:35:25.606Z",
+  "checkpoint": {
+    "type": "checkpoint",
+    "bindingId": "binding-e2bcf57a-ca48-4d83-aa3f-a8e10879eacb",
+    "jobId": "job-9d6d4448-a0c2-4fba-b942-bac49bf09ae6",
+    "cid": "f-fc5c66e68c8b60e0be8dba7d3b98bb86a0dafdb45ef5e536ceaa9d3cb984f8c1",
+    "uri": "tracker://room-be5be08f-592f-4575-a456-8f160cef1e6a/files/f-fc5c66e68c8b60e0be8dba7d3b98bb86a0dafdb45ef5e536ceaa9d3cb984f8c1",
+    "nodeId": "n-71719caf395ef9501ec53657bf2f5f976c8734bc43b48c64c841e48683748651"
+  },
+  "ownedKilledProcesses": 8,
+  "completed": {
+    "type": "completed",
+    "jobId": "job-9d6d4448-a0c2-4fba-b942-bac49bf09ae6",
+    "cid": "f-fc5c66e68c8b60e0be8dba7d3b98bb86a0dafdb45ef5e536ceaa9d3cb984f8c1",
+    "bytes": 1100000,
+    "sha256": "0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb",
+    "nodeId": "n-71719caf395ef9501ec53657bf2f5f976c8734bc43b48c64c841e48683748651",
+    "restoredPolicy": "disconnected",
+    "finalPolicy": "revoked",
+    "errors": []
+  },
+  "passed": true,
+  "ended": "2026-10-13T21:35:34.924Z"
+}

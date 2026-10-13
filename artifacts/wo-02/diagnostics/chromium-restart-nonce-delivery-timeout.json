@@ -1,0 +1,10 @@
+{
+  "order": "WO-02",
+  "engine": "chromium",
+  "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "sourceArtifact": "artifacts/wo-02/source-47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.html.gz",
+  "started": "2026-10-13T21:31:52.037Z",
+  "failure": "Error: frame.waitForFunction: Timeout 90000ms exceeded.\n    at process.<anonymous> (/home/roko/Documents/Projects/Adjacent/tracker/tests/wo-02-restart.mjs:13:1233)\n    at ChildProcess.<anonymous> (file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-02-restart.mjs:21:419)\n    at ChildProcess.emit (node:events:508:28)\n    at emit (node:internal/child_process:948:14)\n    at process.processTicksAndRejections (node:internal/process/task_queues:91:21)",
+  "ended": "2026-10-13T21:33:23.450Z",
+  "passed": false
+}

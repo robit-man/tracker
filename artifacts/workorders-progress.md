@@ -3,26 +3,31 @@
 User instruction: integrate and validate WO-01 through WO-20 in order, committing and
 pushing each completed order to main before beginning the next implementation.
 
-WO-01 is fully integrated and validated. Its implementation is the main-branch commit
-containing this status update and the exact-source validation artifacts. WO-02 is next;
-WO-02 through WO-20 have not yet been implemented.
+WO-01 is fully integrated, validated and published as
+744b5c8274b7e4f63409309196b10e3bd76126d4. Its exact deployed source and real
+unintercepted live peer transfer were verified. Its source-specific evidence remains
+unchanged under artifacts/wo-01.
 
-Current HTML build: 2026-10-13-command-engine-v110.
-Current HTML SHA-256: e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.
-Baseline HTML SHA-256: c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7.
-The deployable HTML remains standalone. Tests and dependencies are optional development inputs.
+WO-02 is fully integrated and validated. The commit containing this update publishes
+its implementation and exact-source gate/evidence. WO-03 is next; WO-03 through WO-20
+have not yet been implemented.
 
-The current Node suite passes 316 tests. Actual Chromium/Firefox checks cover authorized
-command dispatch, schema and principal negatives, signed folder history, owned-room File,
-byte and native destination bridges, real encrypted relay transfer, pause/reload/resume/cancel,
-plain/locked process-kill recovery, native permissions and media, encrypted global recovery,
-IPFS pin/retrieve/release, real cache aborts, original-HTML upgrade and bounded context teardown.
-Final MP4, tail-metadata MP4, AVI, native screen capture and UI regressions all pass on the same current source.
+Current HTML build: 2026-10-13-agent-surface-v111.
+Current HTML SHA-256: 47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21.
+Published WO-01 baseline: e1fd8f8023563f861d695d657ab276f89a5a2126e634faa3ee5ccc8362b760fc.
 
-The completion gate is tests/wo-01-report.mjs, not this progress note. All owned harnesses
-finished and artifacts/wo-01/gate.json shows every current-source artifact PASS. artifacts/wo-01/validation.md maps all R01–R12/A01–A08 to code and execution.
-See run.md for pinned dependencies/run commands and degraded-modes.md for actual boundaries.
-Historical diagnostic failures remain failures, not acceptance evidence.
+WO-02 gate: tests/wo-02-report.mjs; artifacts/wo-02/gate.json has 51 PASS checks.
+artifacts/wo-02/validation.md maps all R01–R12/A01–A08. run.md documents installation,
+reproduction, protocols, authority and measured limitations. 322 Node tests pass.
+Actual Chromium/Firefox suites cover discovery-to-peer bytes/global retention,
+all resource families, 250 signed entries/projections, native window inputs and
+origin/source/nonce/principal negatives, locked reads and grant changes, native
+keyboard/focus, both themes/four widths, 100 consent cycles and 1,000 correlated events.
+Both browsers pass actual process SIGKILL recovery of binding policies, original
+child job, identity, stable resource URI and independently verified 1,100,000 bytes.
+Current-source core, policy/quota/boundary, encrypted storage recovery/IPFS, capture
+and MP4 SAFE/bookmark/far-seek regressions all pass. The published-baseline/candidate
+100-cycle workload finishes with bounded contexts/queues and no unhandled errors.
 
-Only synthetic rooms and owned browser profiles are used. User browsers/CDP 9222 and
-independent endurance processes remain untouched. No CUDA or container workload is used.
+Only owned synthetic rooms/browser profiles are used. User browsers/CDP 9222 and
+independent endurance processes remain untouched. No CUDA/container workload is used.
