@@ -1,0 +1,493 @@
+# WO-04 — A persistent headless peer
+
+Status: **Ready for implementation; this document is not an implementation or a passing test report.**
+
+Required project inputs: this work order and `index.html`. Authoring baseline: `bef1b7da5eeaf338e1b87f30cee3c3dc7a2554d7`;
+HTML SHA-256: `c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7`; authored 2026-10-13. A later supplied HTML may already contain
+some interfaces; verify and reuse them rather than assuming this snapshot is still exact.
+
+## Outcome
+
+A user-owned supervised process operates and seeds authorized rooms without a visible window, survives process restarts and can serve as the durable execution host for external agents.
+
+## Execution contract: this file and index.html are sufficient project inputs
+
+Implement this work order, rather than only proposing an implementation. The supplied
+`index.html` is the authoritative existing application. No other work order, repository
+document, hidden conversation, user browser, existing test, Scratch deployment or private
+media file is a prerequisite. You may create tests, fixtures, build tools and optional
+companion programs as explicitly needed below; all browser functionality must remain
+available from the deployable HTML. External development tools can be installed using
+the bootstrap commands below. Reference links explain provenance; implementation-critical
+choices are specified in this document.
+
+Use semantic function names to locate code; line numbers are not an integration contract.
+If a named function has moved, find its responsibility before editing. If an interface
+specified here already exists, validate and extend it compatibly. If absent, implement
+the minimal **real** foundation described here, with persistence, validation and transport
+adapters; a mock, TODO, unsupported happy path or instruction to implement another work
+order first does not satisfy this order. Do not claim unrelated future features are
+implemented. Define optional capability names and return `UNSUPPORTED` when absent.
+
+This work creates production code, automated tests and in-code documentation. Changes to
+shared wire formats require explicit versions, compatibility tests and recovery behavior.
+Companion executables are user-operated peers/adapters; GitHub Pages remains a static
+host. A service worker cannot be used as a promise of indefinite execution after browser
+closure. Do not replace the existing encrypted peer routes with a mandatory central server.
+
+## Current application facts to preserve
+
+- The HTML is a browser IIFE. `roomLocalReady` gates local initialization; `initSecret`,
+  `loadLocal`, `initGlobalStorage`, then `startMesh` initialize the room. Public diagnostics
+  at `window.PrivateTrackerMesh` are not a complete command API. `TrackerSecurity` is a
+  separate public policy API. UI handlers often catch errors and show toasts; resolution
+  of their Promise is **not** evidence that a requested mutation succeeded.
+- Default chunk size is 524288 bytes. Existing content IDs are `f-<64 lowercase hex>` and
+  identify **sha256-chain-v1**, not ordinary SHA-256 of the complete file. For byte length
+  S, chunk size C and N=max(1,ceil(S/C)), start H=SHA256(UTF8(`robit-swarm-v2\0${S}\0${C}\0${N}`));
+  for each canonical chunk in order replace H=SHA256(H || SHA256(chunk)). The final H is
+  the existing root. Empty files still have one zero-length canonical chunk. Preserve IDs.
+- `catalog` maps entry IDs (`r-...` files / `d-...` folders) to entries; `contents` maps CIDs
+  to immutable manifests. Entry IDs, CIDs, transfer SIDs, object IDs and request IDs are
+  different identifiers. Never interchange them. `sourceFiles`/`sourceHandles` describe
+  selected disk sources; `cachedComplete`/`localHave` describe local availability;
+  `sessions` and `sessionBySid` describe active acquisition. A transient File reference is
+  not a source that survives a restart.
+- `#<room-secret>`, and `#<room-secret>/f/<root>`, carry the SAME room access secret. Generated
+  secrets have 48 hex characters, but existing custom secrets also work. Parse via
+  `parseTrackerFragment`, never by hashing the entire URL. Room hash is
+  SHA256(UTF8('private-tracker-room|'+secret)). Existing AES-256-GCM room key uses PBKDF2-
+  SHA256, salt UTF8('private-tracker-v2|'+roomHash), 250000 iterations. Reuse the existing
+  implementation; do not change old room derivation. Protected invitations include the
+  independent owner fingerprint in `/a/n-...`; preserve it.
+- Room IndexedDB `robit-private-tracker-<roomHash>` is version 4 with `kv`, `files`, `chunks`,
+  `handles`, `downloadHandles`, `streamChunks`. `putKV` encrypts JSON with AAD `local:<key>`.
+  Chunk keys are `<cid>:<index>`, encrypted with AAD `cache:<cid>:<index>`. Whole-file legacy
+  `files` values may be gigabytes: inspect their keys without loading them into memory.
+  Existing request-success IDB helpers do not prove transaction commit. New accepted
+  operations must await transaction `oncomplete`, and handle `onabort` and quota errors.
+- Node identity is a persisted nonextractable Ed25519 key. Room control encryption,
+  original catalog/manifest signatures, authenticated binary sessions and final content
+  verification remain mandatory. Use `canonicalEncodeV4`, `signRecordV4`, `verifyRecordV4`
+  and existing policy checks, not parallel unsigned mutation paths. Protected-room write
+  grants constrain publishing; possession of the current room secret still grants ordinary
+  room reading. An application-level deny flag cannot make an already-known key disappear.
+- `readLocalChunk` supplies canonical bytes; locked files' canonical bytes are ciphertext.
+  `canonicalToPlain` requires the file unlock key for plaintext. `finishDownload` and
+  `verifyCachedDownloadRoot` determine verified completion. Do not mark a partial or merely
+  received file verified. Existing playback may use provisional bytes before full verification.
+- Room traffic uses NATS/MQTT/Nostr encrypted relays and permitted direct/overlay adapters;
+  Waku is control/discovery, not a bulk media carrier. `setPrivacyMode(true)` restricts
+  direct routes; preserve the distinction between hiding addresses from peers and from
+  relay operators. Use existing scheduler/backpressure/recovery plumbing for file bytes.
+  Playback SAFE horizons remain measured dynamically; do not introduce a fixed playback
+  time target or a 300-second buffer threshold.
+- `globalMesh` has a separate deployment-derived namespace, signing identity, provider
+  election and `meta`/`objects`/`chunks` stores. Existing providers handle opaque encrypted
+  objects via `begin`, ordered idempotent `put`, `commit`, `get`, `release`. Private signed
+  locators and encrypted catalog recovery are separate from public capacity offers.
+  Providers must not receive room secrets/hashes, filenames, canonical roots, plaintext
+  catalogs, native source paths, passwords or agent authorization credentials. Ciphertext
+  sizes, opaque IDs, pseudonyms and traffic timing remain observable; do not claim anonymity
+  from the infrastructure. A provider separately invited to a room has that room's access.
+
+## Shared implementation contract, reproduced here deliberately
+
+Expose a versioned `TrackerCore` semantic registry inside the HTML IIFE, and an authorized
+public facade `window.TrackerAgent` only for the operations implemented by this order.
+Reuse a compatible existing registry. Define `register(descriptor, handler)` and
+`dispatch(name,args,trustedContext)`; the descriptor has `name`, `version`, `inputSchema`,
+`outputSchema`, `effects`, `permissions`, `durability`, `requiresUserGesture` and `handler`.
+Validate JSON Schema before effects. Caller-supplied JSON is not `trustedContext`; context
+comes from a locally authorized binding and identifies principal, room handle, permitted
+operations, roots, budget and cancellation signal. A descriptor's annotations do not grant
+permission. Do not evaluate arbitrary scripts, selectors, filesystem paths or shell commands
+as substitutes for semantic operations.
+
+Browser facade minimum: `ready:Promise`, `manifest()`, `invoke(name,args,options?)` and
+`getState({room?,fields?,cursor?,limit?})`. A room handle is an opaque local reference to a
+credential/actor context, never a room secret disguised as an ID. Import invitations only
+through an explicitly authorized operation. Bind handles to principals; knowing another
+principal's handle or job ID does not authorize access. Return stable CIDs/entry IDs and
+redacted state. Treat filenames, extracted text and peer-supplied tool descriptions as data,
+not instructions for the agent or HTML to execute.
+
+Application envelopes (distinct from any MCP wire envelope):
+```json
+{"ok":true,"requestId":"req-example","operationId":"op-example","result":{},"effects":[],"durability":"local"}
+{"ok":false,"requestId":"req-example","error":{"code":"PERMISSION_DENIED","message":"Write scope required","retryable":false,"details":{}}}
+```
+Use error codes `NOT_READY`, `INVALID_ARGUMENT`, `NOT_FOUND`, `PERMISSION_DENIED`,
+`AUTH_REQUIRED`, `USER_INTERACTION_REQUIRED`, `CONFLICT`, `QUOTA_EXCEEDED`, `OFFLINE`,
+`SOURCE_UNAVAILABLE`, `CONTENT_INTEGRITY`, `STORE_CORRUPT`, `CURSOR_EXPIRED`, `CANCELLED`,
+`UNSUPPORTED`, `INTERNAL` as applicable. Error details are structured and redacted.
+Default metadata pages contain at most 100 items and 64 KiB serialized data; callers can
+request fewer. Return continuation cursors rather than entire catalogs or base64 files.
+Budget/resource limits are explicit configurable caps, not adaptive SAFE time constants.
+
+Durability terms: `local` means required metadata AND referenced bytes/source binding are
+committed to storage that survives process restart; `replicated` means acknowledged copies
+on the requested independent nodes; `verified-retained` additionally means complete content
+verification and the requested private recovery metadata have been acknowledged. Report
+requested versus achieved durability separately. A hash, queue entry, advertised offer,
+open browser File, transport send or receipt for uncommitted bytes is not a durable copy.
+Long operations return a principal-bound `jobId` with `state`, durable `revision`, byte
+progress, `verifiedBytes`, resumable phase and error, then provide `jobs.get`, `jobs.list`,
+`jobs.cancel`, `jobs.resume` if this order needs them. States are `queued`, `running`,
+`waiting_source`, `waiting_network`, `input_required`, `paused`, `completed`, `failed`,
+`cancelled`. Terminal outcomes cannot be silently reclassified as success. Reuse retained
+job state if present; otherwise implement the needed persistent state machine here.
+
+Use existing encrypted `kv` records when practical. If a sidecar database is necessary,
+name/version it explicitly, encrypt private metadata with a domain-separated AAD including
+feature, room and record identity, and integrate it into Browser storage accounting and
+safe clearing. Do not bump the room DB version merely to add stores: old clients opening
+version 4 would fail. Perform WebCrypto outside live IDB transactions; under the appropriate
+lock recheck expected revisions and commit prepared ciphertext atomically. Detect corrupt
+records explicitly: `getKV` falling back to an empty array is not suitable for accepted jobs.
+On native disk use atomic same-filesystem rename, file and directory fsync as needed, and
+recoverable journals. Never silently replace a corrupt identity or invent authorship for
+unsigned legacy data. Stage migrations, preserve old data until validated, and provide a
+rollback/recovery path for interrupted upgrades.
+
+Background work must be bounded by bytes and concurrent tasks, yield to foreground media,
+respect cancellation, and release timers, readers, subscriptions, locks, promises, workers,
+object URLs and buffers on teardown. Use generation/lease fencing so stale callbacks cannot
+write after cancellation or ownership transfer. Any automatic retry must be bounded and
+back off from observed latency/failure; availability messages must not cause reciprocal
+query storms. Destructive scopes require explicit authorization or a previously authorized
+policy, not repeated approval for every chunk. Browser/OS capture and filesystem permission
+boundaries remain in force; report required interaction instead of bypassing them.
+
+## Required validation environment and evidence
+
+Create tests from scratch if no tests are supplied. Use Node 24 and pinned Playwright
+1.64.0 (or a pinned supported replacement with the reason and lockfile recorded). Install
+test dependencies outside the app bundle; example bootstrap in an empty implementation
+workspace:
+```sh
+mkdir -p .test-deps
+npm install --prefix .test-deps --save-exact playwright@1.64.0
+.test-deps/node_modules/.bin/playwright install chromium firefox
+mkdir -p tests artifacts
+node --test tests/*.test.cjs
+TRACKER_TEST_DEPS="$PWD/.test-deps" BROWSER=chromium node tests/wo-04-browser.mjs
+TRACKER_TEST_DEPS="$PWD/.test-deps" BROWSER=firefox node tests/wo-04-browser.mjs
+```
+Author those executable files and their reproducible fixture generators. Load
+Playwright via `createRequire(process.env.TRACKER_TEST_DEPS+'/package.json')`; serve the
+supplied HTML using a local Node HTTP server, or intercept **navigation only** at a fresh
+HTTPS test deployment base. Copy the exact source under test to artifacts and record its
+SHA-256. Keep transport SDK/CDN traffic real for the integration stage; an intercepted
+HTML document is not evidence of a live deployment.
+
+Use separate browser contexts/processes for sender, recipient and storage providers, with
+new random room secrets and a random test deployment namespace. Do not touch a real user's
+browser/profile, clear their data, reuse private room invitations, or terminate unrelated
+endurance tests. Give test processes their own PIDs/profiles and clean up only those owned
+by the harness. Use normal public commands/UI to create files and availability. Fault
+hooks may corrupt or interrupt a transport/storage boundary; they must not synthesize a
+successful catalog, completed receipt or verification outcome.
+
+Fixtures must be reproducible without `/home/roko` files: empty bytes; 1 byte; 524287,
+524288 and 524289 bytes; a multi-chunk 650000-byte file; deterministic generated larger
+files. A portable deterministic byte function is `b[i]=(i*31+7)%256`; record ordinary
+SHA-256 **and** the canonical Tracker root independently. Include Unicode/long names,
+locked files, nested folders, wrong credentials, old signed/legacy metadata, damaged chunks,
+quota failure, interrupted commits and duplicate/out-of-order messages. Generate MP4 with
+CPU FFmpeg when relevant (`testsrc2`, sine audio, H.264/AAC, `-movflags +faststart`); also
+exercise a file with tail metadata and an AVI compatibility case. Keep codec tools optional
+outside the default page download; dependency failure is not a passing codec test.
+
+Required layers: pure-function/unit tests; actual persistence and recovery; Chromium and
+Firefox UI/API integration; real encrypted cross-context transfer with a forced relay-only
+case; authorization/malformed-input negatives; teardown/resource growth; accessibility and
+layout at 320, 390, 800 and 1440 px in both themes when UI changes. For an applicable long
+operation kill the owning process after a durable checkpoint, restart with the same owned
+profile/state, and verify byte-identical output and no duplicate commit. Browser reload
+alone does not establish process-crash durability.
+
+Record progress, event-loop delay, live task/buffer counts, transferred wire bytes, storage
+usage and process RSS/JS heap where available. Compare equivalent baseline and candidate
+workloads, separate warmup from steady state, and assert bounded retained state rather than
+only a low initial heap. Keep independent slow/missing-source and offline fixtures. For
+streaming require advancing playback and the dynamic SAFE lower-band invariant under
+adequate bandwidth; an intentional outage must be reported separately with explicit
+recovery assertions. Preserve baseline failures as baseline failures, not passing checks.
+A 24-hour requirement below means observed wall-clock time with coverage and final source
+proof; never simulate years by advancing a clock or claim a pending soak passed.
+
+## In-code documentation and completion gate
+
+Every new public command, persisted/wire schema, state machine, cryptographic construction,
+transaction/commit boundary, permission check, fallback and non-obvious resource limit
+needs a nearby explanatory comment. Use `@workorder WO-04` and `@requirement WO-04-Rnn` tags
+on implementation blocks, using the actual numbered requirement IDs below. Explain inputs/outputs,
+trust boundary, ordering and recovery invariants, why a limit exists, and what a future
+maintainer must not change. Comment the algorithm and failure reasoning, not every obvious
+assignment. Put an executable usage example beside the public facade and migration notes
+beside the loader. Document feature-specific invariants listed later in this order.
+
+Deliver the modified HTML, any expressly needed optional companions, reproducible tests,
+fixtures/generators, exact install/run commands, code comments, schema vectors and a
+requirements-to-code-to-test report. The report maps **every** Rnn and Ann below to symbol,
+test name, execution artifact and pass/fail; include prerequisite/common invariants too.
+Store redacted evidence (build SHA, dependency versions, timestamps, logs, screenshots,
+roots, byte totals, result JSON); never publish credentials or private datasets. Report
+unsupported environments and measured limitations honestly. Verify no duplicate HTML IDs,
+syntax errors, new unhandled exceptions, unsigned bypasses, secret-bearing logs, unrelated
+cache deletion, retained-resource growth or regressions of the applicable existing controls.
+
+Do not call the work complete from a demo, mocks, screenshots, partial acceptance coverage
+or undocumented manual steps. All mandatory requirements and acceptance cases must pass;
+if an external dependency or required long test is pending, report it pending. Feature
+visibility and advertised capabilities must match what is actually implemented. Update the
+Privacy/Disclaimer explanations if this feature changes where plaintext, metadata, keys or
+network addresses are exposed. Publish/deploy only within the user's applicable instruction;
+these work orders do not grant unrelated infrastructure or messaging permissions.
+
+### Schema and persistence mechanics required by the shared contract
+
+Use JSON Schema 2020-12 (or a deliberately supported declared dialect), closed object
+properties, explicit integer/array/string limits and no implicit type coercion. Resolve
+only local schema references; schema validation must not fetch remote URLs. Reject
+prototype-mutating property names at the bridge and cap nested input depth/bytes before
+validation. New test-only fault hooks are disabled in the deployed application.
+
+For a new locally coordinated record, persist an encrypted payload plus an explicit
+schema/revision/fence envelope. Prepare cryptography outside the transaction, then read
+expected envelope revision/fence and write prepared ciphertext/receipt in one readwrite
+transaction. IDB transaction serialization provides the CAS boundary; Web Locks aid live
+coordination but are not the sole correctness condition. A missing Web Locks API must use
+the persisted CAS/fence, never an unguarded fallback. Envelope revisions are local metadata,
+not public room/provider advertisements. Handle transaction abort, decrypt corruption and
+lost reply explicitly. Persisted local state survives a process restart when browser/OS
+storage remains available; eviction, disk loss and owner clearing are different failures,
+not an indefinite durability promise. Test private-mode/quota/permission denial honestly.
+
+## Existing-code integration map
+
+Locate and read these current symbols before editing; understand callers, state ownership,
+persistence and teardown. These are semantic anchors, not permission to bypass the core:
+
+- `initSecret`
+- `loadLocal`
+- `roomLocalReady`
+- `startMesh`
+- `stopMesh`
+- `recoverPersistedSource`
+- `resumePersistedDownloads`
+- `readLocalChunk`
+- `TrackerSecurity`
+- `acquireGlobalProvider`
+- `restoreGlobalProviderInventory`
+- `trackerRuntimeMaintenance`
+- `stopGlobalStorageRuntime`
+
+## Implementation requirements
+
+All requirements are mandatory unless an individual clause explicitly calls a capability optional.
+
+### WO-04-R01
+
+Create an optional agent/node companion with CLI, pinned dependencies, operator configuration, durable state directory and a supervised foreground mode. Keep index.html independently usable. The required initial runtime is owned persistent headless Chromium running the supplied HTML; native DOM-free optimization is optional and cannot substitute for completing the required working runtime.
+
+### WO-04-R02
+
+Expose the shared command engine/facade and full action inventory below in owned contexts if absent. The companion may drive this public semantic API, but must not implement ordinary operations by clicking labels or reaching raw private closure Maps. Browser-only visual commands are accurately classified; business file/storage/policy operations remain headless.
+
+### WO-04-R03
+
+Persist browser profiles, credential references, room handles, principal bindings, source roots and job checkpoints across restart. Default owner-only directory permissions (0700 directories/0600 native secret files), separate profiles from user browsers, and never reuse/replace a corrupt identity. Browser-held nonextractable keys remain in their profile; do not invent exportability to simplify state migration.
+
+### WO-04-R04
+
+Preserve the invitation deployment base and owner anchor. Navigate an owned context at that deployment origin and intercept only its application navigation/source document with the trusted supplied HTML, so room/global namespaces match browser peers. Do not disable TLS verification or change global namespace to a random localhost port. Pin the supplied app hash for a run and require an explicit operator-controlled update.
+
+### WO-04-R05
+
+Provide stable local source references under explicitly approved filesystem roots. Reopen sources after restart, verify size/root and detect changed files; report SOURCE_UNAVAILABLE for missing sources. A path/file stamp alone cannot certify changed bytes. Native IO is brokered in bounded chunks to the browser runtime; never serialize an entire large file in a command or keep it in memory.
+
+### WO-04-R06
+
+Implement a single supervisor with bounded restart backoff from failures, health/readiness, per-room isolation, configurable active-room limit (default four), and resource budgets. Shutdown stops new work, commits/checkpoints jobs, withdraws offers when possible and closes only owned pages/child processes. SIGKILL recovery uses committed state rather than assuming shutdown ran.
+
+### WO-04-R07
+
+Use lease/generation fencing for one worker per accepted job and provider ownership. A stale worker or old browser page cannot commit after restart/takeover. Honor existing global provider election so multiple tabs/processes do not double-advertise the same allocation.
+
+### WO-04-R08
+
+Define foreground CLI operations start/status/stop/join/leave and structured JSON results. Bind any control endpoint to authenticated loopback by default. Secrets are imported by owner-only file/stdin, never default command-line arguments, crash logs, health responses, URLs in stdout or metrics labels.
+
+### WO-04-R09
+
+Support first-time authorization and permissions without a permanent visible UI. Preauthorized filesystem sources and configured capture devices can operate unattended; otherwise return input_required with a safe setup instruction. Do not silently override browser/OS capture policies or enable remote debugging on a public port.
+
+### WO-04-R10
+
+Provide health checks for localReady, networkReady, source readability, pending jobs, durable bytes, provider leadership, byte queues and last verified source probe. Carriers can degrade independently; absent discovery is not replaced by fake ready status. Recover after source/network return without a restart storm.
+
+### WO-04-R11
+
+Validate browser-peer to headless-peer and headless-to-headless transfers over actual encrypted relay routes, protected-room writes, locked content and global recovery with uploader offline. Show at least one complete verified multi-GB transfer using generated data and bounded RSS.
+
+### WO-04-R12
+
+Run a real 24-hour mixed idle/seeding/transfer-restart observation, including final first/middle/last source chunk proofs and byte-identical retrieval. Supply reproducible systemd user-service and plain foreground examples; never claim indefinite uptime or terminate unrelated host workloads.
+
+## Implementation sequence
+
+1. Create agent/node/package.json, lockfile and CLI entry. Use Playwright persistent contexts and owned profiles; install browser binaries explicitly outside the monofile.
+2. Validate config, app SHA and credential references, then create a room coordinator. Use the deployment-origin interception described above, exact-origin bridge binding and public readiness, not an untrusted loaded third-party page as the API implementation.
+3. Add approved native-source/read/write adapters with bounded chunk exchange and persistent source identities. Keep file bytes out of MCP/CLI metadata responses.
+4. Implement durable job receipts/checkpoints and coordinator ownership fencing. Restart reconciliation resumes only accepted authorized work and revalidates sources before advertising.
+5. Add health, supervisor backoff and graceful/forced shutdown behavior. Never use killall, shared user profiles or a global browser debugging port.
+6. Run controlled restart/quota/corruption tests, actual relay transfers and the full observed 24-hour run. Capture browser/companion process trees and final source proofs.
+
+## Interfaces, algorithms and formats
+
+Required configuration shape (paths are illustrative; resolve and validate at startup):
+```json
+{"version":1,"stateDir":"/owned/tracker-state","appPath":"/owned/index.html","appSha256":"expected-hash","deploymentBase":"https://robit-man.github.io/tracker/","rooms":[{"invitationFile":"/owned/room.invite","principal":"agent-main"}],"roots":[{"id":"input","path":"/owned/share","read":true,"write":false},{"id":"output","path":"/owned/receive","read":true,"write":true}],"maxRooms":4,"control":{"bind":"127.0.0.1","credentialFile":"/owned/control.token"}}
+```
+CLI contract: `tracker-node start --config <owner-only-config>` runs in foreground;
+`status --json`, `stop`, `rooms join --invitation-file <path>` and `rooms leave --room <handle>`
+connect through the authorized local controller. Output excludes invitationFile contents
+and native source paths unless a separate operator-only diagnostic scope is granted.
+Supervisor state includes generation, current app digest, owned child PID/profile, restart
+attempt/cause, active leases and readiness. A process exit while jobs are pending preserves
+their durable receipts. Headless capture source configuration lists explicit devices/streams;
+there is no permissionless default screen/audio capture.
+
+
+### Full action inventory for a standalone implementation
+
+For this order, the registry must cover each applicable family below, or expose a precise
+permission/environment requirement. Bind existing UI controls to these same handlers; do
+not declare a human-only action implemented merely because a generic click tool can reach it.
+
+| Family | Required commands and argument/result contract |
+|---|---|
+| System | `system.state`, `system.manifest`, `system.health`, `system.source`; bounded redacted state/version/source bytes via a handle. |
+| Rooms | `rooms.create({mode?})`, `rooms.join({invitationRef})`, `rooms.leave({room})`, `rooms.recent`, `rooms.forget`, `rooms.share`; preserve owner anchor; secrets released only through an explicit share/export scope. |
+| Catalog | `files.list({room,parent?,cursor?,limit?,fields?})`, `files.stat({room,entryId? ,cid?})`, `files.search`, `folders.create`, `entries.rename`, `entries.move`, `entries.delete`, `entries.restore`; mutations require write permission and expected revision when supplied. |
+| Sources | `sources.register({room,sourceRef,name,parent?,durability})`, `sources.relink({room,cid,sourceRef})`, `sources.verify`, `sources.remove`; verify actual bytes, preserve disk file, report source durability. |
+| Transfers | `files.upload`, `files.download({room,cid,destinationRef?,durability?})`, `transfers.list/get/pause/resume/cancel`; return job IDs and verified progress, never fake download completion from picker or toast. |
+| File protection | `files.lock`, `files.unlock`, `files.lockStatus`; password/key references are imported under authorization, not logged or returned in ordinary state. |
+| Seeding | `seeding.get/set({room,mode:off|selected|all,cids?})`; existing contribution semantics and missing-source cues remain accurate. |
+| Media | `media.open/play/pause/seek/rate/close/state`; close saves the bookmark and pauses demand as the current UI does; headless decoding support is explicitly advertised. |
+| Live capture | `live.start/stop/list/watch/latency`; camera, microphone, screen and capture-source selection report `USER_INTERACTION_REQUIRED` where the browser/OS requires it. Authorized native sources can run unattended. |
+| Room retention | `retention.request/status/release`; requested target, achieved verified copies, consent, deadlines and independent source status are distinct. |
+| Global storage | `global.index/configure/pin/retrieve/release/inventory`; keep opaque provider boundaries and confirm private catalog durability. |
+| IPFS | `ipfs.pin/retrieve/release/status`; retain independent content-root verification and opt-in storage. |
+| Local storage | `storage.inspect/clear`; scope clearing to authorized items; preserve identity, room metadata and disk sources unless those separate destructive scopes are explicitly requested. |
+| Security | `security.identity/protect/grant/revoke/policy`; reuse owner-signed policy logic, no invented read isolation for existing room-secret readers. |
+| Privacy/settings | `privacy.get/set`, `settings.get/set`; distinguish local theme/privacy/preferences from replicated room changes. |
+| Interface/help | `ui.navigate`, `ui.select`, `ui.dialog`, `ui.previewLayout`, `help.privacy/disclaimer`; browser-only presentation actions return `UNSUPPORTED` in a non-rendering runtime without mutating state. |
+
+Each descriptor must define a closed input schema, output schema, effects, environment,
+permissions and durability. Define concrete schemas for subcommands rather than accepting
+an unvalidated arbitrary method bag. Input/output references use opaque handles, with
+explicit byte lengths, MIME type and verification status. A source registered by an agent
+must not require clicking a hidden file picker. UI-native consent prompts are surfaced
+as structured pending interaction and resumed only with an authorized response.
+
+## Acceptance tests and expected evidence
+
+Create executable tests for every case. The table maps acceptance cases to this order’s
+requirements; the common validation/completion contract above applies to every case.
+A case may need several unit, browser, protocol and crash tests. Record actual outcomes,
+not merely that a test file exists.
+
+### WO-04-A01
+
+Requirements: `WO-04-R01`, `WO-04-R02`, `WO-04-R04`, `WO-04-R08`.
+
+**Exercise:** Build from only HTML/order and launch without DISPLAY or an existing browser session.
+
+**Pass condition:** Owned headless peers start and expose semantic actions; deployment/owner context matches a normal browser peer.
+
+### WO-04-A02
+
+Requirements: `WO-04-R03`, `WO-04-R05`, `WO-04-R07`.
+
+**Exercise:** Register an approved source, upload/cache, kill the entire owning process group after checkpoint and restart with its state.
+
+**Pass condition:** Same identity/room/job resumes without duplicates; source root is revalidated and stale workers cannot commit.
+
+### WO-04-A03
+
+Requirements: `WO-04-R03`, `WO-04-R05`, `WO-04-R08`, `WO-04-R09`.
+
+**Exercise:** Try corrupt identity, changed/missing source, symlink escape, wrong controller token and unapproved capture.
+
+**Pass condition:** Explicit errors/input_required occur without identity replacement, unauthorized disk access or capture.
+
+### WO-04-A04
+
+Requirements: `WO-04-R06`, `WO-04-R10`.
+
+**Exercise:** Interrupt independent carriers and restore a source; churn one room while another seeds.
+
+**Pass condition:** Backoff and queues remain bounded, unaffected room serves bytes, readiness is honest and recovery is automatic.
+
+### WO-04-A05
+
+Requirements: `WO-04-R07`, `WO-04-R10`, `WO-04-R11`.
+
+**Exercise:** Run two owned processes/tabs against one provider profile/state and close the leader.
+
+**Pass condition:** One allocation is advertised; takeover restores real inventory and fencing prevents duplicate accepted work.
+
+### WO-04-A06
+
+Requirements: `WO-04-R02`, `WO-04-R05`, `WO-04-R11`.
+
+**Exercise:** Use two headless peers and a browser peer for generated >2 GiB, locked and nested-folder fixtures over forced relay routes.
+
+**Pass condition:** Canonical roots and ordinary output hashes match, output is durably committed and memory does not scale with file size.
+
+### WO-04-A07
+
+Requirements: `WO-04-R04`, `WO-04-R06`, `WO-04-R08`, `WO-04-R12`.
+
+**Exercise:** Exercise graceful stop, SIGKILL, bad app hash and pinned app upgrade/rollback.
+
+**Pass condition:** Only owned processes stop; committed data remains readable; no secret is logged; failed upgrade retains previous usable state.
+
+### WO-04-A08
+
+Requirements: `WO-04-R10`, `WO-04-R11`, `WO-04-R12`.
+
+**Exercise:** Observe 24 actual hours with restarts, idle periods, seeding and a final independent retrieval.
+
+**Pass condition:** Recorded coverage, bounded retained state, zero new fatal/unhandled errors and verified source/retrieval prove the observed interval; pending hours remain pending.
+
+## Feature-specific code comments
+
+Add these explanatory comments alongside the implementation, in addition to the common
+comment contract. Tag each relevant block with its requirement IDs.
+
+- Document deployment-origin preservation and why arbitrary localhost origins break global recovery namespaces.
+- Comment owned profile/identity storage and process shutdown boundaries.
+- Explain durable job fencing, stale worker rejection and recovery after SIGKILL.
+- Include configuration, supervision, source approval, capture and app-upgrade examples in companion source comments.
+
+## Implementation handoff and traceability
+
+Create `tests/wo-04-browser.mjs`, relevant unit/companion tests, and
+`artifacts/wo-04/validation.md` plus redacted machine-readable evidence. At the top of
+the validation report record the exact implementation SHA, runtime/dependency versions,
+commands, start/end times and environment. Include one row per requirement and acceptance
+case with implementation symbol, executable test and artifact, actual pass/fail/pending,
+and any measured limitation. Include code-comment locations and migration/recovery results.
+Tests may generate their own public/synthetic data; no private media or existing session is
+required. A fresh agent must be able to rerun them from your documented commands.
+
+Other planned features are optional context, not prerequisites. Where this order describes
+a shared interface, implement its necessary real subset here if absent; do not leave a
+mandatory path as a stub or defer its acceptance tests to a future order. Preserve and
+extend compatible existing implementations. Avoid duplicating authority, jobs, crypto or
+wire layers under a second incompatible API. Update the registry’s real capability state
+and only advertise what the completed implementation can demonstrate.

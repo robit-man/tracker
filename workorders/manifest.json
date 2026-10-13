@@ -1,0 +1,2177 @@
+{
+  "schema": 1,
+  "authored": "2026-10-13",
+  "baselineCommit": "bef1b7da5eeaf338e1b87f30cee3c3dc7a2554d7",
+  "baselineHtmlSha256": "c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7",
+  "status": "specified-not-implemented",
+  "orders": [
+    {
+      "id": "WO-01",
+      "number": 1,
+      "title": "One command engine for humans and agents",
+      "file": "01-shared-command-engine.md",
+      "sha256": "73ad46783d80c6bc234d9effd1c1c456caca49030dcc84da8e656c4c09b7fb7c",
+      "words": 4621,
+      "requirements": [
+        "WO-01-R01",
+        "WO-01-R02",
+        "WO-01-R03",
+        "WO-01-R04",
+        "WO-01-R05",
+        "WO-01-R06",
+        "WO-01-R07",
+        "WO-01-R08",
+        "WO-01-R09",
+        "WO-01-R10",
+        "WO-01-R11",
+        "WO-01-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-01-A01",
+          "requirements": [
+            "WO-01-R01",
+            "WO-01-R02",
+            "WO-01-R11"
+          ]
+        },
+        {
+          "id": "WO-01-A02",
+          "requirements": [
+            "WO-01-R03",
+            "WO-01-R07"
+          ]
+        },
+        {
+          "id": "WO-01-A03",
+          "requirements": [
+            "WO-01-R04",
+            "WO-01-R10"
+          ]
+        },
+        {
+          "id": "WO-01-A04",
+          "requirements": [
+            "WO-01-R05",
+            "WO-01-R06",
+            "WO-01-R09"
+          ]
+        },
+        {
+          "id": "WO-01-A05",
+          "requirements": [
+            "WO-01-R06",
+            "WO-01-R11"
+          ]
+        },
+        {
+          "id": "WO-01-A06",
+          "requirements": [
+            "WO-01-R07",
+            "WO-01-R09"
+          ]
+        },
+        {
+          "id": "WO-01-A07",
+          "requirements": [
+            "WO-01-R08",
+            "WO-01-R11"
+          ]
+        },
+        {
+          "id": "WO-01-A08",
+          "requirements": [
+            "WO-01-R01",
+            "WO-01-R10",
+            "WO-01-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "roomLocalReady",
+        "addFiles",
+        "ensureFolderPath",
+        "signCatalogOperationV4",
+        "requestFile",
+        "makeDownloadSession",
+        "finishDownload",
+        "relinkSource",
+        "pauseTransfer",
+        "resumeTransfer",
+        "cancelTransfer",
+        "setSeedMode",
+        "openPreview",
+        "closePreview",
+        "startLiveMedia",
+        "queueRetainedFile",
+        "retainGlobalFile",
+        "pinIpfsFile",
+        "confirmBrowserStorageClear",
+        "initInterface",
+        "TrackerSecurity"
+      ],
+      "relatedOptionalOrders": [
+        "WO-02",
+        "WO-03",
+        "WO-04",
+        "WO-05",
+        "WO-06",
+        "WO-07",
+        "WO-08",
+        "WO-10"
+      ]
+    },
+    {
+      "id": "WO-02",
+      "number": 2,
+      "title": "A self-describing TrackerAgent surface",
+      "file": "02-self-describing-agent-surface.md",
+      "sha256": "87db390d7fcba7572e13fbab95a2e188e8e510221e49d7b1ac029a8898dc6c18",
+      "words": 4366,
+      "requirements": [
+        "WO-02-R01",
+        "WO-02-R02",
+        "WO-02-R03",
+        "WO-02-R04",
+        "WO-02-R05",
+        "WO-02-R06",
+        "WO-02-R07",
+        "WO-02-R08",
+        "WO-02-R09",
+        "WO-02-R10",
+        "WO-02-R11",
+        "WO-02-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-02-A01",
+          "requirements": [
+            "WO-02-R01",
+            "WO-02-R02",
+            "WO-02-R03",
+            "WO-02-R09"
+          ]
+        },
+        {
+          "id": "WO-02-A02",
+          "requirements": [
+            "WO-02-R04",
+            "WO-02-R05",
+            "WO-02-R06",
+            "WO-02-R12"
+          ]
+        },
+        {
+          "id": "WO-02-A03",
+          "requirements": [
+            "WO-02-R03",
+            "WO-02-R06",
+            "WO-02-R08"
+          ]
+        },
+        {
+          "id": "WO-02-A04",
+          "requirements": [
+            "WO-02-R02",
+            "WO-02-R03",
+            "WO-02-R08"
+          ]
+        },
+        {
+          "id": "WO-02-A05",
+          "requirements": [
+            "WO-02-R07",
+            "WO-02-R12"
+          ]
+        },
+        {
+          "id": "WO-02-A06",
+          "requirements": [
+            "WO-02-R08",
+            "WO-02-R10"
+          ]
+        },
+        {
+          "id": "WO-02-A07",
+          "requirements": [
+            "WO-02-R11"
+          ]
+        },
+        {
+          "id": "WO-02-A08",
+          "requirements": [
+            "WO-02-R01",
+            "WO-02-R06",
+            "WO-02-R07",
+            "WO-02-R11"
+          ]
+        }
+      ],
+      "anchors": [
+        "window.PrivateTrackerMesh",
+        "roomLocalReady",
+        "parseTrackerFragment",
+        "resourceEntry",
+        "visibleName",
+        "visibleSize",
+        "unlockedMeta",
+        "renderInterface",
+        "initInterface",
+        "setAppView",
+        "openPolicyNotice"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-03",
+        "WO-06",
+        "WO-07",
+        "WO-08"
+      ]
+    },
+    {
+      "id": "WO-03",
+      "number": 3,
+      "title": "Actual MCP connectivity",
+      "file": "03-mcp-connectors.md",
+      "sha256": "2e1383b4dc7d7bda6d66340e3fb302ab1996448af38b0cb9886df0fb95723ad8",
+      "words": 4693,
+      "requirements": [
+        "WO-03-R01",
+        "WO-03-R02",
+        "WO-03-R03",
+        "WO-03-R04",
+        "WO-03-R05",
+        "WO-03-R06",
+        "WO-03-R07",
+        "WO-03-R08",
+        "WO-03-R09",
+        "WO-03-R10",
+        "WO-03-R11",
+        "WO-03-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-03-A01",
+          "requirements": [
+            "WO-03-R01",
+            "WO-03-R02",
+            "WO-03-R04",
+            "WO-03-R12"
+          ]
+        },
+        {
+          "id": "WO-03-A02",
+          "requirements": [
+            "WO-03-R03",
+            "WO-03-R05",
+            "WO-03-R11"
+          ]
+        },
+        {
+          "id": "WO-03-A03",
+          "requirements": [
+            "WO-03-R04",
+            "WO-03-R08"
+          ]
+        },
+        {
+          "id": "WO-03-A04",
+          "requirements": [
+            "WO-03-R06",
+            "WO-03-R07",
+            "WO-03-R11"
+          ]
+        },
+        {
+          "id": "WO-03-A05",
+          "requirements": [
+            "WO-03-R08",
+            "WO-03-R09"
+          ]
+        },
+        {
+          "id": "WO-03-A06",
+          "requirements": [
+            "WO-03-R04",
+            "WO-03-R07",
+            "WO-03-R10"
+          ]
+        },
+        {
+          "id": "WO-03-A07",
+          "requirements": [
+            "WO-03-R01",
+            "WO-03-R06",
+            "WO-03-R11",
+            "WO-03-R12"
+          ]
+        },
+        {
+          "id": "WO-03-A08",
+          "requirements": [
+            "WO-03-R02",
+            "WO-03-R09",
+            "WO-03-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "roomLocalReady",
+        "window.PrivateTrackerMesh",
+        "TrackerSecurity",
+        "addFiles",
+        "requestFile",
+        "finishDownload",
+        "retainGlobalFile",
+        "recoverGlobalCatalogs",
+        "setPrivacyMode",
+        "canonicalEncodeV4"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-02",
+        "WO-04",
+        "WO-05",
+        "WO-06",
+        "WO-08"
+      ]
+    },
+    {
+      "id": "WO-04",
+      "number": 4,
+      "title": "A persistent headless peer",
+      "file": "04-persistent-headless-peer.md",
+      "sha256": "3fffdd3607e676a6e594dffbc97bb43acf4056423d2f5754d5166a4e4b0f50ce",
+      "words": 4435,
+      "requirements": [
+        "WO-04-R01",
+        "WO-04-R02",
+        "WO-04-R03",
+        "WO-04-R04",
+        "WO-04-R05",
+        "WO-04-R06",
+        "WO-04-R07",
+        "WO-04-R08",
+        "WO-04-R09",
+        "WO-04-R10",
+        "WO-04-R11",
+        "WO-04-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-04-A01",
+          "requirements": [
+            "WO-04-R01",
+            "WO-04-R02",
+            "WO-04-R04",
+            "WO-04-R08"
+          ]
+        },
+        {
+          "id": "WO-04-A02",
+          "requirements": [
+            "WO-04-R03",
+            "WO-04-R05",
+            "WO-04-R07"
+          ]
+        },
+        {
+          "id": "WO-04-A03",
+          "requirements": [
+            "WO-04-R03",
+            "WO-04-R05",
+            "WO-04-R08",
+            "WO-04-R09"
+          ]
+        },
+        {
+          "id": "WO-04-A04",
+          "requirements": [
+            "WO-04-R06",
+            "WO-04-R10"
+          ]
+        },
+        {
+          "id": "WO-04-A05",
+          "requirements": [
+            "WO-04-R07",
+            "WO-04-R10",
+            "WO-04-R11"
+          ]
+        },
+        {
+          "id": "WO-04-A06",
+          "requirements": [
+            "WO-04-R02",
+            "WO-04-R05",
+            "WO-04-R11"
+          ]
+        },
+        {
+          "id": "WO-04-A07",
+          "requirements": [
+            "WO-04-R04",
+            "WO-04-R06",
+            "WO-04-R08",
+            "WO-04-R12"
+          ]
+        },
+        {
+          "id": "WO-04-A08",
+          "requirements": [
+            "WO-04-R10",
+            "WO-04-R11",
+            "WO-04-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "initSecret",
+        "loadLocal",
+        "roomLocalReady",
+        "startMesh",
+        "stopMesh",
+        "recoverPersistedSource",
+        "resumePersistedDownloads",
+        "readLocalChunk",
+        "TrackerSecurity",
+        "acquireGlobalProvider",
+        "restoreGlobalProviderInventory",
+        "trackerRuntimeMaintenance",
+        "stopGlobalStorageRuntime"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-03",
+        "WO-05",
+        "WO-06",
+        "WO-08",
+        "WO-15"
+      ]
+    },
+    {
+      "id": "WO-05",
+      "number": 5,
+      "title": "Streaming file input and output for agents",
+      "file": "05-streaming-agent-file-io.md",
+      "sha256": "26b76eeb8e8faecb84e611814c2df9c913a898a7cf26cb8ecc3e6509866473b5",
+      "words": 3893,
+      "requirements": [
+        "WO-05-R01",
+        "WO-05-R02",
+        "WO-05-R03",
+        "WO-05-R04",
+        "WO-05-R05",
+        "WO-05-R06",
+        "WO-05-R07",
+        "WO-05-R08",
+        "WO-05-R09",
+        "WO-05-R10",
+        "WO-05-R11",
+        "WO-05-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-05-A01",
+          "requirements": [
+            "WO-05-R01",
+            "WO-05-R02",
+            "WO-05-R04",
+            "WO-05-R09"
+          ]
+        },
+        {
+          "id": "WO-05-A02",
+          "requirements": [
+            "WO-05-R01",
+            "WO-05-R05",
+            "WO-05-R08"
+          ]
+        },
+        {
+          "id": "WO-05-A03",
+          "requirements": [
+            "WO-05-R03",
+            "WO-05-R10"
+          ]
+        },
+        {
+          "id": "WO-05-A04",
+          "requirements": [
+            "WO-05-R04",
+            "WO-05-R06"
+          ]
+        },
+        {
+          "id": "WO-05-A05",
+          "requirements": [
+            "WO-05-R06",
+            "WO-05-R07",
+            "WO-05-R11"
+          ]
+        },
+        {
+          "id": "WO-05-A06",
+          "requirements": [
+            "WO-05-R05",
+            "WO-05-R07",
+            "WO-05-R09"
+          ]
+        },
+        {
+          "id": "WO-05-A07",
+          "requirements": [
+            "WO-05-R09",
+            "WO-05-R10",
+            "WO-05-R12"
+          ]
+        },
+        {
+          "id": "WO-05-A08",
+          "requirements": [
+            "WO-05-R04",
+            "WO-05-R11",
+            "WO-05-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "addFiles",
+        "hashFileStreaming",
+        "hashLockedFileStreaming",
+        "readLocalChunk",
+        "getReadableFile",
+        "cacheDownloadChunk",
+        "canonicalToPlain",
+        "makeDownloadSession",
+        "finishDownload",
+        "streamLocalToWritable",
+        "saveLocal",
+        "rememberLocalSource"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-03",
+        "WO-04",
+        "WO-06",
+        "WO-08",
+        "WO-12"
+      ]
+    },
+    {
+      "id": "WO-06",
+      "number": 6,
+      "title": "Durable jobs with recoverable handles",
+      "file": "06-durable-jobs.md",
+      "sha256": "c1f53dec4b7f95c6d1cf3f0b5b51d7d59eedbde27b58fe23504143cff11ff82d",
+      "words": 3884,
+      "requirements": [
+        "WO-06-R01",
+        "WO-06-R02",
+        "WO-06-R03",
+        "WO-06-R04",
+        "WO-06-R05",
+        "WO-06-R06",
+        "WO-06-R07",
+        "WO-06-R08",
+        "WO-06-R09",
+        "WO-06-R10",
+        "WO-06-R11",
+        "WO-06-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-06-A01",
+          "requirements": [
+            "WO-06-R01",
+            "WO-06-R02",
+            "WO-06-R07"
+          ]
+        },
+        {
+          "id": "WO-06-A02",
+          "requirements": [
+            "WO-06-R03",
+            "WO-06-R06",
+            "WO-06-R10"
+          ]
+        },
+        {
+          "id": "WO-06-A03",
+          "requirements": [
+            "WO-06-R04",
+            "WO-06-R07"
+          ]
+        },
+        {
+          "id": "WO-06-A04",
+          "requirements": [
+            "WO-06-R05",
+            "WO-06-R06"
+          ]
+        },
+        {
+          "id": "WO-06-A05",
+          "requirements": [
+            "WO-06-R04",
+            "WO-06-R11"
+          ]
+        },
+        {
+          "id": "WO-06-A06",
+          "requirements": [
+            "WO-06-R08",
+            "WO-06-R09"
+          ]
+        },
+        {
+          "id": "WO-06-A07",
+          "requirements": [
+            "WO-06-R06",
+            "WO-06-R10",
+            "WO-06-R11"
+          ]
+        },
+        {
+          "id": "WO-06-A08",
+          "requirements": [
+            "WO-06-R01",
+            "WO-06-R05",
+            "WO-06-R08",
+            "WO-06-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "downloadJobs",
+        "scheduleDownloadJobPersist",
+        "resumePersistedDownloads",
+        "resumePersistedDownloadJob",
+        "makeDownloadSession",
+        "finishDownload",
+        "pauseTransfer",
+        "cancelTransfer",
+        "globalMesh.jobs",
+        "processRetentionQueue",
+        "putKV",
+        "getKV"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-03",
+        "WO-04",
+        "WO-05",
+        "WO-07",
+        "WO-10"
+      ]
+    },
+    {
+      "id": "WO-07",
+      "number": 7,
+      "title": "A resumable room event feed",
+      "file": "07-resumable-room-events.md",
+      "sha256": "19148aaa3ceace4b4067987206ed80ad71eb1519ff07a2a8706f522de76ed1e4",
+      "words": 3765,
+      "requirements": [
+        "WO-07-R01",
+        "WO-07-R02",
+        "WO-07-R03",
+        "WO-07-R04",
+        "WO-07-R05",
+        "WO-07-R06",
+        "WO-07-R07",
+        "WO-07-R08",
+        "WO-07-R09",
+        "WO-07-R10",
+        "WO-07-R11",
+        "WO-07-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-07-A01",
+          "requirements": [
+            "WO-07-R01",
+            "WO-07-R02",
+            "WO-07-R03",
+            "WO-07-R11"
+          ]
+        },
+        {
+          "id": "WO-07-A02",
+          "requirements": [
+            "WO-07-R03",
+            "WO-07-R04",
+            "WO-07-R10"
+          ]
+        },
+        {
+          "id": "WO-07-A03",
+          "requirements": [
+            "WO-07-R04",
+            "WO-07-R05",
+            "WO-07-R06"
+          ]
+        },
+        {
+          "id": "WO-07-A04",
+          "requirements": [
+            "WO-07-R06",
+            "WO-07-R08",
+            "WO-07-R10"
+          ]
+        },
+        {
+          "id": "WO-07-A05",
+          "requirements": [
+            "WO-07-R05",
+            "WO-07-R07"
+          ]
+        },
+        {
+          "id": "WO-07-A06",
+          "requirements": [
+            "WO-07-R08",
+            "WO-07-R09"
+          ]
+        },
+        {
+          "id": "WO-07-A07",
+          "requirements": [
+            "WO-07-R02",
+            "WO-07-R09",
+            "WO-07-R11"
+          ]
+        },
+        {
+          "id": "WO-07-A08",
+          "requirements": [
+            "WO-07-R04",
+            "WO-07-R06",
+            "WO-07-R10",
+            "WO-07-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "saveCatalogStateV4",
+        "mergeState",
+        "catalogOperations",
+        "handleControl",
+        "updateSessionSeeder",
+        "downloadSourceDiscoveryDelay",
+        "broadcastAvailability",
+        "recordResourceEvent",
+        "globalMesh.records",
+        "publishGlobalOffer"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-02",
+        "WO-03",
+        "WO-06",
+        "WO-08",
+        "WO-10"
+      ]
+    },
+    {
+      "id": "WO-08",
+      "number": 8,
+      "title": "Scoped agent authority",
+      "file": "08-scoped-agent-authority.md",
+      "sha256": "9106bceba20330977d1c8950301dc22a4e58708a54431f81d881f66aeb83d28b",
+      "words": 3855,
+      "requirements": [
+        "WO-08-R01",
+        "WO-08-R02",
+        "WO-08-R03",
+        "WO-08-R04",
+        "WO-08-R05",
+        "WO-08-R06",
+        "WO-08-R07",
+        "WO-08-R08",
+        "WO-08-R09",
+        "WO-08-R10",
+        "WO-08-R11",
+        "WO-08-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-08-A01",
+          "requirements": [
+            "WO-08-R01",
+            "WO-08-R02",
+            "WO-08-R05",
+            "WO-08-R12"
+          ]
+        },
+        {
+          "id": "WO-08-A02",
+          "requirements": [
+            "WO-08-R03",
+            "WO-08-R09",
+            "WO-08-R10"
+          ]
+        },
+        {
+          "id": "WO-08-A03",
+          "requirements": [
+            "WO-08-R04",
+            "WO-08-R08"
+          ]
+        },
+        {
+          "id": "WO-08-A04",
+          "requirements": [
+            "WO-08-R05",
+            "WO-08-R06"
+          ]
+        },
+        {
+          "id": "WO-08-A05",
+          "requirements": [
+            "WO-08-R06",
+            "WO-08-R10"
+          ]
+        },
+        {
+          "id": "WO-08-A06",
+          "requirements": [
+            "WO-08-R07",
+            "WO-08-R09"
+          ]
+        },
+        {
+          "id": "WO-08-A07",
+          "requirements": [
+            "WO-08-R08",
+            "WO-08-R11"
+          ]
+        },
+        {
+          "id": "WO-08-A08",
+          "requirements": [
+            "WO-08-R01",
+            "WO-08-R06",
+            "WO-08-R11",
+            "WO-08-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "TrackerSecurity",
+        "hasPermissionV4",
+        "roomPolicy",
+        "grantRoomV4",
+        "revokeRoomV4",
+        "verifyControlV4",
+        "verifyRecordV4",
+        "openIdentityDB",
+        "initNodeIdentity",
+        "parseTrackerFragment",
+        "readLocalChunk",
+        "setPrivacyMode"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-03",
+        "WO-04",
+        "WO-06",
+        "WO-07",
+        "WO-09",
+        "WO-10"
+      ]
+    },
+    {
+      "id": "WO-09",
+      "number": 9,
+      "title": "Genuine file-only invitations",
+      "file": "09-file-only-invitations.md",
+      "sha256": "e171784ea81801fe21c28770d04f2dede61bdc64c9f73ad471ed9078d1561c8d",
+      "words": 4109,
+      "requirements": [
+        "WO-09-R01",
+        "WO-09-R02",
+        "WO-09-R03",
+        "WO-09-R04",
+        "WO-09-R05",
+        "WO-09-R06",
+        "WO-09-R07",
+        "WO-09-R08",
+        "WO-09-R09",
+        "WO-09-R10",
+        "WO-09-R11",
+        "WO-09-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-09-A01",
+          "requirements": [
+            "WO-09-R01",
+            "WO-09-R05",
+            "WO-09-R11",
+            "WO-09-R12"
+          ]
+        },
+        {
+          "id": "WO-09-A02",
+          "requirements": [
+            "WO-09-R02",
+            "WO-09-R03",
+            "WO-09-R07",
+            "WO-09-R10"
+          ]
+        },
+        {
+          "id": "WO-09-A03",
+          "requirements": [
+            "WO-09-R04",
+            "WO-09-R09"
+          ]
+        },
+        {
+          "id": "WO-09-A04",
+          "requirements": [
+            "WO-09-R05",
+            "WO-09-R06",
+            "WO-09-R08"
+          ]
+        },
+        {
+          "id": "WO-09-A05",
+          "requirements": [
+            "WO-09-R06",
+            "WO-09-R07",
+            "WO-09-R08"
+          ]
+        },
+        {
+          "id": "WO-09-A06",
+          "requirements": [
+            "WO-09-R03",
+            "WO-09-R04",
+            "WO-09-R09",
+            "WO-09-R10"
+          ]
+        },
+        {
+          "id": "WO-09-A07",
+          "requirements": [
+            "WO-09-R06",
+            "WO-09-R11",
+            "WO-09-R12"
+          ]
+        },
+        {
+          "id": "WO-09-A08",
+          "requirements": [
+            "WO-09-R01",
+            "WO-09-R08",
+            "WO-09-R09",
+            "WO-09-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "parseTrackerFragment",
+        "initSecret",
+        "initGlobalCatalog",
+        "uploadGlobalReplica",
+        "retrieveGlobalFile",
+        "canonicalToPlain",
+        "renderInterface",
+        "signRecordV4"
+      ],
+      "relatedOptionalOrders": [
+        "WO-08",
+        "WO-12",
+        "WO-16",
+        "WO-17"
+      ]
+    },
+    {
+      "id": "WO-10",
+      "number": 10,
+      "title": "Safe concurrent operations",
+      "file": "10-safe-concurrent-operations.md",
+      "sha256": "fc3917ef0bf1aa1fca4801f907efa4b67e14142419c4e8c00b15ed8fcd8634ca",
+      "words": 3970,
+      "requirements": [
+        "WO-10-R01",
+        "WO-10-R02",
+        "WO-10-R03",
+        "WO-10-R04",
+        "WO-10-R05",
+        "WO-10-R06",
+        "WO-10-R07",
+        "WO-10-R08",
+        "WO-10-R09",
+        "WO-10-R10",
+        "WO-10-R11",
+        "WO-10-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-10-A01",
+          "requirements": [
+            "WO-10-R01",
+            "WO-10-R02",
+            "WO-10-R09"
+          ]
+        },
+        {
+          "id": "WO-10-A02",
+          "requirements": [
+            "WO-10-R03",
+            "WO-10-R05",
+            "WO-10-R06",
+            "WO-10-R10"
+          ]
+        },
+        {
+          "id": "WO-10-A03",
+          "requirements": [
+            "WO-10-R04",
+            "WO-10-R08"
+          ]
+        },
+        {
+          "id": "WO-10-A04",
+          "requirements": [
+            "WO-10-R05",
+            "WO-10-R07",
+            "WO-10-R11",
+            "WO-10-R12"
+          ]
+        },
+        {
+          "id": "WO-10-A05",
+          "requirements": [
+            "WO-10-R07",
+            "WO-10-R08",
+            "WO-10-R09"
+          ]
+        },
+        {
+          "id": "WO-10-A06",
+          "requirements": [
+            "WO-10-R02",
+            "WO-10-R11"
+          ]
+        },
+        {
+          "id": "WO-10-A07",
+          "requirements": [
+            "WO-10-R03",
+            "WO-10-R06",
+            "WO-10-R10"
+          ]
+        },
+        {
+          "id": "WO-10-A08",
+          "requirements": [
+            "WO-10-R01",
+            "WO-10-R04",
+            "WO-10-R10",
+            "WO-10-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "saveCatalogStateV4",
+        "signRecordV4",
+        "verifyRecordV4",
+        "addFiles",
+        "relinkSource",
+        "finishDownload",
+        "retainGlobalFile",
+        "globalProviderOperation",
+        "removeGlobalObject"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-06",
+        "WO-08",
+        "WO-14",
+        "WO-18"
+      ]
+    },
+    {
+      "id": "WO-11",
+      "number": 11,
+      "title": "Rooms mounted as filesystems",
+      "file": "11-room-filesystem.md",
+      "sha256": "860bd0883429c657b58e7419ca01a63c4b37a2b7d45b8ceecd18a4f6219d710b",
+      "words": 4072,
+      "requirements": [
+        "WO-11-R01",
+        "WO-11-R02",
+        "WO-11-R03",
+        "WO-11-R04",
+        "WO-11-R05",
+        "WO-11-R06",
+        "WO-11-R07",
+        "WO-11-R08",
+        "WO-11-R09",
+        "WO-11-R10",
+        "WO-11-R11",
+        "WO-11-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-11-A01",
+          "requirements": [
+            "WO-11-R01",
+            "WO-11-R02",
+            "WO-11-R11"
+          ]
+        },
+        {
+          "id": "WO-11-A02",
+          "requirements": [
+            "WO-11-R03",
+            "WO-11-R07",
+            "WO-11-R10"
+          ]
+        },
+        {
+          "id": "WO-11-A03",
+          "requirements": [
+            "WO-11-R04",
+            "WO-11-R06",
+            "WO-11-R07"
+          ]
+        },
+        {
+          "id": "WO-11-A04",
+          "requirements": [
+            "WO-11-R05",
+            "WO-11-R12"
+          ]
+        },
+        {
+          "id": "WO-11-A05",
+          "requirements": [
+            "WO-11-R06",
+            "WO-11-R08",
+            "WO-11-R09"
+          ]
+        },
+        {
+          "id": "WO-11-A06",
+          "requirements": [
+            "WO-11-R05",
+            "WO-11-R09",
+            "WO-11-R10"
+          ]
+        },
+        {
+          "id": "WO-11-A07",
+          "requirements": [
+            "WO-11-R01",
+            "WO-11-R08",
+            "WO-11-R11"
+          ]
+        },
+        {
+          "id": "WO-11-A08",
+          "requirements": [
+            "WO-11-R02",
+            "WO-11-R04",
+            "WO-11-R07",
+            "WO-11-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "catalog",
+        "contents",
+        "readLocalChunk",
+        "requestFile",
+        "saveCatalogStateV4",
+        "canonicalToPlain",
+        "hasPermissionV4",
+        "finishDownload"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-04",
+        "WO-05",
+        "WO-08",
+        "WO-10",
+        "WO-12"
+      ]
+    },
+    {
+      "id": "WO-12",
+      "number": 12,
+      "title": "Authenticated random-access reads",
+      "file": "12-authenticated-random-access.md",
+      "sha256": "f3b708139b18d03dd358fef20f0d949f15944dbad537d1b3bb770674749e7df7",
+      "words": 4028,
+      "requirements": [
+        "WO-12-R01",
+        "WO-12-R02",
+        "WO-12-R03",
+        "WO-12-R04",
+        "WO-12-R05",
+        "WO-12-R06",
+        "WO-12-R07",
+        "WO-12-R08",
+        "WO-12-R09",
+        "WO-12-R10",
+        "WO-12-R11",
+        "WO-12-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-12-A01",
+          "requirements": [
+            "WO-12-R01",
+            "WO-12-R02",
+            "WO-12-R03",
+            "WO-12-R12"
+          ]
+        },
+        {
+          "id": "WO-12-A02",
+          "requirements": [
+            "WO-12-R03",
+            "WO-12-R04",
+            "WO-12-R06",
+            "WO-12-R10"
+          ]
+        },
+        {
+          "id": "WO-12-A03",
+          "requirements": [
+            "WO-12-R04",
+            "WO-12-R05",
+            "WO-12-R06"
+          ]
+        },
+        {
+          "id": "WO-12-A04",
+          "requirements": [
+            "WO-12-R05",
+            "WO-12-R07",
+            "WO-12-R11"
+          ]
+        },
+        {
+          "id": "WO-12-A05",
+          "requirements": [
+            "WO-12-R08",
+            "WO-12-R11"
+          ]
+        },
+        {
+          "id": "WO-12-A06",
+          "requirements": [
+            "WO-12-R02",
+            "WO-12-R09"
+          ]
+        },
+        {
+          "id": "WO-12-A07",
+          "requirements": [
+            "WO-12-R05",
+            "WO-12-R09",
+            "WO-12-R10"
+          ]
+        },
+        {
+          "id": "WO-12-A08",
+          "requirements": [
+            "WO-12-R01",
+            "WO-12-R06",
+            "WO-12-R07",
+            "WO-12-R11",
+            "WO-12-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "swarmInit",
+        "swarmStep",
+        "hashFileStreaming",
+        "readLocalChunk",
+        "canonicalToPlain",
+        "handleBinary",
+        "verifyCachedDownloadRoot",
+        "openPreview",
+        "ensureStreamHorizon"
+      ],
+      "relatedOptionalOrders": [
+        "WO-05",
+        "WO-09",
+        "WO-11",
+        "WO-13",
+        "WO-20"
+      ]
+    },
+    {
+      "id": "WO-13",
+      "number": 13,
+      "title": "Private delta transfers",
+      "file": "13-private-delta-transfers.md",
+      "sha256": "4b1ea46e2f54dd74654feb6cef926cffa9808a0fe79cc7196cb84578394a85b1",
+      "words": 3991,
+      "requirements": [
+        "WO-13-R01",
+        "WO-13-R02",
+        "WO-13-R03",
+        "WO-13-R04",
+        "WO-13-R05",
+        "WO-13-R06",
+        "WO-13-R07",
+        "WO-13-R08",
+        "WO-13-R09",
+        "WO-13-R10",
+        "WO-13-R11",
+        "WO-13-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-13-A01",
+          "requirements": [
+            "WO-13-R01",
+            "WO-13-R02",
+            "WO-13-R05"
+          ]
+        },
+        {
+          "id": "WO-13-A02",
+          "requirements": [
+            "WO-13-R02",
+            "WO-13-R04",
+            "WO-13-R06",
+            "WO-13-R12"
+          ]
+        },
+        {
+          "id": "WO-13-A03",
+          "requirements": [
+            "WO-13-R03",
+            "WO-13-R11"
+          ]
+        },
+        {
+          "id": "WO-13-A04",
+          "requirements": [
+            "WO-13-R04",
+            "WO-13-R07"
+          ]
+        },
+        {
+          "id": "WO-13-A05",
+          "requirements": [
+            "WO-13-R05",
+            "WO-13-R08",
+            "WO-13-R09"
+          ]
+        },
+        {
+          "id": "WO-13-A06",
+          "requirements": [
+            "WO-13-R09",
+            "WO-13-R10"
+          ]
+        },
+        {
+          "id": "WO-13-A07",
+          "requirements": [
+            "WO-13-R05",
+            "WO-13-R06",
+            "WO-13-R11",
+            "WO-13-R12"
+          ]
+        },
+        {
+          "id": "WO-13-A08",
+          "requirements": [
+            "WO-13-R06",
+            "WO-13-R08",
+            "WO-13-R10",
+            "WO-13-R11"
+          ]
+        }
+      ],
+      "anchors": [
+        "hashFileStreaming",
+        "readLocalChunk",
+        "swarmInit",
+        "swarmStep",
+        "uploadGlobalReplica",
+        "retrieveGlobalFile",
+        "saveCatalogStateV4",
+        "globalCatalogSnapshot"
+      ],
+      "relatedOptionalOrders": [
+        "WO-05",
+        "WO-06",
+        "WO-08",
+        "WO-10",
+        "WO-12",
+        "WO-14"
+      ]
+    },
+    {
+      "id": "WO-14",
+      "number": 14,
+      "title": "Erasure-coded global storage",
+      "file": "14-erasure-coded-global-storage.md",
+      "sha256": "520f98b28de4a8c89681da6a64d1f1a9d26b40f416923133c1092d4c5422bed9",
+      "words": 4042,
+      "requirements": [
+        "WO-14-R01",
+        "WO-14-R02",
+        "WO-14-R03",
+        "WO-14-R04",
+        "WO-14-R05",
+        "WO-14-R06",
+        "WO-14-R07",
+        "WO-14-R08",
+        "WO-14-R09",
+        "WO-14-R10",
+        "WO-14-R11",
+        "WO-14-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-14-A01",
+          "requirements": [
+            "WO-14-R01",
+            "WO-14-R02",
+            "WO-14-R12"
+          ]
+        },
+        {
+          "id": "WO-14-A02",
+          "requirements": [
+            "WO-14-R03",
+            "WO-14-R04",
+            "WO-14-R05"
+          ]
+        },
+        {
+          "id": "WO-14-A03",
+          "requirements": [
+            "WO-14-R06",
+            "WO-14-R07",
+            "WO-14-R08"
+          ]
+        },
+        {
+          "id": "WO-14-A04",
+          "requirements": [
+            "WO-14-R03",
+            "WO-14-R06",
+            "WO-14-R10"
+          ]
+        },
+        {
+          "id": "WO-14-A05",
+          "requirements": [
+            "WO-14-R07",
+            "WO-14-R08",
+            "WO-14-R11"
+          ]
+        },
+        {
+          "id": "WO-14-A06",
+          "requirements": [
+            "WO-14-R05",
+            "WO-14-R08",
+            "WO-14-R09"
+          ]
+        },
+        {
+          "id": "WO-14-A07",
+          "requirements": [
+            "WO-14-R01",
+            "WO-14-R10",
+            "WO-14-R11"
+          ]
+        },
+        {
+          "id": "WO-14-A08",
+          "requirements": [
+            "WO-14-R02",
+            "WO-14-R04",
+            "WO-14-R07",
+            "WO-14-R08",
+            "WO-14-R10",
+            "WO-14-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "globalMesh",
+        "globalProviderOperation",
+        "acceptGlobalStorageRecord",
+        "uploadGlobalReplica",
+        "retainGlobalFile",
+        "retrieveGlobalFile",
+        "globalCatalogSnapshot",
+        "publishGlobalCatalog",
+        "recoverGlobalCatalogs"
+      ],
+      "relatedOptionalOrders": [
+        "WO-06",
+        "WO-10",
+        "WO-12",
+        "WO-13",
+        "WO-15",
+        "WO-19"
+      ]
+    },
+    {
+      "id": "WO-15",
+      "number": 15,
+      "title": "Automatic retention caretaker",
+      "file": "15-automatic-retention-caretaker.md",
+      "sha256": "947b6036b06698ac8b5d6b77bc4a727b853dc5d47b5bfbe4f4580b6d74761739",
+      "words": 3901,
+      "requirements": [
+        "WO-15-R01",
+        "WO-15-R02",
+        "WO-15-R03",
+        "WO-15-R04",
+        "WO-15-R05",
+        "WO-15-R06",
+        "WO-15-R07",
+        "WO-15-R08",
+        "WO-15-R09",
+        "WO-15-R10",
+        "WO-15-R11",
+        "WO-15-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-15-A01",
+          "requirements": [
+            "WO-15-R01",
+            "WO-15-R02",
+            "WO-15-R09"
+          ]
+        },
+        {
+          "id": "WO-15-A02",
+          "requirements": [
+            "WO-15-R03",
+            "WO-15-R04",
+            "WO-15-R05"
+          ]
+        },
+        {
+          "id": "WO-15-A03",
+          "requirements": [
+            "WO-15-R05",
+            "WO-15-R06"
+          ]
+        },
+        {
+          "id": "WO-15-A04",
+          "requirements": [
+            "WO-15-R06",
+            "WO-15-R07",
+            "WO-15-R08"
+          ]
+        },
+        {
+          "id": "WO-15-A05",
+          "requirements": [
+            "WO-15-R07",
+            "WO-15-R08",
+            "WO-15-R10"
+          ]
+        },
+        {
+          "id": "WO-15-A06",
+          "requirements": [
+            "WO-15-R08",
+            "WO-15-R11"
+          ]
+        },
+        {
+          "id": "WO-15-A07",
+          "requirements": [
+            "WO-15-R01",
+            "WO-15-R06",
+            "WO-15-R09",
+            "WO-15-R12"
+          ]
+        },
+        {
+          "id": "WO-15-A08",
+          "requirements": [
+            "WO-15-R02",
+            "WO-15-R09",
+            "WO-15-R10",
+            "WO-15-R11",
+            "WO-15-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "globalProviderOperation",
+        "restoreGlobalProviderInventory",
+        "retainGlobalFile",
+        "retrieveGlobalFile",
+        "publishGlobalCatalog",
+        "recoverGlobalCatalogs",
+        "acquireGlobalProvider",
+        "BrowserStorage"
+      ],
+      "relatedOptionalOrders": [
+        "WO-06",
+        "WO-08",
+        "WO-14",
+        "WO-19"
+      ]
+    },
+    {
+      "id": "WO-16",
+      "number": 16,
+      "title": "Offline courier bundles",
+      "file": "16-offline-courier-bundles.md",
+      "sha256": "be3df1654504c2c35d7f3d16427bf473118c1a8acdf35ff16ef8c32ea22b8585",
+      "words": 4091,
+      "requirements": [
+        "WO-16-R01",
+        "WO-16-R02",
+        "WO-16-R03",
+        "WO-16-R04",
+        "WO-16-R05",
+        "WO-16-R06",
+        "WO-16-R07",
+        "WO-16-R08",
+        "WO-16-R09",
+        "WO-16-R10",
+        "WO-16-R11",
+        "WO-16-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-16-A01",
+          "requirements": [
+            "WO-16-R01",
+            "WO-16-R03",
+            "WO-16-R06",
+            "WO-16-R12"
+          ]
+        },
+        {
+          "id": "WO-16-A02",
+          "requirements": [
+            "WO-16-R02",
+            "WO-16-R03",
+            "WO-16-R08",
+            "WO-16-R11"
+          ]
+        },
+        {
+          "id": "WO-16-A03",
+          "requirements": [
+            "WO-16-R04",
+            "WO-16-R05",
+            "WO-16-R07"
+          ]
+        },
+        {
+          "id": "WO-16-A04",
+          "requirements": [
+            "WO-16-R01",
+            "WO-16-R05",
+            "WO-16-R06"
+          ]
+        },
+        {
+          "id": "WO-16-A05",
+          "requirements": [
+            "WO-16-R04",
+            "WO-16-R08",
+            "WO-16-R12"
+          ]
+        },
+        {
+          "id": "WO-16-A06",
+          "requirements": [
+            "WO-16-R05",
+            "WO-16-R06",
+            "WO-16-R10"
+          ]
+        },
+        {
+          "id": "WO-16-A07",
+          "requirements": [
+            "WO-16-R08",
+            "WO-16-R09",
+            "WO-16-R11"
+          ]
+        },
+        {
+          "id": "WO-16-A08",
+          "requirements": [
+            "WO-16-R02",
+            "WO-16-R07",
+            "WO-16-R10",
+            "WO-16-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "readLocalChunk",
+        "canonicalToPlain",
+        "signRecordV4",
+        "verifyRecordV4",
+        "saveCatalogStateV4",
+        "downloadApplicationSource",
+        "recoverGlobalCatalogs",
+        "BrowserStorage"
+      ],
+      "relatedOptionalOrders": [
+        "WO-05",
+        "WO-06",
+        "WO-08",
+        "WO-09",
+        "WO-10"
+      ]
+    },
+    {
+      "id": "WO-17",
+      "number": 17,
+      "title": "Encrypted delivery to offline recipients",
+      "file": "17-encrypted-offline-delivery.md",
+      "sha256": "cd049cd224341e8c1970a566e0b0f86bb9bfc9485c1b1fc62df2f89876df66dd",
+      "words": 4294,
+      "requirements": [
+        "WO-17-R01",
+        "WO-17-R02",
+        "WO-17-R03",
+        "WO-17-R04",
+        "WO-17-R05",
+        "WO-17-R06",
+        "WO-17-R07",
+        "WO-17-R08",
+        "WO-17-R09",
+        "WO-17-R10",
+        "WO-17-R11",
+        "WO-17-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-17-A01",
+          "requirements": [
+            "WO-17-R01",
+            "WO-17-R02",
+            "WO-17-R03",
+            "WO-17-R10"
+          ]
+        },
+        {
+          "id": "WO-17-A02",
+          "requirements": [
+            "WO-17-R04",
+            "WO-17-R05",
+            "WO-17-R07"
+          ]
+        },
+        {
+          "id": "WO-17-A03",
+          "requirements": [
+            "WO-17-R03",
+            "WO-17-R06",
+            "WO-17-R07"
+          ]
+        },
+        {
+          "id": "WO-17-A04",
+          "requirements": [
+            "WO-17-R05",
+            "WO-17-R06",
+            "WO-17-R08"
+          ]
+        },
+        {
+          "id": "WO-17-A05",
+          "requirements": [
+            "WO-17-R01",
+            "WO-17-R03",
+            "WO-17-R09"
+          ]
+        },
+        {
+          "id": "WO-17-A06",
+          "requirements": [
+            "WO-17-R02",
+            "WO-17-R04",
+            "WO-17-R11"
+          ]
+        },
+        {
+          "id": "WO-17-A07",
+          "requirements": [
+            "WO-17-R07",
+            "WO-17-R08",
+            "WO-17-R10"
+          ]
+        },
+        {
+          "id": "WO-17-A08",
+          "requirements": [
+            "WO-17-R04",
+            "WO-17-R09",
+            "WO-17-R11",
+            "WO-17-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "globalProviderOperation",
+        "globalIdentity",
+        "publishGlobalCatalog",
+        "recoverGlobalCatalogs",
+        "uploadGlobalReplica",
+        "retrieveGlobalFile",
+        "signRecordV4",
+        "verifyRecordV4"
+      ],
+      "relatedOptionalOrders": [
+        "WO-06",
+        "WO-08",
+        "WO-09",
+        "WO-10",
+        "WO-14",
+        "WO-16"
+      ]
+    },
+    {
+      "id": "WO-18",
+      "number": 18,
+      "title": "Cross-device transfer handoff",
+      "file": "18-cross-device-transfer-handoff.md",
+      "sha256": "62db4ea61d79deb47ba13ada07d2d7f401b6acebc966e0cd49a3fe337e4f1377",
+      "words": 4039,
+      "requirements": [
+        "WO-18-R01",
+        "WO-18-R02",
+        "WO-18-R03",
+        "WO-18-R04",
+        "WO-18-R05",
+        "WO-18-R06",
+        "WO-18-R07",
+        "WO-18-R08",
+        "WO-18-R09",
+        "WO-18-R10",
+        "WO-18-R11",
+        "WO-18-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-18-A01",
+          "requirements": [
+            "WO-18-R01",
+            "WO-18-R03",
+            "WO-18-R10"
+          ]
+        },
+        {
+          "id": "WO-18-A02",
+          "requirements": [
+            "WO-18-R02",
+            "WO-18-R06",
+            "WO-18-R07",
+            "WO-18-R12"
+          ]
+        },
+        {
+          "id": "WO-18-A03",
+          "requirements": [
+            "WO-18-R04",
+            "WO-18-R05",
+            "WO-18-R09"
+          ]
+        },
+        {
+          "id": "WO-18-A04",
+          "requirements": [
+            "WO-18-R02",
+            "WO-18-R08",
+            "WO-18-R10"
+          ]
+        },
+        {
+          "id": "WO-18-A05",
+          "requirements": [
+            "WO-18-R04",
+            "WO-18-R07",
+            "WO-18-R09"
+          ]
+        },
+        {
+          "id": "WO-18-A06",
+          "requirements": [
+            "WO-18-R03",
+            "WO-18-R09",
+            "WO-18-R11"
+          ]
+        },
+        {
+          "id": "WO-18-A07",
+          "requirements": [
+            "WO-18-R06",
+            "WO-18-R10",
+            "WO-18-R11"
+          ]
+        },
+        {
+          "id": "WO-18-A08",
+          "requirements": [
+            "WO-18-R01",
+            "WO-18-R05",
+            "WO-18-R08",
+            "WO-18-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "makeDownloadSession",
+        "scanPartialDownload",
+        "cacheDownloadChunk",
+        "finishDownload",
+        "pauseTransfer",
+        "resumeTransfer",
+        "cancelTransfer",
+        "openPreview",
+        "closePreview",
+        "signRecordV4"
+      ],
+      "relatedOptionalOrders": [
+        "WO-04",
+        "WO-05",
+        "WO-06",
+        "WO-08",
+        "WO-10",
+        "WO-12",
+        "WO-19"
+      ]
+    },
+    {
+      "id": "WO-19",
+      "number": 19,
+      "title": "Bandwidth and energy budgets",
+      "file": "19-bandwidth-energy-budgets.md",
+      "sha256": "9484af344c30082f74f5eed8ba41038ea9db6efda467ac99e763dc06179ec2f2",
+      "words": 3907,
+      "requirements": [
+        "WO-19-R01",
+        "WO-19-R02",
+        "WO-19-R03",
+        "WO-19-R04",
+        "WO-19-R05",
+        "WO-19-R06",
+        "WO-19-R07",
+        "WO-19-R08",
+        "WO-19-R09",
+        "WO-19-R10",
+        "WO-19-R11",
+        "WO-19-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-19-A01",
+          "requirements": [
+            "WO-19-R01",
+            "WO-19-R03",
+            "WO-19-R10"
+          ]
+        },
+        {
+          "id": "WO-19-A02",
+          "requirements": [
+            "WO-19-R02",
+            "WO-19-R09",
+            "WO-19-R11"
+          ]
+        },
+        {
+          "id": "WO-19-A03",
+          "requirements": [
+            "WO-19-R04",
+            "WO-19-R08"
+          ]
+        },
+        {
+          "id": "WO-19-A04",
+          "requirements": [
+            "WO-19-R05",
+            "WO-19-R06"
+          ]
+        },
+        {
+          "id": "WO-19-A05",
+          "requirements": [
+            "WO-19-R03",
+            "WO-19-R06",
+            "WO-19-R07"
+          ]
+        },
+        {
+          "id": "WO-19-A06",
+          "requirements": [
+            "WO-19-R07",
+            "WO-19-R08",
+            "WO-19-R11"
+          ]
+        },
+        {
+          "id": "WO-19-A07",
+          "requirements": [
+            "WO-19-R08",
+            "WO-19-R09",
+            "WO-19-R10"
+          ]
+        },
+        {
+          "id": "WO-19-A08",
+          "requirements": [
+            "WO-19-R02",
+            "WO-19-R04",
+            "WO-19-R05",
+            "WO-19-R11",
+            "WO-19-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "ensureStreamHorizon",
+        "streamSafeBand",
+        "readLocalChunk",
+        "sendBinary",
+        "startMesh",
+        "setPrivacyMode",
+        "globalProviderOperation",
+        "PrivateTrackerMesh"
+      ],
+      "relatedOptionalOrders": [
+        "WO-06",
+        "WO-08",
+        "WO-14",
+        "WO-15",
+        "WO-18"
+      ]
+    },
+    {
+      "id": "WO-20",
+      "number": 20,
+      "title": "Accessible, searchable content representations",
+      "file": "20-accessible-searchable-representations.md",
+      "sha256": "18e64fbdbfc9628469cc6773f479e2b3c28fd0f9a17f72ad73306c65e5cd80f3",
+      "words": 3996,
+      "requirements": [
+        "WO-20-R01",
+        "WO-20-R02",
+        "WO-20-R03",
+        "WO-20-R04",
+        "WO-20-R05",
+        "WO-20-R06",
+        "WO-20-R07",
+        "WO-20-R08",
+        "WO-20-R09",
+        "WO-20-R10",
+        "WO-20-R11",
+        "WO-20-R12"
+      ],
+      "acceptanceCases": [
+        {
+          "id": "WO-20-A01",
+          "requirements": [
+            "WO-20-R01",
+            "WO-20-R02",
+            "WO-20-R07",
+            "WO-20-R12"
+          ]
+        },
+        {
+          "id": "WO-20-A02",
+          "requirements": [
+            "WO-20-R03",
+            "WO-20-R04",
+            "WO-20-R11"
+          ]
+        },
+        {
+          "id": "WO-20-A03",
+          "requirements": [
+            "WO-20-R04",
+            "WO-20-R05",
+            "WO-20-R06"
+          ]
+        },
+        {
+          "id": "WO-20-A04",
+          "requirements": [
+            "WO-20-R06",
+            "WO-20-R07",
+            "WO-20-R08"
+          ]
+        },
+        {
+          "id": "WO-20-A05",
+          "requirements": [
+            "WO-20-R05",
+            "WO-20-R08",
+            "WO-20-R09"
+          ]
+        },
+        {
+          "id": "WO-20-A06",
+          "requirements": [
+            "WO-20-R03",
+            "WO-20-R09",
+            "WO-20-R12"
+          ]
+        },
+        {
+          "id": "WO-20-A07",
+          "requirements": [
+            "WO-20-R10",
+            "WO-20-R12"
+          ]
+        },
+        {
+          "id": "WO-20-A08",
+          "requirements": [
+            "WO-20-R01",
+            "WO-20-R02",
+            "WO-20-R03",
+            "WO-20-R10",
+            "WO-20-R11",
+            "WO-20-R12"
+          ]
+        }
+      ],
+      "anchors": [
+        "renderInterface",
+        "openPreview",
+        "readLocalChunk",
+        "canonicalToPlain",
+        "verifyCachedDownloadRoot",
+        "hasPermissionV4",
+        "BrowserStorage",
+        "setPrivacyMode"
+      ],
+      "relatedOptionalOrders": [
+        "WO-01",
+        "WO-04",
+        "WO-05",
+        "WO-06",
+        "WO-08",
+        "WO-09",
+        "WO-12",
+        "WO-19"
+      ]
+    }
+  ]
+}

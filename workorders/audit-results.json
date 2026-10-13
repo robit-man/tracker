@@ -1,0 +1,47 @@
+{
+  "documentAudit": "PASS",
+  "orders": 20,
+  "requirements": 240,
+  "acceptanceCases": 160,
+  "jsonExamples": 50,
+  "anchors": 202,
+  "words": 81952,
+  "htmlSha256": "c96eafd12882414386ee3b23f21c09b3a0ba4b20aae8bd7f6e16f49da58120a7",
+  "baselineMatches": true,
+  "implementationTestsRun": false,
+  "auditorSelfTests": [
+    {
+      "case": "missing requirement heading",
+      "result": "PASS"
+    },
+    {
+      "case": "requirement has no acceptance coverage",
+      "result": "PASS"
+    },
+    {
+      "case": "broken JSON example",
+      "result": "PASS"
+    },
+    {
+      "case": "source reference missing",
+      "result": "PASS"
+    },
+    {
+      "case": "standalone section omitted",
+      "result": "PASS"
+    },
+    {
+      "case": "source baseline changed",
+      "result": "PASS"
+    },
+    {
+      "case": "numbered order missing",
+      "result": "PASS"
+    },
+    {
+      "case": "unaltered complete handoff",
+      "result": "PASS"
+    }
+  ],
+  "errors": []
+}
