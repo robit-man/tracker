@@ -887,8 +887,8 @@ function hideActionTooltip(){const tip=$('#actionTooltip');if(tip){tip.classList
 function showActionTooltip(button){
   if(!button?.dataset.tooltip||button.disabled)return;hideActionTooltip();let tip=$('#actionTooltip');
   if(!tip){tip=document.createElement('div');tip.id='actionTooltip';tip.className='actionTooltip';tip.setAttribute('role','tooltip');document.body.append(tip)}
-  // A fullscreen element owns the top layer, including its tooltip.
-  const host=document.fullscreenElement||document.body;if(tip.parentNode!==host)host.append(tip);
+  // Native dialogs and fullscreen elements own their tooltip's top layer.
+  const host=button.closest('dialog[open]')||document.fullscreenElement||document.body;if(tip.parentNode!==host)host.append(tip);
   tip.textContent=button.dataset.tooltip;tip.hidden=false;actionTooltipTarget=button;button.setAttribute('aria-describedby',((button.getAttribute('aria-describedby')||'')+' actionTooltip').trim());
   const r=button.getBoundingClientRect(),t=tip.getBoundingClientRect(),vv=window.visualViewport,x=vv?.offsetLeft||0,y=vv?.offsetTop||0,w=vv?.width||innerWidth,h=vv?.height||innerHeight;
   tip.style.left=Math.max(x+8,Math.min(x+w-t.width-8,r.left+(r.width-t.width)/2))+'px';tip.style.top=Math.max(y+8,Math.min(y+h-t.height-8,r.bottom+t.height+16<y+h?r.bottom+8:r.top-t.height-8))+'px';
@@ -5319,7 +5319,7 @@ async function downloadApplicationSource(){
 function initPolicyNotices(){
   for(const modal of document.querySelectorAll('.policy-modal')){
     modal.addEventListener('click',e=>{if(e.target.closest('[data-policy-close]'))modal.close()});
-    modal.addEventListener('close',()=>{const button=modal.id==='privacyNoticeModal'?$('#privacyNoticeBtn'):$('#disclaimerBtn');button.setAttribute('aria-expanded','false');if(document.querySelector('.policy-modal[open]'))return;const target=policyReturnFocus.get(modal);if(target?.isConnected&&!target.closest('[inert],dialog:not([open])'))target.focus({preventScroll:true});else if(innerWidth<=800)$('#menu-button').focus({preventScroll:true});else button.focus({preventScroll:true})});
+    modal.addEventListener('close',()=>{hideActionTooltip();const button=modal.id==='privacyNoticeModal'?$('#privacyNoticeBtn'):$('#disclaimerBtn');button.setAttribute('aria-expanded','false');if(document.querySelector('.policy-modal[open]'))return;const target=policyReturnFocus.get(modal);if(target?.isConnected&&!target.closest('[inert],dialog:not([open])'))target.focus({preventScroll:true});else if(innerWidth<=800)$('#menu-button').focus({preventScroll:true});else button.focus({preventScroll:true})});
   }
   document.addEventListener('click',e=>{const open=e.target.closest('[data-policy-open]');if(open){openPolicyNotice(open.dataset.policyOpen,open);return}if(e.target.closest('[data-download-source]'))downloadApplicationSource().catch(()=>{})});
   $('#privacyNoticeToggle').onclick=()=>{$('#privacyBtn').click();renderPrivacyNotice()};
