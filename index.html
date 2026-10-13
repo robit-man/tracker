@@ -475,6 +475,8 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;
 html,body,#app{touch-action:pan-x pan-y}
 @media(max-width:800px),(any-pointer:coarse){input,select,textarea,.nav-search input,.catalog-search .search,.unlockInline input,.lockFields input,.roomShareUrl{font-size:16px}}
 .space-bottom-lg{margin-bottom:24px}.recent-room{display:flex;align-items:center;gap:4px;min-width:0}.recent-room>.nav-link{flex:1;min-width:0;font-size:12px}.recent-room>.mini{flex:0 0 24px;width:24px;min-width:24px;height:24px;padding:0;background:transparent;border-color:transparent;color:var(--muted)}.recent-label{margin-top:18px}#navGlobalCapacity{white-space:nowrap}.global-provider{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 0;border-top:1px solid var(--line)}.global-index-url{overflow-wrap:anywhere}.global-shard-link{color:var(--ink);text-decoration:none}.global-shard-link:hover{text-decoration:underline}#globalContribution .input{width:100%;min-height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}#globalShardList .card,#globalRoomCopies .card{min-width:0}#globalRoomCopies .stage-header{flex-wrap:wrap;gap:12px}#globalRoomCopies h3{overflow-wrap:anywhere}
+
+.browser-storage-item{min-width:0}.browser-storage-item .stage-header{flex-wrap:wrap;gap:12px}.browser-storage-item .choice{min-width:0;flex:1;align-items:flex-start}.browser-storage-item strong,.storage-item-id{overflow-wrap:anywhere;word-break:break-word}.browser-storage-item .choice input{flex:none}.browser-storage-item .badge{white-space:normal}.browser-storage-item .btn{margin-top:10px}[data-page="browser-storage"]>.section-head{flex-wrap:wrap;gap:16px}[data-page="browser-storage"]>.section-head>div{flex:1 1 300px;min-width:0}
 </style>
 </head>
 <body>
@@ -544,6 +546,7 @@ html,body,#app{touch-action:pan-x pan-y}
       </div>
       <div class="nav-section"><div class="nav-label">Room</div>
         <button class="nav-link" data-view="settings"><svg class="icon"><use href="#i-settings"/></svg>Settings &amp; identity</button>
+        <button class="nav-link" data-view="browser-storage"><svg class="icon"><use href="#i-database"/></svg>Browser storage</button>
         <div class="nav-label recent-label">Recent rooms</div><div id="recentRooms"></div>
       </div>
     </nav>
@@ -606,6 +609,11 @@ html,body,#app{touch-action:pan-x pan-y}
           <section class="card"><h3>Appearance &amp; privacy</h3><div class="ui-row wrap space-top"><button class="btn outline" id="settingsTheme">Switch color theme</button><button class="btn outline" id="settingsPrivacy">Toggle privacy</button><button class="btn outline" id="settingsShare"><svg class="icon sm"><use href="#i-link"/></svg>Share room</button></div><p class="note" id="privacyDescription">Privacy uses encrypted relay routes and prevents direct peer connections.</p></section>
           <details class="card"><summary class="card-title">Room behavior &amp; network details</summary><p class="note">The catalog replicates through the room. File bytes stay with sources until requested; every completed transfer is verified. Streaming is ephemeral. Retention is a separate opt-in local copy. Password-locked files can be retained and relayed as ciphertext.</p><div class="stack" id="networkDetails"></div></details>
         </div>
+      </section>
+      <section class="app-view" data-page="browser-storage" hidden>
+        <div class="section-head"><div><div class="section-number">Room</div><h2>Browser storage</h2><p class="section-desc">Inspect local copies, temporary media, and encrypted provider blobs.</p></div><button class="btn outline withLabel" id="browserStorageRefresh" data-icon="refresh" data-tooltip="Refresh storage inventory">Refresh</button></div>
+        <div class="grid two"><article class="card"><div class="metric-label">Measured file data</div><div class="metric-value" id="browserStorageBytes">—</div><p class="note" id="browserStorageSummary">Open this view to scan local storage.</p></article><article class="card"><div class="metric-label">Browser origin usage</div><div class="metric-value" id="browserStorageOrigin">—</div><p class="note" id="browserStorageQuota">Checking quota…</p><p class="note">Origin usage includes database overhead and other apps on this origin. Linked files on disk consume no browser cache.</p></article></div>
+        <section class="panel space-top-lg"><div class="panel-head"><div><h3>Stored items</h3><p class="card-sub" id="browserStorageStatus" role="status" aria-live="polite">Inventory has not been scanned.</p></div><div class="btn-row"><button class="btn outline withLabel" id="browserStorageClearCache" data-icon="trash" data-tooltip="Clear file cache" disabled>Clear file cache</button><button class="btn outline withLabel" id="browserStorageClearSelected" data-icon="trash" data-tooltip="Clear selected items" disabled>Clear selected</button></div></div><div class="panel-body"><div class="field-grid"><div class="field"><label for="browserStorageFilter">Storage type</label><select class="select" id="browserStorageFilter"><option value="all">All storage</option><option value="file">Room file cache</option><option value="stream">Playback cache</option><option value="global">Global provider blobs</option><option value="temporary">Transcoding temporary files</option><option value="ipfs">IPFS blocks</option><option value="metadata">Identity, catalogs &amp; settings</option><option value="linked">Linked disk files</option></select></div><div class="field"><label for="browserStorageSearch">Find stored items</label><input class="input" id="browserStorageSearch" type="search" placeholder="Name, room hash, or object ID"></div></div><p class="note space-top">File cache clearing preserves room catalogs, identity, settings, and disk links. Provider blobs require explicit selection; deleting them removes the copies held by this browser. Active transfers must be paused before clearing.</p><div class="stack space-top-lg" id="browserStorageItems"></div><button class="btn outline withLabel space-top" id="browserStorageMore" hidden>Show more items</button></div></section>
       </section>
       <footer class="footer"><div class="ui-row wrap"><i class="dot" id="netDot"></i><span id="netText">Starting room</span><span id="meText">YOU · —</span></div><span id="seedStatus">SEEDING 0 FILES</span></footer>
     </div>
@@ -718,7 +726,7 @@ const MP4_HOT_RAM_CHUNKS=IS_MOBILEISH?16:32;
    another keyframe before exposing already-decoded contiguous samples. */
 const MP4_SEGMENT_SAMPLES=24,MP4_QUEUE_HIGH_SEGMENTS=IS_MOBILEISH?24:48,MP4_QUEUE_LOW_SEGMENTS=IS_MOBILEISH?8:16,MP4_QUEUE_HIGH_BYTES=(IS_MOBILEISH?20:48)*1024*1024,MP4_QUEUE_LOW_BYTES=(IS_MOBILEISH?8:16)*1024*1024,MP4_HOT_CHUNKS=MP4_HOT_RAM_CHUNKS;
 const APP_ID='robit-private-tracker-v3';
-const BUILD_ID='2026-10-12-global-legacy-inventory-v107';console.info('[tracker build]',BUILD_ID);
+const BUILD_ID='2026-10-12-browser-storage-backpressure-v108';console.info('[tracker build]',BUILD_ID);
 console.info('[tracker]',BUILD_ID,'ICE hard cap: 1 STUN + 1 TURN max');
 const HASH_ALG='sha256-chain-v1';
 const NKN_SUBCLIENTS=IS_MOBILEISH?1:2;
@@ -757,6 +765,7 @@ let nodeIdentity=null,identityStatus='starting',resolveRoomLocalReady,rejectRoom
 const roomLocalReady=new Promise((resolve,reject)=>{resolveRoomLocalReady=resolve;rejectRoomLocalReady=reject});roomLocalReady.catch(()=>{});
 const actorKeys=new Map(),verifiedPublicKeys=new Map(),authenticatedReplay=new Map();
 const controlBudgetsV4=new Map();
+const controlIntake={active:0,bytes:0,rejected:0,peakActive:0,peakBytes:0};
 let securityPinsWrite=Promise.resolve();
 const catalogOperations=new Map(),pendingCatalogOperations=new Map(),revisionSlots=new Map();
 const invalidRecordProofs=new Set();
@@ -912,7 +921,17 @@ async function initSecret(){
 async function encryptBytes(input,aad=''){const bytes=input instanceof Uint8Array?input:new Uint8Array(input);const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},aesKey,bytes));const out=new Uint8Array(12+ct.length);out.set(iv);out.set(ct,12);return out.buffer}
 async function decryptBytes(packet,aad=''){const b=packet instanceof Uint8Array?packet:new Uint8Array(packet),iv=b.slice(0,12),ct=b.slice(12);return crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:enc.encode(aad)},aesKey,ct)}
 async function seal(o){return bytesToB64(new Uint8Array(await encryptBytes(enc.encode(JSON.stringify(await signControlV4(o))),'ctl')))}
-async function openSeal(s){if(typeof s!=='string'||s.length>8*1024*1024)throw Error('Control packet too large');const m=JSON.parse(dec.decode(await decryptBytes(b64ToBytes(s),'ctl')));await verifyControlV4(m);return m}
+async function openSeal(s){
+  if(typeof s!=='string'||s.length>8*1024*1024)throw Error('Control packet too large');
+  const bytes=s.length*2,limit=IS_MOBILEISH?8:16,budget=(IS_MOBILEISH?16:32)*1024*1024;
+  // Subscription callbacks must not retain an unlimited number of ciphertexts,
+  // decrypted bodies and WebCrypto promises during discovery or reconnect.
+  if(pageSuspended||controlIntake.active>=limit||controlIntake.bytes+bytes>budget){controlIntake.rejected++;throw Error('Control intake capacity reached')}
+  controlIntake.active++;controlIntake.bytes+=bytes;
+  controlIntake.peakActive=Math.max(controlIntake.peakActive,controlIntake.active);controlIntake.peakBytes=Math.max(controlIntake.peakBytes,controlIntake.bytes);
+  try{const m=JSON.parse(dec.decode(await decryptBytes(b64ToBytes(s),'ctl')));await verifyControlV4(m);return m}
+  finally{controlIntake.active--;controlIntake.bytes-=bytes}
+}
 
 /* V4 authentication: canonical JSON subset and additive signed wire envelope. */
 function canonicalStringV4(value,depth=0,budget={n:0}){
@@ -968,6 +987,9 @@ async function signControlV4(input){
   controlShapeV4(m);auth.signature=base64url(new Uint8Array(await crypto.subtle.sign('Ed25519',nodeIdentity.privateKey,canonicalEncodeV4({...auth,body:m}))));return{...m,auth};
 }
 async function verifyControlV4(m){
+  // A previously authenticated ID is already a rejection. Check it before
+  // canonicalizing the payload and repeating its public-key verification.
+  if(m?.auth&&authenticatedReplay.has(m.auth.nodeId+'|'+m.auth.mid))throw Error('Control replay rejected');
   controlShapeV4(m);const auth=m.auth;
   if(!controlAdmissionV4(m))throw Error('Control rate limit reached');
   if(m.v===9&&m.kind==='binfrag'&&auth===undefined)return{status:'binary-framing-only'};
@@ -1182,9 +1204,14 @@ async function loadLocal(){
   for(const j of await getKV('downloadJobs',[]))if(j?.cid&&contents.has(j.cid))downloadJobs.set(j.cid,{...j,state:'queued'});
   for(const[cid,b]of await getKV('previewBookmarks',[]))if(contents.has(cid)&&Number.isFinite(b?.time)&&b.time>=0)previewBookmarks.set(cid,b);
   await loadStoragePreferences();
+  // Other closed rooms can have their cache cleared without possessing their
+  // encryption keys. Consume a local eviction marker before resuming any jobs.
+  const cacheEvictions=await idbKeysPrefix('kv','cache-evicted:');
+  for(const key of cacheEvictions){const cid=key.slice('cache-evicted:'.length);downloadJobs.delete(cid);cachedComplete.delete(cid);const retained=retainedFiles.get(cid);if(retained){retained.state='released';retained.bytesStored=0}}
   await loadFileCleanup();await loadIpfsState();
   for(const cid of contents.keys())await recoverPersistedSource(cid);
   await saveState();renderAll();
+  if(cacheEvictions.length){await persistStoragePreferences();for(const key of cacheEvictions)await idbDel('kv',key)}
   const auth=sourceNeedsAuth.size,missing=sourceMissing.size;if(auth||missing)queueMicrotask(()=>toast(`<b>Local seed recovery:</b> ${auth?auth+' source'+(auth===1?'':'s')+' need re-authorization':''}${auth&&missing?' · ':''}${missing?missing+' source'+(missing===1?'':'s')+' need relinking':''}. No re-download is required.`,'good'));
 }
 
@@ -2425,7 +2452,7 @@ async function handleControl(packet,meta={},w=null,origin='direct'){
     case'content-query':sendContentResultV4(m.actor,m.cid).catch(()=>{});break;
     case'content-result':if(fileLocator&&m.cid===fileLocator.cid&&Array.isArray(m.contents)&&m.contents.every(c=>c.id===m.cid&&validContentShape(c))){await mergeState((m.entries||[]).filter(x=>x.kind==='folder'||x.kind==='file'&&x.contentId===m.cid),m.contents,m,m.operations||[])}break;
     case'availability':{const prev=peerSeeds.get(m.actor)||new Set(),next=new Set(m.append?[...prev,...(m.ids||[])]:m.ids||[]),changed=prev.size!==next.size||[...next].some(x=>!prev.has(x));peerSeeds.set(m.actor,next);peerSeedSalts.set(m.actor,m.append?{...peerSeedSalts.get(m.actor),...m.salts}:m.salts||{});updateSessionSeeder(m.actor,[...next]);if([...next].some(id=>!contents.has(id)))requestCatalogSync(m.actor).catch(()=>{});const ss=activeStreamSession();if(ss&&next.has(ss.cid)){ss.holders.add(m.actor);announceStreamDemand(ss,m.actor).catch(()=>{});scheduleSession(ss,0)}if(changed){renderAll();refreshTransfer(true);refreshPreviewStats(true)}break;}
-    case'seed-query':{const requested=(m.ids||[]).filter(id=>seedEnabled(id));for(const id of requested){try{if(!(await readLocalChunk(id,0)))await markUnreadableSeed(id,m.actor)}catch(_){await markUnreadableSeed(id,m.actor)}}sendActorIngress(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()})).catch(()=>{});break}
+    case'seed-query':await answerSeedQuery(m);break;
     case'route-promote':wakeSeederRecoveryTransports();if(m.nknAddr)ensureNknRoute(m.nknAddr,m.actor).catch(()=>{});if(natsState.nc&&!natsState.sessions.has(m.actor)&&actor<m.actor)makeNatsOffer(m.actor).catch(()=>{});sendActor(m.actor,msg('hello',{reply:true,profile:{alias:aliasFor(actor),color:colorFor(actor)},nknAddr:privacyPublicNknAddr(),promoted:true})).catch(()=>{});break;
     case'live-announce':handleLiveAnnouncement(m);break;
     case'live-end':handleLiveEnd(m);break;
@@ -2547,7 +2574,30 @@ async function mergeState(entries,contentRows,context={},operations=[]){
   }}
   await saveState();renderAll();
 }
-function updateSessionSeeder(remote,ids){const set=new Set(ids);for(const s of sessions.values()){if(set.has(s.cid))s.holders.add(remote);else s.holders.delete(remote);scheduleSession(s,0)}const ps=activePreview?.session;if(ps?.mode==='stream'&&ps.state==='downloading'){if(set.has(ps.cid))ps.holders.add(remote);else ps.holders.delete(remote);scheduleSession(ps,0)}}
+async function answerSeedQuery(m){
+  const requested=[...new Set(m.ids||[])].filter(id=>seedEnabled(id));
+  // Silence is not new availability. Negative replies used to wake an orphaned
+  // download, which queried every peer again and amplified across every plane.
+  if(!requested.length)return false;
+  for(const id of requested){try{if(!(await readLocalChunk(id,0)))await markUnreadableSeed(id,m.actor)}catch(_){await markUnreadableSeed(id,m.actor)}}
+  if(!requested.some(id=>seedEnabled(id)))return false;
+  return sendActorIngress(m.actor,msg('availability',{ids:advertisedSeeds(),salts:advertisedSeedSalts()}));
+}
+function updateSessionSeeder(remote,ids){
+  const set=new Set(ids),update=s=>{
+    if(!s||s.state!=='downloading')return;
+    const has=set.has(s.cid);if(s.holders.has(remote)===has)return;
+    if(has)s.holders.add(remote);else s.holders.delete(remote);
+    s.sourceDiscoveryRounds=0;s.sourceDiscoveryDueAt=0;scheduleSession(s,0);
+  };
+  for(const s of sessions.values())update(s);
+  const ps=activePreview?.session;if(ps?.mode==='stream')update(ps);
+}
+function downloadSourceDiscoveryDelay(s){
+  const round=Math.min(16,Number(s.sourceDiscoveryRounds)||0);s.sourceDiscoveryRounds=round+1;
+  const latency=Math.max(SCHEDULER_TICK_MS,(Number(s.deliveryLatency)||0)*1000||TRANSFER_PROBE_TIMEOUT_MS);
+  return Math.min(MESH_RENDEZVOUS_MS,latency*Math.pow(2,round));
+}
 function activeStreamSession(){const s=activePreview?.session;return s?.mode==='stream'&&s.state==='downloading'?s:null}
 function streamDemandWanted(s,max=STREAM_DEMAND_WANT){
   if(!s)return[];const out=[],seen=new Set(),add=i=>{i=Number(i);if(Number.isInteger(i)&&i>=0&&i<s.total&&!bitHas(s.receivedBits,i)&&!seen.has(i)){seen.add(i);out.push(i)}};
@@ -3039,11 +3089,17 @@ async function schedulerTickBody(s){
   if(s.mode==='stream'&&(!s.lastDemandAt||now-s.lastDemandAt>=STREAM_DEMAND_HEARTBEAT_MS))announceStreamDemand(s).catch(()=>{});
   if(!live.length&&s.inflight.size===0){
     s.waitingForRoute=true;
-    if(s.mode==='stream')announceStreamDemand(s).catch(()=>{});
-    else broadcast(msg('seed-query',{ids:[s.cid]})).catch(()=>{});
-    if(s.mode==='stream')refreshPreviewStats();scheduleSession(s,250);return;
+    if(s.mode==='stream'){announceStreamDemand(s).catch(()=>{});refreshPreviewStats();scheduleSession(s,250)}
+    else{
+      if(now>=(s.sourceDiscoveryDueAt||0)){
+        s.sourceDiscoveryDueAt=now+downloadSourceDiscoveryDelay(s);
+        broadcast(msg('seed-query',{ids:[s.cid]})).catch(()=>{});
+      }
+      scheduleSession(s,Math.max(SCHEDULER_TICK_MS,s.sourceDiscoveryDueAt-now));
+    }
+    return;
   }
-  s.waitingForRoute=false;
+  s.waitingForRoute=false;s.sourceDiscoveryRounds=0;s.sourceDiscoveryDueAt=0;
   for(const a of live)promoteRelayActor(a).catch(()=>{});
   /* An older bulk reservation still occupies real seeder bandwidth even after
      SAFE becomes critical. Reclaim local ownership, de-prioritize bulk at the
@@ -4845,8 +4901,121 @@ function trackerRuntimeMaintenance(){const nowP=performance.now(),nowD=Date.now(
 const trackerMaintenanceTimer=setInterval(trackerRuntimeMaintenance,30000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)trackerRuntimeMaintenance()},{passive:true});window.addEventListener('pagehide',trackerRuntimeMaintenance,{capture:true});
 window.addEventListener('focus',()=>retryPersistedSources().catch(()=>{}));window.addEventListener('pageshow',()=>retryPersistedSources().catch(()=>{}));document.addEventListener('visibilitychange',()=>{if(!document.hidden)retryPersistedSources().catch(()=>{})},{passive:true});
+/* Storage inspection is manual and bounded: never assemble file bytes or decrypt
+   another room/provider's data. Keys and small chunk values are visited in batches. */
+const browserStorage={items:[],selected:new Set(),limit:40,busy:false,scanning:false,scannedAt:0,errors:[],roomLease:null};
+const browserStorageKinds={file:'Room file cache',stream:'Playback cache',global:'Global provider blob',temporary:'Transcoding temporary files',ipfs:'IPFS blocks',metadata:'Identity, catalogs & settings',linked:'Linked disk file'};
+function browserStorageRoom(name){return /^robit-private-tracker-([0-9a-f]{64})$/.exec(name)?.[1]||''}
+function browserStorageOwned(name){return !!browserStorageRoom(name)||/^tracker-global-v1-[0-9a-f]{32}$/.test(name)||/^tracker-ipfs-(?:blocks|data)-[0-9a-f]{64}-/.test(name)||name==='robit-node-identity-v1'}
+function browserStorageOpen(name){return new Promise((resolve,reject)=>{const r=indexedDB.open(name);let missing=false;r.onupgradeneeded=()=>{missing=true;r.transaction.abort()};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(missing?Error('Database disappeared during scan'):r.error);r.onblocked=()=>reject(Error('Database is busy'))})}
+async function holdBrowserRoomLease(){
+  if(!db||!navigator.locks?.request||browserStorage.roomLease)return;
+  const lease={release:null,done:null};lease.done=new Promise(resolve=>lease.finish=resolve);browserStorage.roomLease=lease;
+  await new Promise(resolve=>{navigator.locks.request('tracker-room-cache:'+db.name,{mode:'shared'},async()=>{if(browserStorage.roomLease!==lease){resolve();return}await new Promise(done=>{lease.release=done;resolve()})}).catch(()=>resolve()).finally(()=>lease.finish())});
+}
+async function releaseBrowserRoomLease(){const lease=browserStorage.roomLease;browserStorage.roomLease=null;lease?.release?.();if(lease)await lease.done}
+window.addEventListener('pagehide',releaseBrowserRoomLease);
+window.addEventListener('pageshow',()=>{if(db)holdBrowserRoomLease().catch(()=>{})});
+function browserStorageValueBytes(value){if(value instanceof ArrayBuffer||ArrayBuffer.isView(value))return value.byteLength;if(value instanceof Blob)return value.size;return 0}
+function browserStorageBatch(handle,store,last,keysOnly,visit){return new Promise((resolve,reject)=>{
+  const tx=handle.transaction(store,'readonly'),os=tx.objectStore(store),range=last===undefined?undefined:IDBKeyRange.lowerBound(last,true);let count=0,bytes=0,next,done=false;
+  const r=keysOnly?os.openKeyCursor(range):os.openCursor(range);
+  r.onsuccess=()=>{const c=r.result;if(!c){done=true;return}next=c.key;const n=keysOnly?0:browserStorageValueBytes(c.value);visit(c.key,n);bytes+=n;if(++count<32&&bytes<16*1024*1024)c.continue()};
+  tx.oncomplete=()=>resolve({last:next,done});tx.onerror=()=>reject(tx.error||r.error);tx.onabort=()=>reject(tx.error||Error('Storage scan aborted'));
+})}
+async function scanBrowserStore(handle,store,keysOnly,visit){let last;for(;;){const batch=await browserStorageBatch(handle,store,last,keysOnly,visit);if(batch.done)break;last=batch.last;await verificationYield()}}
+function browserStorageAdd(groups,id,data,bytes=0){let item=groups.get(id);if(!item){item={id,bytes:0,count:0,...data};groups.set(id,item)}item.bytes+=bytes;item.count++;return item}
+async function scanBrowserDatabase(name,groups){
+  let handle;const hash=browserStorageRoom(name),here=hash===roomHash;
+  try{handle=await browserStorageOpen(name);for(const store of handle.objectStoreNames){
+    const roomData=hash&&['chunks','files','streamChunks'].includes(store),globalData=name.startsWith('tracker-global-v1-')&&store==='chunks',ipfs=name.startsWith('tracker-ipfs-blocks-');
+    if(roomData||globalData){
+      // Legacy files may contain a whole multi-GB ArrayBuffer: inspect their keys
+      // only. Report their logical size separately instead of materializing it.
+      await scanBrowserStore(handle,store,store==='files',(key,bytes)=>{const text=String(key),keyId=store==='files'?text:text.split(':')[0],kind=globalData?'global':store==='streamChunks'?'stream':'file';
+        const cid=kind==='file'?keyId:'',entry=here&&cid?resourceEntry(cid):null,id=name+'|'+kind+'|'+keyId;
+        const item=browserStorageAdd(groups,id,{kind,db:name,room:hash,cid,keyId,label:entry?visibleName(entry):kind==='global'?'Encrypted blob '+keyId.slice(0,12):kind==='stream'?'Playback '+keyId.slice(0,12):keyId,stores:[],estimated:false},bytes);
+        if(!item.stores.includes(store))item.stores.push(store);if(store==='files'){item.estimated=true;item.logicalBytes=here?Number(contents.get(cid)?.size)||0:0}
+      });
+    }else if(name.startsWith('tracker-global-v1-')&&store==='objects'){
+      await scanBrowserStore(handle,store,true,key=>{const keyId=String(key),id=name+'|global|'+keyId;if(!groups.has(id))groups.set(id,{id,kind:'global',db:name,keyId,label:'Encrypted blob '+keyId.slice(0,12),stores:['chunks'],bytes:0,count:0})});
+    }else if(ipfs){await scanBrowserStore(handle,store,false,(_,bytes)=>browserStorageAdd(groups,name+'|ipfs',{kind:'ipfs',db:name,label:'Encrypted IPFS block store',room:/tracker-ipfs-blocks-([0-9a-f]{64})-/.exec(name)?.[1]||'',protected:true},bytes))}
+    else{
+      const count=await new Promise((resolve,reject)=>{const r=handle.transaction(store).objectStore(store).count();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});if(count){const kind=store==='handles'||store==='downloadHandles'?'linked':'metadata';groups.set(name+'|'+store,{id:name+'|'+store,kind,db:name,room:hash,label:kind==='linked'?(store==='handles'?'Linked disk sources':'Download destinations'):name==='robit-node-identity-v1'?'Anonymous node identity':store==='kv'?'Encrypted room catalog & preferences':store==='objects'?'Provider object descriptors':store==='meta'?'Provider identity & preferences':'Protocol metadata',bytes:0,count,protected:true})}
+    }
+    await verificationYield();
+  }}finally{handle?.close()}
+}
+async function scanBrowserTemporary(groups){
+  if(!navigator.storage?.getDirectory)return;let root;try{root=await(await navigator.storage.getDirectory()).getDirectoryHandle('tracker-compat-temporary-v1')}catch(e){if(e.name!=='NotFoundError')throw e;return}
+  for await(const[name,entry]of root.entries()){if(!name.startsWith('input-'))continue;const id='opfs|'+name,item={id,kind:'temporary',label:'Transcoding '+name.slice(0,24),keyId:name,bytes:0,count:0};const queue=[entry];while(queue.length){const next=queue.pop();if(next.kind==='file'){const f=await next.getFile();item.bytes+=f.size;item.count++}else for await(const child of next.values())queue.push(child);await verificationYield()}groups.set(id,item)}
+}
+async function refreshBrowserStorage(){
+  if(browserStorage.scanning||browserStorage.busy)return;browserStorage.scanning=true;browserStorage.errors=[];browserStorage.selected.clear();browserStorage.limit=40;$('#browserStorageRefresh').disabled=true;$('#browserStorageStatus').textContent='Scanning browser storage…';renderBrowserStorage();
+  try{
+    await roomLocalReady;await refreshStorageQuota();const groups=new Map();let databases;
+    if(indexedDB.databases)databases=(await indexedDB.databases()).map(x=>x.name).filter(browserStorageOwned);
+    else{databases=[db.name,globalMesh.db?.name].filter(Boolean);browserStorage.errors.push('This browser can enumerate only the current room and global database.')}
+    for(const name of databases){$('#browserStorageStatus').textContent='Scanning '+(browserStorageRoom(name)?'room '+browserStorageRoom(name).slice(0,12):name.slice(0,45))+'…';try{await scanBrowserDatabase(name,groups)}catch(e){browserStorage.errors.push(name+': '+e.message)}await verificationYield()}
+    try{await scanBrowserTemporary(groups)}catch(e){browserStorage.errors.push('Temporary media: '+e.message)}
+    let localCount=0,localBytes=0;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(/^(?:private-tracker-|tracker-(?:guide-theme|recent-rooms:|global-config:))/.test(key)){localCount++;localBytes+=(key.length+(localStorage.getItem(key)||'').length)*2}}if(localCount)groups.set('localStorage',{id:'localStorage',kind:'metadata',label:'Local preferences, room links & relay identities',bytes:0,logicalBytes:localBytes,count:localCount,protected:true});
+    browserStorage.items=[...groups.values()].sort((a,b)=>b.bytes-a.bytes||a.label.localeCompare(b.label));browserStorage.scannedAt=Date.now();
+  }finally{browserStorage.scanning=false;$('#browserStorageRefresh').disabled=false;renderBrowserStorage()}
+}
+function browserStorageBlocked(item){
+  if(item.protected)return item.kind==='ipfs'?'Manage IPFS pins from the file’s settings.':'Preserved when clearing cache.';
+  if(item.kind==='global')return item.db!==globalMesh.db?.name?'Open its deployment to manage these blobs.':!globalMesh.leader?'Manage blobs in the active provider tab.':globalMesh.working||globalMesh.jobs.size?'A provider operation is active.':'';
+  if(item.room===roomHash){if(item.kind==='stream'&&activePreview?.session?.state!=='closed'&&activePreview?.session)return 'Close the media preview first.';if(item.kind==='file'){const s=sessions.get(item.cid);if(s&&!['paused','complete','error','cancelled'].includes(s.state)||sourceVerifying.has(item.cid)||globalMesh.jobs.has(item.cid)||decentralized.jobs.has(item.cid)||retentionWorking)return 'Pause this file’s active transfer first.';if(activePreview?.c?.id===item.cid)return 'Close the media preview first.'}}
+  return '';
+}
+function renderBrowserStorage(){
+  const items=browserStorage.items,total=items.reduce((n,x)=>n+x.bytes,0),legacy=items.filter(x=>x.estimated).length;$('#browserStorageBytes').textContent=browserStorage.scannedAt?fmtBytes(total):'—';$('#browserStorageSummary').textContent=items.length+' entries across '+new Set(items.map(x=>x.db).filter(Boolean)).size+' databases'+(legacy?' · '+legacy+' legacy file sizes unmeasured':'')+'. Payload sizes exclude database overhead.';
+  $('#browserStorageOrigin').textContent=fmtBytes(storageQuota.usage);$('#browserStorageQuota').textContent=fmtBytes(storageQuota.quota)+' quota · '+(storageQuota.persisted?'Durable storage granted':'Best-effort browser storage')+' · '+location.origin;
+  if(!browserStorage.scanning)$('#browserStorageStatus').textContent=browserStorage.busy?'Clearing selected storage…':browserStorage.errors.length?browserStorage.errors.join(' · '):browserStorage.scannedAt?'Scanned '+new Date(browserStorage.scannedAt).toLocaleTimeString()+'. Refresh to update.':'Inventory has not been scanned.';
+  const filter=$('#browserStorageFilter').value,q=$('#browserStorageSearch').value.trim().toLowerCase(),filtered=items.filter(x=>(filter==='all'||x.kind===filter)&&[x.label,x.room,x.keyId,x.db].join(' ').toLowerCase().includes(q));
+  $('#browserStorageItems').innerHTML=filtered.slice(0,browserStorage.limit).map(item=>{const blocked=browserStorageBlocked(item),index=items.indexOf(item),room=item.room?(item.room===roomHash?'This room':item.room.slice(0,12)+'…'+item.room.slice(-6)):item.kind==='global'?'Anonymous global provider':'This browser';return `<article class="card soft compact browser-storage-item"><div class="stage-header"><label class="choice"><input type="checkbox" data-browser-storage-select="${index}" aria-label="Select ${esc(item.label)}" ${browserStorage.selected.has(item.id)?'checked':''} ${blocked||browserStorage.busy||browserStorage.scanning?'disabled':''}><strong>${esc(item.label)}</strong></label><span class="badge">${item.protected?'Protected':item.estimated?'Legacy size unmeasured':fmtBytes(item.bytes)}</span></div><p class="note">${esc(browserStorageKinds[item.kind])} · ${esc(room)} · ${item.count} ${item.kind==='file'||item.kind==='stream'||item.kind==='global'?'records':'entries'}</p>${item.keyId?`<div class="storage-item-id mono tiny">${esc(item.keyId)}</div>`:''}${blocked?`<p class="note">${esc(blocked)}</p>`:`<button class="btn outline withLabel" data-browser-storage-clear="${index}" data-icon="trash" data-tooltip="Clear stored item" ${browserStorage.busy||browserStorage.scanning?'disabled':''}>Clear item</button>`}</article>`}).join('')||emptyModule('No stored items',browserStorage.scanning?'Scanning local databases…':'No items match this filter.','database');
+  $('#browserStorageMore').hidden=filtered.length<=browserStorage.limit;$('#browserStorageClearSelected').disabled=browserStorage.busy||browserStorage.scanning||!browserStorage.selected.size;$('#browserStorageClearCache').disabled=browserStorage.busy||browserStorage.scanning||!items.some(x=>['file','stream','temporary'].includes(x.kind)&&!browserStorageBlocked(x));
+}
+async function browserStorageTransaction(handle,stores,operation){return new Promise((resolve,reject)=>{const tx=handle.transaction(stores,'readwrite');try{operation(tx)}catch(e){tx.abort();reject(e);return}tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Cache deletion aborted'))})}
+async function browserStorageLock(name,operation){const outcome=await navigator.locks.request(name,{ifAvailable:true},async lock=>{try{return{value:await operation(lock)}}catch(e){return{error:e.message}}});if(outcome.error)throw Error(outcome.error);return outcome.value}
+async function forgetBrowserCachedFile(cid){
+  const s=sessions.get(cid);if(s){clearTimeout(s.timer);clearTimeout(s.jobPersistTimer);s.state='cancelled';s.inflight?.clear();s.inflightByPeer?.clear();sessionBySid.delete(s.sid);sessions.delete(cid)}
+  clearDownloadJob(cid);cachedComplete.delete(cid);const retained=retainedFiles.get(cid);if(retained){retained.state='released';retained.bytesStored=0;for(const a of retained.requesters||[])sendRetentionStatus(a,cid,'released').catch(()=>{})}
+  // A linked disk source survives cache eviction and can continue seeding.
+  if(!await getReadableFile(cid)){localHave.delete(cid);if(sourceClaims.has(cid))sourceMissing.add(cid)}
+  await saveState();await persistStoragePreferences();await broadcastAvailability();await publishStorageOffer();renderAll();renderInterface(true);
+}
+async function clearBrowserStorageItem(item){
+  const reason=browserStorageBlocked(item);if(reason)throw Error(reason);
+  if(item.kind==='global'){await withGlobalObjectLock(item.keyId,async()=>{await browserStorageTransaction(globalMesh.db,['objects','chunks'],tx=>{tx.objectStore('chunks').delete(IDBKeyRange.bound(item.keyId+':',item.keyId+':\uffff'));tx.objectStore('objects').delete(item.keyId)});await restoreGlobalProviderInventory()});await publishGlobalOffer();return}
+  if(item.kind==='temporary'){if(!navigator.locks?.request)throw Error('This browser cannot safely check active transcoding.');return browserStorageLock('tracker-compat:'+item.keyId,async lock=>{if(!lock)throw Error('This transcoding input is active.');const dir=await(await navigator.storage.getDirectory()).getDirectoryHandle('tracker-compat-temporary-v1');await dir.removeEntry(item.keyId,{recursive:true})})}
+  const current=item.db===db.name;
+  if(!navigator.locks?.request&&!current)throw Error('Open that room to clear its cache in this browser.');
+  const remove=async lock=>{
+    if(navigator.locks?.request&&!lock)throw Error('Close other tabs using this room before clearing its cache.');
+    const handle=current?db:await browserStorageOpen(item.db);
+    try{await browserStorageTransaction(handle,[...item.stores,...(item.kind==='file'?['kv']:[])],tx=>{for(const store of item.stores)tx.objectStore(store).delete(store==='files'?item.keyId:IDBKeyRange.bound(item.keyId+':',item.keyId+':\uffff'));if(item.kind==='file')tx.objectStore('kv').put(true,'cache-evicted:'+item.cid)});if(current&&item.kind==='file'){await forgetBrowserCachedFile(item.cid);await idbDel('kv','cache-evicted:'+item.cid)}}finally{if(!current)handle.close()}
+  };
+  if(current)await releaseBrowserRoomLease();try{return navigator.locks?.request?await browserStorageLock('tracker-room-cache:'+item.db,remove):await remove(null)}finally{if(current)await holdBrowserRoomLease()}
+}
+async function confirmBrowserStorageClear(items){
+  items=items.filter(x=>!browserStorageBlocked(x));if(!items.length)return;const bytes=items.reduce((n,x)=>n+x.bytes,0),providers=items.filter(x=>x.kind==='global').length;
+  if(!window.confirm('Clear '+items.length+' stored item'+(items.length===1?'':'s')+' ('+fmtBytes(bytes)+(items.some(x=>x.estimated)?' plus unmeasured legacy data':'')+')?'+(providers?' This removes '+providers+' encrypted provider copies, including their recovery metadata.':'')+' Related paused downloads will be discarded. Room catalogs, identity, preferences and linked disk files are preserved.'))return;
+  browserStorage.busy=true;renderBrowserStorage();const failures=[];let cleared=0;
+  try{for(const item of items){try{await clearBrowserStorageItem(item);cleared++}catch(e){failures.push(item.label+': '+e.message)}await verificationYield()}}finally{browserStorage.busy=false;await refreshBrowserStorage();if(failures.length){browserStorage.errors.push(...failures);renderBrowserStorage()}toast(cleared+' stored items cleared.'+(failures.length?' '+failures.length+' could not be cleared.':''),failures.length?'bad':'good')}
+}
+function initBrowserStorageControls(){
+  $('#browserStorageRefresh').onclick=()=>refreshBrowserStorage().catch(e=>{$('#browserStorageStatus').textContent=e.message});
+  for(const id of ['browserStorageFilter','browserStorageSearch'])$('#'+id).addEventListener('input',()=>{browserStorage.limit=40;renderBrowserStorage()});
+  $('#browserStorageMore').onclick=()=>{browserStorage.limit+=40;renderBrowserStorage()};
+  $('#browserStorageItems').addEventListener('change',e=>{const input=e.target.closest('[data-browser-storage-select]');if(!input)return;const item=browserStorage.items[Number(input.dataset.browserStorageSelect)];if(!item)return;if(input.checked)browserStorage.selected.add(item.id);else browserStorage.selected.delete(item.id);$('#browserStorageClearSelected').disabled=!browserStorage.selected.size});
+  $('#browserStorageItems').addEventListener('click',e=>{const button=e.target.closest('[data-browser-storage-clear]');if(button)confirmBrowserStorageClear([browserStorage.items[Number(button.dataset.browserStorageClear)]]).catch(e=>toast(esc(e.message),'bad'))});
+  $('#browserStorageClearSelected').onclick=()=>confirmBrowserStorageClear(browserStorage.items.filter(x=>browserStorage.selected.has(x.id))).catch(e=>toast(esc(e.message),'bad'));
+  $('#browserStorageClearCache').onclick=()=>confirmBrowserStorageClear(browserStorage.items.filter(x=>['file','stream','temporary'].includes(x.kind))).catch(e=>toast(esc(e.message),'bad'));
+}
+
 /* Interface system and free, opt-in retention built on the verified file path. */
-const UI_VIEWS={files:'Files',live:'Live media',downloads:'Transfers',storage:'Contribute storage',providers:'Provider marketplace',lifecycle:'Lifecycle & health',global:'Global storage index',settings:'Settings & identity'};
+const UI_VIEWS={files:'Files',live:'Live media',downloads:'Transfers',storage:'Contribute storage',providers:'Provider marketplace',lifecycle:'Lifecycle & health',global:'Global storage index',settings:'Settings & identity','browser-storage':'Browser storage'};
 let appView='files',catalogFilter='all',resourceTab='overview',interfaceRenderAt=0,storageQuota={quota:0,usage:0,persisted:false},retentionWorking=false,pinReturnFocus=null;
 let storageConfig={enabled:false,allocationGB:25,mode:'Balanced',profile:'volunteer',retentionDays:30};
 const retainedFiles=new Map(),retentionRequests=new Map(),peerStorageOffers=new Map(),resourceEvents=new Map();
@@ -4868,6 +5037,7 @@ function setAppView(view){
   document.querySelectorAll('[data-page]').forEach(x=>x.hidden=x.dataset.page!==(view==='live'?'files':view));
   document.querySelectorAll('#side-nav [data-view]').forEach(x=>{const on=x.dataset.view===view;x.classList.toggle('active',on);if(on)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
   $('#catalogFilters').hidden=view==='live';$('#detailsCard').hidden=view==='live';closeNavigation();renderTree();renderInterface(true);$('#appMain').scrollTop=0;if(view!=='global'){if(/\/storage(?:\/|$)/.test(location.pathname)){const u=new URL(deploymentBaseUrl());u.hash=location.hash;history.pushState(null,'',u)}if(globalMesh.base)rememberRecentRoom()}else renderGlobalStorage();
+  if(view==='browser-storage')refreshBrowserStorage().catch(e=>{$('#browserStorageStatus').textContent=e.message});
 }
 function setResourceTab(tab){
   if(!['overview','shards','activity','settings'].includes(tab))tab='overview';resourceTab=tab;
@@ -5069,6 +5239,7 @@ async function maintainRetentionRequests(){
   }finally{retentionRepairWorking=false}
 }
 function initInterface(){
+  initBrowserStorageControls();
   $('#sidebar').inert=innerWidth<=800;$('#menu-button').setAttribute('aria-controls','sidebar');matchMedia('(max-width:800px)').addEventListener('change',e=>{$('#sidebar').inert=e.matches&&!$('#sidebar').classList.contains('open')});
   setTheme(document.documentElement.dataset.theme);$('#theme-toggle').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');$('#settingsTheme').onclick=()=>$('#theme-toggle').click();$('#settingsPrivacy').onclick=()=>$('#privacyBtn').click();$('#settingsShare').onclick=()=>$('#shareBtn').click();
   $('#menu-button').onclick=()=>{const on=!$('#sidebar').classList.contains('open');$('#sidebar').classList.toggle('open',on);$('#sidebar').inert=innerWidth<=800&&!on;$('#scrim').classList.toggle('visible',on);$('#menu-button').setAttribute('aria-expanded',String(on));if(on)$('#nav-search').focus()};$('#scrim').onclick=()=>{closeNavigation();$('#menu-button').focus()};
@@ -5579,7 +5750,7 @@ const storageRoute=new URL(location.href);if(/\/storage(?:\/|$)/.test(storageRou
 setInterval(storageMaintenance,2500);
 setInterval(()=>maintainFileCleanup().catch(e=>console.warn('file cleanup',e.message)),5000);
 setInterval(()=>{if(db){refreshStorageQuota().catch(()=>{});publishStorageOffer().catch(()=>{})}},20000);
-(async()=>{try{if(!crypto?.subtle||!indexedDB)throw Error('Secure WebCrypto + IndexedDB are required. Serve this file over HTTPS or localhost.');await initSecret();await loadLocal();cleanupCompatTemporaryInputs().catch(()=>{});resolveRoomLocalReady();await initGlobalStorage().catch(e=>{globalMesh.error=e.message;console.warn('Global storage unavailable',e.message)});await startMesh();startFileLocator();await resumePersistedDownloads();await broadcastAvailability();await publishStorageOffer();processRetentionQueue().catch(()=>{})}catch(e){rejectRoomLocalReady(e);console.error(e);toast(`<b>Startup failed.</b> ${esc(e.message||e)}`,'bad')}})();
+(async()=>{try{if(!crypto?.subtle||!indexedDB)throw Error('Secure WebCrypto + IndexedDB are required. Serve this file over HTTPS or localhost.');await initSecret();await loadLocal();await holdBrowserRoomLease();cleanupCompatTemporaryInputs().catch(()=>{});resolveRoomLocalReady();await initGlobalStorage().catch(e=>{globalMesh.error=e.message;console.warn('Global storage unavailable',e.message)});await startMesh();startFileLocator();await resumePersistedDownloads();await broadcastAvailability();await publishStorageOffer();processRetentionQueue().catch(()=>{})}catch(e){rejectRoomLocalReady(e);console.error(e);toast(`<b>Startup failed.</b> ${esc(e.message||e)}`,'bad')}})();
 })();
 
 </script>

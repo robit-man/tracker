@@ -578,3 +578,40 @@ checks late constructor replies, connect single-flight, owned SDK backoff,
 replacement-PC safety, shutdown and dependency shape checks. The browser smoke
 uses two independent contexts and actual public NKN WebRTC connections to verify
 encrypted delivery and explicit close. `RESULT` selects its JSON evidence path.
+
+### Browser storage inventory and clearing
+
+`node tests/browser-storage-browser.mjs` opens isolated Chromium profiles, creates
+real encrypted copies through Keep available, and checks measured payload sizes
+across rooms, cancellation, selective and bulk clearing, cross-tab locks, provider
+blob removal/capacity, eviction recovery, and mobile layouts. Use `BROWSER=firefox`
+for Firefox, `TRACKER_TEST_DEPS` for Playwright, `TRACKER_HTML` for another snapshot,
+and `OUT` for reports/screenshots. It never attaches to a user's browser.
+
+The Browser storage view scans Tracker IndexedDB databases on this origin and
+managed OPFS transcoding inputs in small yielding batches. File/provider chunks
+are measured without decryption or assembly. Whole-file legacy records are
+counted by key with their size explicitly unmeasured, avoiding a multi-GB allocation.
+Browser origin usage/quota includes storage overhead and may include other apps.
+Identity, settings, catalogs, disk links, and IPFS protocol metadata are preserved.
+IPFS pins remain manageable from each file's settings. Global blobs are displayed
+only by opaque ID and require explicit selection to remove. Clear file cache
+excludes global and IPFS copies. An eviction marker prevents cleared closed-room
+copies from being resumed/advertised as retained on the next visit. Current app
+tabs hold shared room cache leases; clearing requires exclusive access and paused
+transfers. Older tabs should be closed before clearing their room's cache.
+
+### Missing-source discovery backpressure
+
+`node --test tests/source-discovery.test.cjs` checks unchanged availability,
+silent nonholders, source arrival wakeups, bounded decrypt/verification admission,
+and cheap authenticated replay rejection. `node tests/source-discovery-browser.mjs`
+uses real public relays and encrypted persisted download jobs. It closes the source,
+observes discovery pressure for 40 seconds, then verifies byte-identical recovery
+when the source returns. `BROWSER=firefox` selects Firefox. `TRACKER_HTML` plus
+`EXPECT_STORM=1` reproduces the released v107 feedback loop; keep baseline evidence.
+
+The optional `PROFILE` mode uses an explicitly supplied **copy** of a Chromium
+profile, with `ROOM_STATE` pointing to a private JSON file containing its room URL.
+It verifies repeated reloads, the resumed incomplete download, bounded post-GC
+heap/DOM, and read-only inventory of the supplied cache. It contains no clear action.
