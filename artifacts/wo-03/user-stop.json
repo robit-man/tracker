@@ -1,0 +1,25 @@
+{
+  "order": "WO-03",
+  "status": "paused-by-user",
+  "recorded": "2026-10-14T02:55:28.823195+00:00",
+  "instruction": "24 hour seeding must pause too we need to shut down here asap, push what you have",
+  "harnessPid": 2209484,
+  "harnessSha256": "a26c603f86dc110d70b3e4bbae90dd2c323311a1f4961d3c42a351b69bbb8578",
+  "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+  "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+  "observedMs": 660813,
+  "harnessEnded": "2026-10-14T02:54:25.335Z",
+  "reason": "Explicit user shutdown request; partial checkpoint push authorized. Mandatory endurance acceptance is pending.",
+  "ownedCleanup": [
+    {
+      "exitCode": 0,
+      "signal": null,
+      "stderr": "{\"at\":\"2026-10-14T02:42:11.022Z\",\"event\":\"http-ready\",\"sourceSha256\":\"47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21\",\"port\":39069}\n"
+    },
+    {
+      "exitCode": 0,
+      "signal": null,
+      "stderr": "{\"at\":\"2026-10-14T02:42:18.216Z\",\"event\":\"http-ready\",\"sourceSha256\":\"40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8\",\"port\":37671}\n"
+    }
+  ]
+}

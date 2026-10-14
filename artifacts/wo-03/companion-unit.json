@@ -1,0 +1,12 @@
+{
+  "order": "WO-03",
+  "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+  "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+  "companionSha256AtEnd": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+  "started": "2026-10-14T02:35:10.612Z",
+  "ended": "2026-10-14T02:35:14.972Z",
+  "runtime": "v24.14.0",
+  "exitCode": 0,
+  "testCount": 12,
+  "passed": true
+}

@@ -1,0 +1,169 @@
+{
+  "order": "WO-03",
+  "stage": "runtime-foundation-only",
+  "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+  "companionSource": {
+    "schema": 1,
+    "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+    "files": [
+      {
+        "path": "bin/serve.mjs",
+        "sha256": "640fa23fd88a06dd151981f99f0a6f84cb598fcb436ef64e791e68c0dc65f368"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "517eac3efb88f075c4dda102db31d4e49e02f7acf7059929ca9c8eb43f3c98a2"
+      },
+      {
+        "path": "package.json",
+        "sha256": "7c8cb1b2ace8bb049347d53da83f3219401522845a9f4efd5603a3e15b15ba66"
+      },
+      {
+        "path": "src/codec.mjs",
+        "sha256": "6b01f9db81b3dccea33b9af19d4ae94b8661a408b2e9af7999ea3a0e3e65a607"
+      },
+      {
+        "path": "src/config.mjs",
+        "sha256": "537104fb9cad0aa1f200d243db074cb0d5d04385dc4a004fac26dd4f12c93a2e"
+      },
+      {
+        "path": "src/errors.mjs",
+        "sha256": "7df6b5f98b7ebf2110a5842bb021de968cb9ed14d2785e59ec7071189b1531b9"
+      },
+      {
+        "path": "src/io.mjs",
+        "sha256": "2c77e197ec20050d503465411f13d60aeee755b3a9b012871af95c15a707e970"
+      },
+      {
+        "path": "src/modern.mjs",
+        "sha256": "6e883b5e1b04a1ddb012b6b48cf8e91795a6279db38975bd87eb44532053ce0d"
+      },
+      {
+        "path": "src/native-files.mjs",
+        "sha256": "688d2e8319fc49216bff3c6e89a380954f115fe097d439ee1041dfdd72e478cf"
+      },
+      {
+        "path": "src/runtime.mjs",
+        "sha256": "22965a8cb462304d13e71581b569ccbdc9646ed5ea0bda2ae7201227cfcc3aee"
+      },
+      {
+        "path": "src/sdk-server.mjs",
+        "sha256": "2376999dc82b9a0d841767511140088494c1c07036495b3c4a610c4bed01a1c7"
+      },
+      {
+        "path": "src/source.mjs",
+        "sha256": "e6d0bdfda4e16c4e496bffc29b553e21b7759acfcc9d20f9ed0b695e9373170e"
+      },
+      {
+        "path": "src/state.mjs",
+        "sha256": "81f7385d8227997ffd233d70314fd777339217d66d0463cb4cacdc6455a54deb"
+      },
+      {
+        "path": "src/tasks.mjs",
+        "sha256": "2a738a10d5da4167503506d729eb5916bd2e21764a052bce1685d7e51a12010a"
+      },
+      {
+        "path": "src/toolkit.mjs",
+        "sha256": "6461857e3e3f2706a58ab92075f6dee814fb4f65bec93263acf4749cf302f058"
+      },
+      {
+        "path": "src/transports.mjs",
+        "sha256": "4b72916a852510138a8a1534a241e45f2c98e9094dd7c19a3076ed8689a5a6c7"
+      },
+      {
+        "path": "src/urls.mjs",
+        "sha256": "c1088b5d013275d2b1d9132f5abbb89f1404a9467d4e31d5e3235d6ec81360c7"
+      }
+    ]
+  },
+  "started": "2026-10-14T02:24:52.952Z",
+  "exitCode": 0,
+  "stdout": "{\"passed\":true,\"bytes\":1100000,\"sha256\":\"0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb\",\"cid\":\"f-fc5c66e68c8b60e0be8dba7d3b98bb86a0dafdb45ef5e536ceaa9d3cb984f8c1\",\"checks\":[\"actual native rooted reader -> encrypted browser staging -> signed upload\",\"independent readonly browser profile -> verified real relay bytes\",\"foreign room and writer action denied\",\"traversal and private-file symlink denied\",\"owned contexts close\"]}\n",
+  "stderr": "",
+  "passed": true,
+  "bytes": 1100000,
+  "sha256": "0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb",
+  "cid": "f-fc5c66e68c8b60e0be8dba7d3b98bb86a0dafdb45ef5e536ceaa9d3cb984f8c1",
+  "checks": [
+    "actual native rooted reader -> encrypted browser staging -> signed upload",
+    "independent readonly browser profile -> verified real relay bytes",
+    "foreign room and writer action denied",
+    "traversal and private-file symlink denied",
+    "owned contexts close"
+  ],
+  "companionSourceAtEnd": {
+    "schema": 1,
+    "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+    "files": [
+      {
+        "path": "bin/serve.mjs",
+        "sha256": "640fa23fd88a06dd151981f99f0a6f84cb598fcb436ef64e791e68c0dc65f368"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "517eac3efb88f075c4dda102db31d4e49e02f7acf7059929ca9c8eb43f3c98a2"
+      },
+      {
+        "path": "package.json",
+        "sha256": "7c8cb1b2ace8bb049347d53da83f3219401522845a9f4efd5603a3e15b15ba66"
+      },
+      {
+        "path": "src/codec.mjs",
+        "sha256": "6b01f9db81b3dccea33b9af19d4ae94b8661a408b2e9af7999ea3a0e3e65a607"
+      },
+      {
+        "path": "src/config.mjs",
+        "sha256": "537104fb9cad0aa1f200d243db074cb0d5d04385dc4a004fac26dd4f12c93a2e"
+      },
+      {
+        "path": "src/errors.mjs",
+        "sha256": "7df6b5f98b7ebf2110a5842bb021de968cb9ed14d2785e59ec7071189b1531b9"
+      },
+      {
+        "path": "src/io.mjs",
+        "sha256": "2c77e197ec20050d503465411f13d60aeee755b3a9b012871af95c15a707e970"
+      },
+      {
+        "path": "src/modern.mjs",
+        "sha256": "6e883b5e1b04a1ddb012b6b48cf8e91795a6279db38975bd87eb44532053ce0d"
+      },
+      {
+        "path": "src/native-files.mjs",
+        "sha256": "688d2e8319fc49216bff3c6e89a380954f115fe097d439ee1041dfdd72e478cf"
+      },
+      {
+        "path": "src/runtime.mjs",
+        "sha256": "22965a8cb462304d13e71581b569ccbdc9646ed5ea0bda2ae7201227cfcc3aee"
+      },
+      {
+        "path": "src/sdk-server.mjs",
+        "sha256": "2376999dc82b9a0d841767511140088494c1c07036495b3c4a610c4bed01a1c7"
+      },
+      {
+        "path": "src/source.mjs",
+        "sha256": "e6d0bdfda4e16c4e496bffc29b553e21b7759acfcc9d20f9ed0b695e9373170e"
+      },
+      {
+        "path": "src/state.mjs",
+        "sha256": "81f7385d8227997ffd233d70314fd777339217d66d0463cb4cacdc6455a54deb"
+      },
+      {
+        "path": "src/tasks.mjs",
+        "sha256": "2a738a10d5da4167503506d729eb5916bd2e21764a052bce1685d7e51a12010a"
+      },
+      {
+        "path": "src/toolkit.mjs",
+        "sha256": "6461857e3e3f2706a58ab92075f6dee814fb4f65bec93263acf4749cf302f058"
+      },
+      {
+        "path": "src/transports.mjs",
+        "sha256": "4b72916a852510138a8a1534a241e45f2c98e9094dd7c19a3076ed8689a5a6c7"
+      },
+      {
+        "path": "src/urls.mjs",
+        "sha256": "c1088b5d013275d2b1d9132f5abbb89f1404a9467d4e31d5e3235d6ec81360c7"
+      }
+    ]
+  },
+  "ended": "2026-10-14T02:25:18.521Z"
+}

@@ -1,0 +1,3599 @@
+{
+  "order": "WO-03",
+  "stage": "observed-companion-stress-and-seeding",
+  "status": "failed",
+  "started": "2026-10-14T02:42:10.163Z",
+  "harnessPid": 2209484,
+  "harnessSha256": "a26c603f86dc110d70b3e4bbae90dd2c323311a1f4961d3c42a351b69bbb8578",
+  "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+  "baselineAppSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+  "companionSource": {
+    "schema": 1,
+    "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+    "files": [
+      {
+        "path": "bin/serve.mjs",
+        "sha256": "640fa23fd88a06dd151981f99f0a6f84cb598fcb436ef64e791e68c0dc65f368"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "517eac3efb88f075c4dda102db31d4e49e02f7acf7059929ca9c8eb43f3c98a2"
+      },
+      {
+        "path": "package.json",
+        "sha256": "7c8cb1b2ace8bb049347d53da83f3219401522845a9f4efd5603a3e15b15ba66"
+      },
+      {
+        "path": "src/codec.mjs",
+        "sha256": "6b01f9db81b3dccea33b9af19d4ae94b8661a408b2e9af7999ea3a0e3e65a607"
+      },
+      {
+        "path": "src/config.mjs",
+        "sha256": "537104fb9cad0aa1f200d243db074cb0d5d04385dc4a004fac26dd4f12c93a2e"
+      },
+      {
+        "path": "src/errors.mjs",
+        "sha256": "7df6b5f98b7ebf2110a5842bb021de968cb9ed14d2785e59ec7071189b1531b9"
+      },
+      {
+        "path": "src/io.mjs",
+        "sha256": "2c77e197ec20050d503465411f13d60aeee755b3a9b012871af95c15a707e970"
+      },
+      {
+        "path": "src/modern.mjs",
+        "sha256": "6e883b5e1b04a1ddb012b6b48cf8e91795a6279db38975bd87eb44532053ce0d"
+      },
+      {
+        "path": "src/native-files.mjs",
+        "sha256": "688d2e8319fc49216bff3c6e89a380954f115fe097d439ee1041dfdd72e478cf"
+      },
+      {
+        "path": "src/runtime.mjs",
+        "sha256": "22965a8cb462304d13e71581b569ccbdc9646ed5ea0bda2ae7201227cfcc3aee"
+      },
+      {
+        "path": "src/sdk-server.mjs",
+        "sha256": "2376999dc82b9a0d841767511140088494c1c07036495b3c4a610c4bed01a1c7"
+      },
+      {
+        "path": "src/source.mjs",
+        "sha256": "e6d0bdfda4e16c4e496bffc29b553e21b7759acfcc9d20f9ed0b695e9373170e"
+      },
+      {
+        "path": "src/state.mjs",
+        "sha256": "81f7385d8227997ffd233d70314fd777339217d66d0463cb4cacdc6455a54deb"
+      },
+      {
+        "path": "src/tasks.mjs",
+        "sha256": "2a738a10d5da4167503506d729eb5916bd2e21764a052bce1685d7e51a12010a"
+      },
+      {
+        "path": "src/toolkit.mjs",
+        "sha256": "6461857e3e3f2706a58ab92075f6dee814fb4f65bec93263acf4749cf302f058"
+      },
+      {
+        "path": "src/transports.mjs",
+        "sha256": "4b72916a852510138a8a1534a241e45f2c98e9094dd7c19a3076ed8689a5a6c7"
+      },
+      {
+        "path": "src/urls.mjs",
+        "sha256": "c1088b5d013275d2b1d9132f5abbb89f1404a9467d4e31d5e3235d6ec81360c7"
+      }
+    ]
+  },
+  "options": {
+    "hours": 24,
+    "requests": 1000,
+    "connections": 100
+  },
+  "requiredObservationMs": 86400000,
+  "acceptanceEligible": false,
+  "phases": [
+    {
+      "name": "published-WO02-HTML-same-companion",
+      "appSha256": "47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21",
+      "stress": {
+        "started": "2026-10-14T02:42:12.873Z",
+        "samples": [
+          {
+            "at": "2026-10-14T02:42:12.881Z",
+            "roundTripMs": 7.8935419999997976,
+            "process": {
+              "pid": 2209538,
+              "rss": 177995776,
+              "heapUsed": 61919784
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 755425280
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 35,
+              "cursors": 0,
+              "compiledSchemas": 6,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 9,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:13.365Z",
+            "roundTripMs": 3.0765409999999065,
+            "process": {
+              "pid": 2209538,
+              "rss": 193331200,
+              "heapUsed": 72228160
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 812916736
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 136,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 111,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:13.636Z",
+            "roundTripMs": 4.180443000000196,
+            "process": {
+              "pid": 2209538,
+              "rss": 194510848,
+              "heapUsed": 91558912
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 821460992
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 237,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 213,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:13.861Z",
+            "roundTripMs": 3.7802409999999327,
+            "process": {
+              "pid": 2209538,
+              "rss": 195690496,
+              "heapUsed": 82646336
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 823427072
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 338,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 315,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:14.088Z",
+            "roundTripMs": 4.505702000000383,
+            "process": {
+              "pid": 2209538,
+              "rss": 197263360,
+              "heapUsed": 71037848
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 827752448
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 439,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 417,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:14.348Z",
+            "roundTripMs": 3.7506399999992937,
+            "process": {
+              "pid": 2209538,
+              "rss": 198836224,
+              "heapUsed": 86160376
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 832483328
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 540,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 519,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:14.605Z",
+            "roundTripMs": 5.103589999999713,
+            "process": {
+              "pid": 2209538,
+              "rss": 200409088,
+              "heapUsed": 76189296
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 839716864
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 641,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 621,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:14.868Z",
+            "roundTripMs": 4.086669999999685,
+            "process": {
+              "pid": 2209538,
+              "rss": 202375168,
+              "heapUsed": 90571000
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 824733696
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 742,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 723,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:15.096Z",
+            "roundTripMs": 5.942595000000438,
+            "process": {
+              "pid": 2209538,
+              "rss": 203554816,
+              "heapUsed": 78288960
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 826699776
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 843,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 825,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:15.294Z",
+            "roundTripMs": 2.2397759999994378,
+            "process": {
+              "pid": 2209538,
+              "rss": 207093760,
+              "heapUsed": 91091448
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 831016960
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 944,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 927,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:15.514Z",
+            "roundTripMs": 3.4777420000000347,
+            "process": {
+              "pid": 2209538,
+              "rss": 208666624,
+              "heapUsed": 77595056
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 841912320
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1045,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1029,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:15.885Z",
+            "roundTripMs": 3.0344599999998536,
+            "process": {
+              "pid": 2209538,
+              "rss": 209846272,
+              "heapUsed": 81746736
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 851349504
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1066,
+              "cursors": 20,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1051,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:16.203Z",
+            "roundTripMs": 5.04034799999954,
+            "process": {
+              "pid": 2209538,
+              "rss": 211025920,
+              "heapUsed": 86061728
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 859594752
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1087,
+              "cursors": 40,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1073,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:16.556Z",
+            "roundTripMs": 4.8004719999999,
+            "process": {
+              "pid": 2209538,
+              "rss": 212598784,
+              "heapUsed": 89788344
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 863174656
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1108,
+              "cursors": 60,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1095,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:16.936Z",
+            "roundTripMs": 4.447121000000152,
+            "process": {
+              "pid": 2209538,
+              "rss": 215351296,
+              "heapUsed": 79058256
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 869179392
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1129,
+              "cursors": 80,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1117,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:17.290Z",
+            "roundTripMs": 4.502712999999858,
+            "process": {
+              "pid": 2209538,
+              "rss": 225968128,
+              "heapUsed": 108300096
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 878850048
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1150,
+              "cursors": 100,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1139,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          }
+        ],
+        "final": {
+          "at": "2026-10-14T02:42:17.338Z",
+          "roundTripMs": 4.794111000000157,
+          "process": {
+            "pid": 2209538,
+            "rss": 226754560,
+            "heapUsed": 109415328
+          },
+          "tree": {
+            "processes": 7,
+            "rss": 879636480
+          },
+          "usage": {
+            "active": 0,
+            "peak": 1,
+            "requests": 1151,
+            "cursors": 100,
+            "compiledSchemas": 11,
+            "runtime": {
+              "ownedBrowsers": 1,
+              "startingBrowsers": 0,
+              "nativeInputs": 0,
+              "browserErrors": 0,
+              "sourceReaders": 0,
+              "roomHandles": 1,
+              "disconnectedBrowsers": 0
+            },
+            "transport": {
+              "sessions": 1,
+              "active": 2,
+              "initializing": 0
+            },
+            "nativeIO": {
+              "workers": 0,
+              "mutexes": 0,
+              "byteLeases": 0,
+              "byteOrigins": 0,
+              "cursors": 0
+            },
+            "tasks": {
+              "workers": 0,
+              "mutexes": 0
+            }
+          },
+          "core": {
+            "requests": 1141,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 1,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 4
+          },
+          "agent": {
+            "activeRequests": 0,
+            "peakRequests": 0,
+            "rememberedRequests": 0,
+            "bindings": 0,
+            "pendingBindings": 0,
+            "nativeTools": 0,
+            "nativeStatus": "unavailable"
+          },
+          "carriers": {
+            "nats": "ready",
+            "nats-relay": "on",
+            "libp2p": "connecting",
+            "ipfs": "local",
+            "waku": "loading"
+          }
+        },
+        "requests": 1000,
+        "connections": 100,
+        "ended": "2026-10-14T02:42:17.379Z"
+      }
+    },
+    {
+      "name": "candidate",
+      "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+      "stress": {
+        "started": "2026-10-14T02:42:20.108Z",
+        "samples": [
+          {
+            "at": "2026-10-14T02:42:20.115Z",
+            "roundTripMs": 7.937834000000294,
+            "process": {
+              "pid": 2211470,
+              "rss": 183005184,
+              "heapUsed": 79768072
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 777392128
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 37,
+              "cursors": 0,
+              "compiledSchemas": 6,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 9,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "loading",
+              "ipfs": "loading",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:20.594Z",
+            "roundTripMs": 4.6039960000016436,
+            "process": {
+              "pid": 2211470,
+              "rss": 194985984,
+              "heapUsed": 86619296
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 824397824
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 138,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 111,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:20.857Z",
+            "roundTripMs": 3.194714000001113,
+            "process": {
+              "pid": 2211470,
+              "rss": 195379200,
+              "heapUsed": 79374936
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 829952000
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 239,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 213,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:21.075Z",
+            "roundTripMs": 3.932515999998941,
+            "process": {
+              "pid": 2211470,
+              "rss": 197345280,
+              "heapUsed": 69491712
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 834691072
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 340,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 315,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:21.300Z",
+            "roundTripMs": 2.8596640000014304,
+            "process": {
+              "pid": 2211470,
+              "rss": 198131712,
+              "heapUsed": 83339856
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 837849088
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 441,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 417,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:21.564Z",
+            "roundTripMs": 3.15106299999934,
+            "process": {
+              "pid": 2211470,
+              "rss": 201277440,
+              "heapUsed": 74474984
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 821764096
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 542,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 519,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:21.763Z",
+            "roundTripMs": 3.047130000000834,
+            "process": {
+              "pid": 2211470,
+              "rss": 202457088,
+              "heapUsed": 88651816
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 823517184
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 643,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 621,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:21.979Z",
+            "roundTripMs": 3.8343629999999393,
+            "process": {
+              "pid": 2211470,
+              "rss": 203243520,
+              "heapUsed": 75763888
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 824999936
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 744,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 723,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:22.184Z",
+            "roundTripMs": 2.5399539999998524,
+            "process": {
+              "pid": 2211470,
+              "rss": 205209600,
+              "heapUsed": 89119520
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 826966016
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 845,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 825,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:22.413Z",
+            "roundTripMs": 2.6352179999994405,
+            "process": {
+              "pid": 2211470,
+              "rss": 207175680,
+              "heapUsed": 101743584
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 839872512
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 946,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 927,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:22.627Z",
+            "roundTripMs": 2.8741439999994327,
+            "process": {
+              "pid": 2211470,
+              "rss": 209141760,
+              "heapUsed": 88576112
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 845627392
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1047,
+              "cursors": 0,
+              "compiledSchemas": 10,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1029,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:22.995Z",
+            "roundTripMs": 4.254495000001043,
+            "process": {
+              "pid": 2211470,
+              "rss": 223690752,
+              "heapUsed": 118527488
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 870854656
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1068,
+              "cursors": 20,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1051,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:23.330Z",
+            "roundTripMs": 2.7777119999991555,
+            "process": {
+              "pid": 2211470,
+              "rss": 236666880,
+              "heapUsed": 95966976
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 886517760
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1089,
+              "cursors": 40,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1073,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:23.652Z",
+            "roundTripMs": 4.07702000000063,
+            "process": {
+              "pid": 2211470,
+              "rss": 255541248,
+              "heapUsed": 123846960
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 910479360
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1110,
+              "cursors": 60,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1095,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:24.007Z",
+            "roundTripMs": 5.03537900000083,
+            "process": {
+              "pid": 2211470,
+              "rss": 267730944,
+              "heapUsed": 103184624
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 934449152
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1131,
+              "cursors": 80,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1117,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "loading"
+            }
+          },
+          {
+            "at": "2026-10-14T02:42:24.346Z",
+            "roundTripMs": 4.340298000000985,
+            "process": {
+              "pid": 2211470,
+              "rss": 267730944,
+              "heapUsed": 131196424
+            },
+            "tree": {
+              "processes": 7,
+              "rss": 940515328
+            },
+            "usage": {
+              "active": 0,
+              "peak": 1,
+              "requests": 1152,
+              "cursors": 100,
+              "compiledSchemas": 11,
+              "runtime": {
+                "ownedBrowsers": 1,
+                "startingBrowsers": 0,
+                "nativeInputs": 0,
+                "browserErrors": 0,
+                "sourceReaders": 0,
+                "roomHandles": 1,
+                "disconnectedBrowsers": 0
+              },
+              "transport": {
+                "sessions": 1,
+                "active": 2,
+                "initializing": 0
+              },
+              "nativeIO": {
+                "workers": 0,
+                "mutexes": 0,
+                "byteLeases": 0,
+                "byteOrigins": 0,
+                "cursors": 0
+              },
+              "tasks": {
+                "workers": 0,
+                "mutexes": 0
+              }
+            },
+            "core": {
+              "requests": 1139,
+              "rejected": 0,
+              "active": 1,
+              "peakActive": 1,
+              "contexts": 1,
+              "sources": 0,
+              "jobs": 1,
+              "byteHandles": 0,
+              "destinations": 0,
+              "cursors": 0,
+              "interactions": 0,
+              "queuedJobs": 0,
+              "runningJobs": 0,
+              "events": 4
+            },
+            "agent": {
+              "activeRequests": 0,
+              "peakRequests": 0,
+              "rememberedRequests": 0,
+              "bindings": 0,
+              "pendingBindings": 0,
+              "nativeTools": 0,
+              "nativeStatus": "unavailable"
+            },
+            "carriers": {
+              "nats": "ready",
+              "nats-relay": "on",
+              "libp2p": "connecting",
+              "ipfs": "local",
+              "waku": "on"
+            }
+          }
+        ],
+        "final": {
+          "at": "2026-10-14T02:42:24.399Z",
+          "roundTripMs": 7.627163999999539,
+          "process": {
+            "pid": 2211470,
+            "rss": 267730944,
+            "heapUsed": 132177464
+          },
+          "tree": {
+            "processes": 7,
+            "rss": 942313472
+          },
+          "usage": {
+            "active": 0,
+            "peak": 1,
+            "requests": 1153,
+            "cursors": 100,
+            "compiledSchemas": 11,
+            "runtime": {
+              "ownedBrowsers": 1,
+              "startingBrowsers": 0,
+              "nativeInputs": 0,
+              "browserErrors": 0,
+              "sourceReaders": 0,
+              "roomHandles": 1,
+              "disconnectedBrowsers": 0
+            },
+            "transport": {
+              "sessions": 1,
+              "active": 2,
+              "initializing": 0
+            },
+            "nativeIO": {
+              "workers": 0,
+              "mutexes": 0,
+              "byteLeases": 0,
+              "byteOrigins": 0,
+              "cursors": 0
+            },
+            "tasks": {
+              "workers": 0,
+              "mutexes": 0
+            }
+          },
+          "core": {
+            "requests": 1141,
+            "rejected": 0,
+            "active": 1,
+            "peakActive": 1,
+            "contexts": 1,
+            "sources": 0,
+            "jobs": 1,
+            "byteHandles": 0,
+            "destinations": 0,
+            "cursors": 0,
+            "interactions": 0,
+            "queuedJobs": 0,
+            "runningJobs": 0,
+            "events": 4
+          },
+          "agent": {
+            "activeRequests": 0,
+            "peakRequests": 0,
+            "rememberedRequests": 0,
+            "bindings": 0,
+            "pendingBindings": 0,
+            "nativeTools": 0,
+            "nativeStatus": "unavailable"
+          },
+          "carriers": {
+            "nats": "ready",
+            "nats-relay": "on",
+            "libp2p": "connecting",
+            "ipfs": "local",
+            "waku": "on"
+          }
+        },
+        "requests": 1000,
+        "connections": 100,
+        "ended": "2026-10-14T02:42:24.442Z"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "at": "2026-10-14T02:43:24.467Z",
+      "roundTripMs": 6.311126000000513,
+      "process": {
+        "pid": 2211470,
+        "rss": 271663104,
+        "heapUsed": 117528344
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 932376576
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1154,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1143,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:44:24.541Z",
+      "roundTripMs": 5.626746000023559,
+      "process": {
+        "pid": 2211470,
+        "rss": 160759808,
+        "heapUsed": 70588672
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 812933120
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1155,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1145,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:45:24.613Z",
+      "roundTripMs": 7.4452389999933075,
+      "process": {
+        "pid": 2211470,
+        "rss": 160759808,
+        "heapUsed": 71087576
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 812318720
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1156,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1147,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:46:24.692Z",
+      "roundTripMs": 8.64241500000935,
+      "process": {
+        "pid": 2211470,
+        "rss": 152240128,
+        "heapUsed": 70463552
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 805597184
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1157,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1149,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:47:24.774Z",
+      "roundTripMs": 6.335126999998465,
+      "process": {
+        "pid": 2211470,
+        "rss": 153419776,
+        "heapUsed": 71299352
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 813682688
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1158,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1151,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:48:24.860Z",
+      "roundTripMs": 8.129519000009168,
+      "process": {
+        "pid": 2211470,
+        "rss": 154206208,
+        "heapUsed": 72058656
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 864731136
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1159,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1153,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:49:24.932Z",
+      "roundTripMs": 5.795041000004858,
+      "process": {
+        "pid": 2211470,
+        "rss": 154206208,
+        "heapUsed": 72376600
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 819113984
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1160,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1155,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:50:25.005Z",
+      "roundTripMs": 8.630963999952655,
+      "process": {
+        "pid": 2211470,
+        "rss": 154206208,
+        "heapUsed": 73293440
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 807890944
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1161,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1157,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:51:25.072Z",
+      "roundTripMs": 6.39417800004594,
+      "process": {
+        "pid": 2211470,
+        "rss": 154206208,
+        "heapUsed": 73666872
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 812675072
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1162,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1159,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:52:25.143Z",
+      "roundTripMs": 5.089880000101402,
+      "process": {
+        "pid": 2211470,
+        "rss": 154206208,
+        "heapUsed": 73602728
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 812642304
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1163,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1161,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    },
+    {
+      "at": "2026-10-14T02:53:25.211Z",
+      "roundTripMs": 5.946525000035763,
+      "process": {
+        "pid": 2211470,
+        "rss": 154206208,
+        "heapUsed": 73920760
+      },
+      "tree": {
+        "processes": 7,
+        "rss": 841224192
+      },
+      "usage": {
+        "active": 0,
+        "peak": 1,
+        "requests": 1164,
+        "cursors": 100,
+        "compiledSchemas": 11,
+        "runtime": {
+          "ownedBrowsers": 1,
+          "startingBrowsers": 0,
+          "nativeInputs": 0,
+          "browserErrors": 0,
+          "sourceReaders": 0,
+          "roomHandles": 1,
+          "disconnectedBrowsers": 0
+        },
+        "transport": {
+          "sessions": 1,
+          "active": 2,
+          "initializing": 0
+        },
+        "nativeIO": {
+          "workers": 0,
+          "mutexes": 0,
+          "byteLeases": 0,
+          "byteOrigins": 0,
+          "cursors": 0
+        },
+        "tasks": {
+          "workers": 0,
+          "mutexes": 0
+        }
+      },
+      "core": {
+        "requests": 1163,
+        "rejected": 0,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 0,
+        "jobs": 1,
+        "byteHandles": 0,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 4
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    }
+  ],
+  "observationStarted": "2026-10-14T02:42:24.442Z",
+  "observedMs": 660813,
+  "monotonicObservedMs": 660813.1220760001,
+  "updated": "2026-10-14T02:53:25.255Z",
+  "passed": false,
+  "failure": "Error: Observation interrupted; no acceptance\n    at file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-03-soak.mjs:22:937",
+  "ended": "2026-10-14T02:54:25.335Z",
+  "diagnostics": [
+    {
+      "exitCode": 0,
+      "signal": null,
+      "stderr": "{\"at\":\"2026-10-14T02:42:11.022Z\",\"event\":\"http-ready\",\"sourceSha256\":\"47b92841d32dcab2f82ffd49965bba1f8f2af94ab638e56302c2dded20155f21\",\"port\":39069}\n"
+    },
+    {
+      "exitCode": 0,
+      "signal": null,
+      "stderr": "{\"at\":\"2026-10-14T02:42:18.216Z\",\"event\":\"http-ready\",\"sourceSha256\":\"40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8\",\"port\":37671}\n"
+    }
+  ]
+}

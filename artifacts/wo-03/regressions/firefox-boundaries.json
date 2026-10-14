@@ -1,0 +1,155 @@
+{
+  "engine": "firefox",
+  "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+  "started": "2026-10-14T02:06:59.207Z",
+  "checks": [
+    {
+      "name": "R05-vectors",
+      "details": "Empty, one byte, chunk boundaries, Unicode long names and real streaming source import; independent roots and bytes"
+    },
+    {
+      "name": "R05-lock",
+      "details": "Cache-backed verified file locks into a distinct immutable CID; wrong password fails and correct password recovers original bytes after reload"
+    },
+    {
+      "name": "A06-IDB-abort",
+      "details": "Real catalog transaction abort rolls back memory and durable listing; no false success after reload"
+    },
+    {
+      "name": "R03-async-revocation",
+      "details": "Grant revoked in a separate owned tab during real encryption prevents the pending catalog commit"
+    },
+    {
+      "name": "R09-background-save-race",
+      "details": "A real final upload-receipt transaction abort cannot leak catalog/source publication through seed-salt background saves, including after reload"
+    },
+    {
+      "name": "R05-empty-lock",
+      "details": "An empty locked file round-trips its valid 28-byte envelope; an empty password cannot silently publish plaintext"
+    },
+    {
+      "name": "R06-relink",
+      "details": "Wrong relink source cannot replace the valid verified cache"
+    },
+    {
+      "name": "A02-scopes",
+      "details": "Revoked command scope and forged trusted options reject before job acceptance"
+    },
+    {
+      "name": "R11-storage",
+      "details": "Opaque storage item handles cannot clear protected identity/catalog or another principal item"
+    },
+    {
+      "name": "A07-native-output",
+      "details": "Import preserves destination; the accepted verified job writes and closes actual OPFS bytes"
+    },
+    {
+      "name": "A07-denied-binding",
+      "details": "A denied native permission boundary returns a principal-bound resumable interaction without reading bytes"
+    },
+    {
+      "name": "R09-atomic-outcome",
+      "details": "Catalog and original committed response survive a failed redundant final receipt; retry cannot create another entry/revision"
+    },
+    {
+      "name": "R09-corruption",
+      "details": "Damaged journal fence rejects explicitly; restoring the owned record preserves the same identity"
+    },
+    {
+      "name": "R12-source",
+      "details": "Raw source handle produces the exact tested standalone document"
+    },
+    {
+      "name": "A03-A08-contexts",
+      "details": {
+        "cycles": 100,
+        "initial": {
+          "requests": 38,
+          "rejected": 6,
+          "active": 1,
+          "peakActive": 1,
+          "contexts": 1,
+          "sources": 3,
+          "jobs": 20,
+          "byteHandles": 1,
+          "destinations": 0,
+          "cursors": 0,
+          "interactions": 0,
+          "queuedJobs": 0,
+          "runningJobs": 0,
+          "events": 14
+        },
+        "final": {
+          "requests": 339,
+          "rejected": 6,
+          "active": 1,
+          "peakActive": 1,
+          "contexts": 1,
+          "sources": 3,
+          "jobs": 20,
+          "byteHandles": 1,
+          "destinations": 0,
+          "cursors": 0,
+          "interactions": 0,
+          "queuedJobs": 0,
+          "runningJobs": 0,
+          "events": 128
+        }
+      }
+    },
+    {
+      "name": "A03-offline",
+      "details": "Listing, preferences and privacy remain available while all network carriers are disconnected"
+    },
+    {
+      "name": "A02-protected",
+      "details": "Independently initialized visitor with the exact owner anchor cannot publish without a signed write grant"
+    }
+  ],
+  "errors": [],
+  "sourceArtifact": "artifacts/wo-03/regressions/source-40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8.html.gz",
+  "offlineHealth": {
+    "value": {
+      "localReady": true,
+      "networkReady": false,
+      "recoveryReady": true,
+      "blockedReasons": [
+        "network-unavailable"
+      ],
+      "usage": {
+        "requests": 343,
+        "rejected": 6,
+        "active": 1,
+        "peakActive": 1,
+        "contexts": 1,
+        "sources": 3,
+        "jobs": 20,
+        "byteHandles": 1,
+        "destinations": 0,
+        "cursors": 0,
+        "interactions": 0,
+        "queuedJobs": 0,
+        "runningJobs": 0,
+        "events": 128
+      },
+      "agent": {
+        "activeRequests": 0,
+        "peakRequests": 0,
+        "rememberedRequests": 0,
+        "bindings": 0,
+        "pendingBindings": 0,
+        "nativeTools": 0,
+        "nativeStatus": "unavailable"
+      },
+      "carriers": {
+        "nats": "ready",
+        "nats-relay": "on",
+        "libp2p": "ready",
+        "ipfs": "ready",
+        "waku": "on"
+      }
+    }
+  },
+  "passed": true,
+  "ended": "2026-10-14T02:07:41.752Z"
+}

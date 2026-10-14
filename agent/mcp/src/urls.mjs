@@ -1,0 +1,10 @@
+/** @workorder WO-03 @requirement WO-03-R02 @requirement WO-03-R07
+ * URL grammar only; the browser remains the authority for keys/signatures.
+ * Mirrors parseTrackerFragment/deploymentBaseUrl from the supplied HTML and is
+ * tested against those production functions. Preserve case of the room secret;
+ * file locators do not narrow room access. Owner anchors are independent.
+ * Fingerprints/opaque room handles never expose the invitation itself. */
+import {createHash} from 'node:crypto';import {check} from './errors.mjs';
+const digest=value=>createHash('sha256').update(value).digest('hex');
+export function parseInvitation(value){let url,decoded;try{url=new URL(value);decoded=decodeURIComponent(url.hash.replace(/^#/,''))}catch(_){check(false,'INVALID_ARGUMENT','Invalid configured room invitation')}check(['https:','http:'].includes(url.protocol)&&!url.username&&!url.password&&decoded.length>0&&decoded.length<=8192,'INVALID_ARGUMENT','Invalid configured room invitation');let secret=decoded,owner='';const file=/^([0-9a-fA-F]{48})\/f\/([0-9a-fA-F]{64})$/.exec(decoded),protectedLink=/^([0-9a-fA-F]{48})\/a\/(n-[0-9a-fA-F]{64})(?:\/f\/([0-9a-fA-F]{64}))?$/.exec(decoded);if(file)secret=file[1];else if(protectedLink){secret=protectedLink[1];owner=protectedLink[2].toLowerCase()}else check(!/\/(?:f|a)(?:\/|$)/.test(decoded),'INVALID_ARGUMENT','Invalid room/file invitation grammar');const base=new URL(url);base.hash='';base.search='';base.pathname=base.pathname.replace(/\/storage(?:\/s\/0[0-9a-f])?\/?$/,'/').replace(/index\.html$/,'');if(!base.pathname.endsWith('/'))base.pathname+='/';const invitation=new URL(base);invitation.hash=encodeURIComponent(secret)+(owner?'/a/'+owner:'');return Object.freeze({base:base.href,origin:base.origin,invitation:invitation.href,fingerprint:digest(base.href+'|'+secret+'|'+owner),roomHash:digest('private-tracker-room|'+secret),owner})}
+export function replaceRoomUri(uri,from,to){check(typeof uri==='string'&&uri.startsWith('tracker://'+from+'/'),'INVALID_ARGUMENT','Resource room binding mismatch');return 'tracker://'+to+uri.slice(('tracker://'+from).length)}

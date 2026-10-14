@@ -1,0 +1,205 @@
+{
+  "order": "WO-03",
+  "stage": "actual-companion-crash-and-cancel",
+  "appSha256": "40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8",
+  "companionSource": {
+    "schema": 1,
+    "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+    "files": [
+      {
+        "path": "bin/serve.mjs",
+        "sha256": "640fa23fd88a06dd151981f99f0a6f84cb598fcb436ef64e791e68c0dc65f368"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "517eac3efb88f075c4dda102db31d4e49e02f7acf7059929ca9c8eb43f3c98a2"
+      },
+      {
+        "path": "package.json",
+        "sha256": "7c8cb1b2ace8bb049347d53da83f3219401522845a9f4efd5603a3e15b15ba66"
+      },
+      {
+        "path": "src/codec.mjs",
+        "sha256": "6b01f9db81b3dccea33b9af19d4ae94b8661a408b2e9af7999ea3a0e3e65a607"
+      },
+      {
+        "path": "src/config.mjs",
+        "sha256": "537104fb9cad0aa1f200d243db074cb0d5d04385dc4a004fac26dd4f12c93a2e"
+      },
+      {
+        "path": "src/errors.mjs",
+        "sha256": "7df6b5f98b7ebf2110a5842bb021de968cb9ed14d2785e59ec7071189b1531b9"
+      },
+      {
+        "path": "src/io.mjs",
+        "sha256": "2c77e197ec20050d503465411f13d60aeee755b3a9b012871af95c15a707e970"
+      },
+      {
+        "path": "src/modern.mjs",
+        "sha256": "6e883b5e1b04a1ddb012b6b48cf8e91795a6279db38975bd87eb44532053ce0d"
+      },
+      {
+        "path": "src/native-files.mjs",
+        "sha256": "688d2e8319fc49216bff3c6e89a380954f115fe097d439ee1041dfdd72e478cf"
+      },
+      {
+        "path": "src/runtime.mjs",
+        "sha256": "22965a8cb462304d13e71581b569ccbdc9646ed5ea0bda2ae7201227cfcc3aee"
+      },
+      {
+        "path": "src/sdk-server.mjs",
+        "sha256": "2376999dc82b9a0d841767511140088494c1c07036495b3c4a610c4bed01a1c7"
+      },
+      {
+        "path": "src/source.mjs",
+        "sha256": "e6d0bdfda4e16c4e496bffc29b553e21b7759acfcc9d20f9ed0b695e9373170e"
+      },
+      {
+        "path": "src/state.mjs",
+        "sha256": "81f7385d8227997ffd233d70314fd777339217d66d0463cb4cacdc6455a54deb"
+      },
+      {
+        "path": "src/tasks.mjs",
+        "sha256": "2a738a10d5da4167503506d729eb5916bd2e21764a052bce1685d7e51a12010a"
+      },
+      {
+        "path": "src/toolkit.mjs",
+        "sha256": "6461857e3e3f2706a58ab92075f6dee814fb4f65bec93263acf4749cf302f058"
+      },
+      {
+        "path": "src/transports.mjs",
+        "sha256": "4b72916a852510138a8a1534a241e45f2c98e9094dd7c19a3076ed8689a5a6c7"
+      },
+      {
+        "path": "src/urls.mjs",
+        "sha256": "c1088b5d013275d2b1d9132f5abbb89f1404a9467d4e31d5e3235d6ec81360c7"
+      }
+    ]
+  },
+  "started": "2026-10-14T02:25:38.487Z",
+  "checks": [
+    "Actual owned companion + persistent browser SIGKILL after a real native checkpoint; no graceful close substituted",
+    "Same principal/node/opaque room, original native job, original protocol Task and operation receipt recover; real encrypted source fully binds",
+    "Actual core upload checkpoint SIGKILL; durable Node input renews without a picker, same upload job resumes and stable original receipt yields exactly one signed publication",
+    "Explicit cancel fences and drains only its worker, removes its uncommitted encrypted input, preserves completed first input and disk original",
+    "Restart with source authority revoked fails the queued job once, remains responsive, and permits explicit owner cancellation/cleanup without regranting source import"
+  ],
+  "beforeCrash": {
+    "jobId": "io-job-62140c3f-d12b-4ef4-ab3a-097efb45914f",
+    "taskId": "task-9c8739b2-7395-47bd-958f-422cabe5bc62",
+    "bytes": 524288,
+    "phase": "staging",
+    "room": "room-7f6bf326-812d-4d26-92ac-bcf1c8dab534",
+    "nodeId": "n-422bcb74aebcc79324a1225d6441ffac9379393dd96dc72b6cb5edc9cfa35ee1"
+  },
+  "coreUpload": {
+    "jobId": "job-452cdd3c-7f10-4b9e-b6a0-c20713e21a1a",
+    "bytesAtCrash": 67108864,
+    "cid": "f-0a1c2a276c035f8354174ed7405d60063093dffdd1ce5e24d7a4f95b3f9eeec0",
+    "sameJob": true,
+    "publicationCount": 1
+  },
+  "cancel": {
+    "bytesAtCheckpoint": 524288,
+    "state": "cancelled",
+    "retainedInputBytes": 67108864
+  },
+  "companionSourceAtEnd": {
+    "schema": 1,
+    "companionSha256": "348fbb6c6bf0822fc010c77faaec04fd7a4ee16ab852dbef7cc2ae317ac324a5",
+    "files": [
+      {
+        "path": "bin/serve.mjs",
+        "sha256": "640fa23fd88a06dd151981f99f0a6f84cb598fcb436ef64e791e68c0dc65f368"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "517eac3efb88f075c4dda102db31d4e49e02f7acf7059929ca9c8eb43f3c98a2"
+      },
+      {
+        "path": "package.json",
+        "sha256": "7c8cb1b2ace8bb049347d53da83f3219401522845a9f4efd5603a3e15b15ba66"
+      },
+      {
+        "path": "src/codec.mjs",
+        "sha256": "6b01f9db81b3dccea33b9af19d4ae94b8661a408b2e9af7999ea3a0e3e65a607"
+      },
+      {
+        "path": "src/config.mjs",
+        "sha256": "537104fb9cad0aa1f200d243db074cb0d5d04385dc4a004fac26dd4f12c93a2e"
+      },
+      {
+        "path": "src/errors.mjs",
+        "sha256": "7df6b5f98b7ebf2110a5842bb021de968cb9ed14d2785e59ec7071189b1531b9"
+      },
+      {
+        "path": "src/io.mjs",
+        "sha256": "2c77e197ec20050d503465411f13d60aeee755b3a9b012871af95c15a707e970"
+      },
+      {
+        "path": "src/modern.mjs",
+        "sha256": "6e883b5e1b04a1ddb012b6b48cf8e91795a6279db38975bd87eb44532053ce0d"
+      },
+      {
+        "path": "src/native-files.mjs",
+        "sha256": "688d2e8319fc49216bff3c6e89a380954f115fe097d439ee1041dfdd72e478cf"
+      },
+      {
+        "path": "src/runtime.mjs",
+        "sha256": "22965a8cb462304d13e71581b569ccbdc9646ed5ea0bda2ae7201227cfcc3aee"
+      },
+      {
+        "path": "src/sdk-server.mjs",
+        "sha256": "2376999dc82b9a0d841767511140088494c1c07036495b3c4a610c4bed01a1c7"
+      },
+      {
+        "path": "src/source.mjs",
+        "sha256": "e6d0bdfda4e16c4e496bffc29b553e21b7759acfcc9d20f9ed0b695e9373170e"
+      },
+      {
+        "path": "src/state.mjs",
+        "sha256": "81f7385d8227997ffd233d70314fd777339217d66d0463cb4cacdc6455a54deb"
+      },
+      {
+        "path": "src/tasks.mjs",
+        "sha256": "2a738a10d5da4167503506d729eb5916bd2e21764a052bce1685d7e51a12010a"
+      },
+      {
+        "path": "src/toolkit.mjs",
+        "sha256": "6461857e3e3f2706a58ab92075f6dee814fb4f65bec93263acf4749cf302f058"
+      },
+      {
+        "path": "src/transports.mjs",
+        "sha256": "4b72916a852510138a8a1534a241e45f2c98e9094dd7c19a3076ed8689a5a6c7"
+      },
+      {
+        "path": "src/urls.mjs",
+        "sha256": "c1088b5d013275d2b1d9132f5abbb89f1404a9467d4e31d5e3235d6ec81360c7"
+      }
+    ]
+  },
+  "passed": true,
+  "ended": "2026-10-14T02:26:15.327Z",
+  "diagnostics": [
+    {
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "stderr": "{\"at\":\"2026-10-14T02:25:39.479Z\",\"event\":\"http-ready\",\"sourceSha256\":\"40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8\",\"port\":45007}\n"
+    },
+    {
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "stderr": "{\"at\":\"2026-10-14T02:25:41.840Z\",\"event\":\"http-ready\",\"sourceSha256\":\"40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8\",\"port\":36379}\n"
+    },
+    {
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "stderr": "{\"at\":\"2026-10-14T02:26:00.810Z\",\"event\":\"http-ready\",\"sourceSha256\":\"40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8\",\"port\":33917}\n"
+    },
+    {
+      "exitCode": 0,
+      "signal": null,
+      "stderr": "{\"at\":\"2026-10-14T02:26:14.531Z\",\"event\":\"http-ready\",\"sourceSha256\":\"40cc031838f09e9823c64af0c12ccf38912fefb0389b3bd68ef207fa129536e8\",\"port\":38223}\n"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+node_modules/
+.tracker-state/
+*.private.json

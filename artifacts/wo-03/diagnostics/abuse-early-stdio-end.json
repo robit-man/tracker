@@ -1,0 +1,99 @@
+{
+  "order": "WO-03",
+  "stage": "raw-stdio-boundaries",
+  "appSha256": "6c9c7ff8852a2cf46cff2dd505c78595f966b8c4045f5f0c5140d33f091fd4e5",
+  "companionSource": {
+    "schema": 1,
+    "companionSha256": "0679a1c64ed76e9ae618451ca5d5052f3e02c91cd4a89f167bff65e71d7e6c84",
+    "files": [
+      {
+        "path": "bin/serve.mjs",
+        "sha256": "212617eb58120132aeb5d08f55a0ae790b2b407b4c2ec6095ebf72f8ae31a57a"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "517eac3efb88f075c4dda102db31d4e49e02f7acf7059929ca9c8eb43f3c98a2"
+      },
+      {
+        "path": "package.json",
+        "sha256": "7c8cb1b2ace8bb049347d53da83f3219401522845a9f4efd5603a3e15b15ba66"
+      },
+      {
+        "path": "src/codec.mjs",
+        "sha256": "6b01f9db81b3dccea33b9af19d4ae94b8661a408b2e9af7999ea3a0e3e65a607"
+      },
+      {
+        "path": "src/config.mjs",
+        "sha256": "537104fb9cad0aa1f200d243db074cb0d5d04385dc4a004fac26dd4f12c93a2e"
+      },
+      {
+        "path": "src/errors.mjs",
+        "sha256": "d11b2b66ef415861c2f7b4cfaa90bad244e26fdbc2501ae6b3ccc14149a7fe3a"
+      },
+      {
+        "path": "src/io.mjs",
+        "sha256": "62dc5e9e236199b8f31bf251bd9fd85172eb460a21b41015cb563f2556a40694"
+      },
+      {
+        "path": "src/modern.mjs",
+        "sha256": "6e883b5e1b04a1ddb012b6b48cf8e91795a6279db38975bd87eb44532053ce0d"
+      },
+      {
+        "path": "src/native-files.mjs",
+        "sha256": "688d2e8319fc49216bff3c6e89a380954f115fe097d439ee1041dfdd72e478cf"
+      },
+      {
+        "path": "src/runtime.mjs",
+        "sha256": "3356f96eb1bb6ec5d4a2ea336d4a49d34d181f5a7850b98afabc4d5af486733e"
+      },
+      {
+        "path": "src/sdk-server.mjs",
+        "sha256": "3f22d83f5dcb8fa42df6fba9c1994f4e55e1acd6b455275c65f787d1c282580c"
+      },
+      {
+        "path": "src/source.mjs",
+        "sha256": "e6d0bdfda4e16c4e496bffc29b553e21b7759acfcc9d20f9ed0b695e9373170e"
+      },
+      {
+        "path": "src/state.mjs",
+        "sha256": "81f7385d8227997ffd233d70314fd777339217d66d0463cb4cacdc6455a54deb"
+      },
+      {
+        "path": "src/tasks.mjs",
+        "sha256": "db8ff0e67755841985a242e7cf5e92f1336d894d050236c90422f639febf976c"
+      },
+      {
+        "path": "src/toolkit.mjs",
+        "sha256": "b412088dbd9a4b873ceffc370614df899942c1e81e0713547f1774842dcee305"
+      },
+      {
+        "path": "src/transports.mjs",
+        "sha256": "84590cb2ab8bf4cd0f6e343c04cc5c62291f9b99ada8362f06d90084e3357ed1"
+      },
+      {
+        "path": "src/urls.mjs",
+        "sha256": "c1088b5d013275d2b1d9132f5abbb89f1404a9467d4e31d5e3235d6ec81360c7"
+      }
+    ]
+  },
+  "started": "2026-10-14T00:56:29.789Z",
+  "checks": [
+    "Actual stdio rejects pre-initialize, malformed/oversized/deep/prototype/null-ID frames and eval/unknown methods; zero denied effects and next valid signed command succeeds"
+  ],
+  "failure": "AssertionError [ERR_ASSERTION]: Bounded error response queue closes abusive transport\n    at file:///home/roko/Documents/Projects/Adjacent/tracker/tests/wo-03-abuse.mjs:13:132",
+  "ended": "2026-10-14T00:57:11.874Z",
+  "diagnostics": [
+    {
+      "exitCode": 0,
+      "signal": null,
+      "stderr": "{\"at\":\"2026-10-14T00:56:30.688Z\",\"event\":\"http-ready\",\"sourceSha256\":\"6c9c7ff8852a2cf46cff2dd505c78595f966b8c4045f5f0c5140d33f091fd4e5\",\"port\":46145}\n",
+      "frames": 0
+    },
+    {
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "stderr": "{\"at\":\"2026-10-14T00:56:32.649Z\",\"event\":\"http-ready\",\"sourceSha256\":\"6c9c7ff8852a2cf46cff2dd505c78595f966b8c4045f5f0c5140d33f091fd4e5\",\"port\":34749}\n",
+      "frames": 1
+    }
+  ]
+}

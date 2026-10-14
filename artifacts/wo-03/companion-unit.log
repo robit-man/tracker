@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: modern requests are stateless, require current metadata, and do not require clientInfo
+ok 1 - modern requests are stateless, require current metadata, and do not require clientInfo
+  ---
+  duration_ms: 1.167985
+  type: 'test'
+  ...
+# Subtest: HTTP mirror names decode UTF8 once, including literal sentinel-looking names
+ok 2 - HTTP mirror names decode UTF8 once, including literal sentinel-looking names
+  ---
+  duration_ms: 4.286986
+  type: 'test'
+  ...
+# Subtest: mismatched method, version, name or Accept fails before admission
+ok 3 - mismatched method, version, name or Accept fails before admission
+  ---
+  duration_ms: 0.242557
+  type: 'test'
+  ...
+# Subtest: legacy initialization/initialized remain a separate, strict lifecycle
+ok 4 - legacy initialization/initialized remain a separate, strict lifecycle
+  ---
+  duration_ms: 0.34802
+  type: 'test'
+  ...
+# Subtest: metadata rejects getters, cycles, depth, oversized UTF8, sparse arrays and prototype keys
+ok 5 - metadata rejects getters, cycles, depth, oversized UTF8, sparse arrays and prototype keys
+  ---
+  duration_ms: 2.442732
+  type: 'test'
+  ...
+# Subtest: journal authenticates identity, revision, owner fence and ciphertext; corruption never defaults
+ok 6 - journal authenticates identity, revision, owner fence and ciphertext; corruption never defaults
+  ---
+  duration_ms: 0.919907
+  type: 'test'
+  ...
+# Subtest: Bearer authentication resolves the configured principal; client metadata cannot substitute for it
+ok 7 - Bearer authentication resolves the configured principal; client metadata cannot substitute for it
+  ---
+  duration_ms: 0.470524
+  type: 'test'
+  ...
+# Subtest: invitation/deployment grammar matches the supplied HTML without deriving new keys
+ok 8 - invitation/deployment grammar matches the supplied HTML without deriving new keys
+  ---
+  duration_ms: 5.76379
+  type: 'test'
+  ...
+# Subtest: OS flock excludes a second writer, then SIGKILL permits authenticated durable recovery
+ok 9 - OS flock excludes a second writer, then SIGKILL permits authenticated durable recovery
+  ---
+  duration_ms: 2678.463173
+  type: 'test'
+  ...
+# Subtest: native blocks authenticate principal/input/dimensions and permit only identical uncheckpointed replay
+ok 10 - native blocks authenticate principal/input/dimensions and permit only identical uncheckpointed replay
+  ---
+  duration_ms: 2188.70623
+  type: 'test'
+  ...
+# Subtest: canonical hashing follows signed chunk boundaries independently of side-channel block boundaries
+ok 11 - canonical hashing follows signed chunk boundaries independently of side-channel block boundaries
+  ---
+  duration_ms: 1975.363627
+  type: 'test'
+  ...
+# Subtest: stdio uses one ordered writer and closes at a bounded queue when a client stops reading
+ok 12 - stdio uses one ordered writer and closes at a bounded queue when a client stops reading
+  ---
+  duration_ms: 0.457403
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4329.361055

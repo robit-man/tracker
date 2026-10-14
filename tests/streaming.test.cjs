@@ -91,7 +91,7 @@ test('relay lookahead follows receiver pressure inside the complete-frame byte b
   assert.equal(c.streamRelayDispatchWindow(chunk,100),1,'memory bound overrides pressure');
 });
 test('STREAM preserves explicit Play intent across asynchronous unlock and decoder setup', async () => {
-  const c=context(['openPreview']);
+  const c=context(['openPreview']);c.Blob=Blob;
   let unlock;c.requireUnlocked=()=>new Promise(r=>{unlock=r});
   c.navigator={userActivation:{isActive:true}};c.activePreview=null;
   c.contents=new Map([['movie',{id:'movie'}]]);c.localHave=new Set();c.globalMesh={records:new Map()};c.advertisedRemoteSeeders=()=>[];
