@@ -1,0 +1,14 @@
+{
+  "command": "node --test tests/*.test.cjs",
+  "appSha256": "3088bad30b5a7df045a6bd016aa75ebfa31665c34cad5ed5c9714b7829fd13c0",
+  "summary": {
+    "tests": 337,
+    "pass": 337,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "extensionTests": 15,
+  "passed": true
+}

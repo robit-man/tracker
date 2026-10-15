@@ -1,0 +1,9 @@
+{
+  "appSha256": "3088bad30b5a7df045a6bd016aa75ebfa31665c34cad5ed5c9714b7829fd13c0",
+  "packageSha256": "6a76a2e3a9f2e7dd151bd22aa6cfdcf311409e08383f14fb6fa4d800070d43cc",
+  "checks": [
+    "deployed origin exposes scoped tab URL and receives real status broadcast",
+    "other paths on permitted host receive no bridge and cannot be enrolled"
+  ],
+  "passed": true
+}

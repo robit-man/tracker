@@ -1,32 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Tracker Storage</title>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tracker background storage</title>
 <style>
-  body { font-family: system-ui, sans-serif; width: 280px; margin: 0; padding: 14px; color: #111; }
-  h1 { font-size: 14px; margin: 0 0 8px; }
-  .row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 13px; }
-  .muted { color: #666; font-size: 12px; }
-  label { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 8px 0; }
-  select, button { width: 100%; margin-top: 8px; padding: 8px; font-size: 13px; }
-  button { cursor: pointer; }
-  #status { margin-top: 8px; font-size: 12px; }
-</style>
-</head>
-<body>
-<h1>Tracker Distributed Storage</h1>
-<p class="muted" id="presence">Background worker: checking…</p>
-<label><input type="checkbox" id="enabled"> Contribute storage in background</label>
-<label>Scope
-<select id="scope">
-<option value="room">This room</option>
-<option value="global">Global mesh</option>
-</select>
-</label>
-<div class="row"><span>Last heartbeat</span><strong id="heartbeat">—</strong></div>
-<button id="save">Save</button>
-<p id="status" role="status" aria-live="polite"></p>
-<script src="popup.js"></script>
-</body>
-</html>
+body{font:14px/1.45 system-ui,sans-serif;width:330px;margin:0;padding:16px;color:#20242a;background:#fff}h1{font-size:17px;margin:0 0 8px}p{margin:8px 0}.muted{font-size:12px;color:#525b66}fieldset{margin:12px 0;padding:10px;border:1px solid #c4cbd3}label{display:block;margin:8px 0}input[type=number]{width:75px;padding:5px}button{padding:9px;margin:4px 0;width:100%;cursor:pointer}button:disabled{cursor:wait}#status{white-space:pre-wrap}#presence{font-weight:600}
+</style></head><body>
+<h1>Background contribution</h1><p class="muted">Tracker runs in a managed pinned tab. Ordinary Tracker tabs can close; the browser must stay open.</p>
+<p id="presence" role="status">Checking provider…</p><p id="site" class="muted"></p><p id="heartbeat" class="muted"></p>
+<fieldset><legend>Room copies</legend><label><input type="checkbox" id="roomEnabled"> Keep the selected room available</label><label>Allocation (GB) <input type="number" id="roomCapacityGB" min="5" max="100" step="5" value="25"></label></fieldset>
+<fieldset><legend>Global mesh</legend><label><input type="checkbox" id="globalEnabled"> Contribute encrypted storage</label><label>Allocation (GB) <input type="number" id="globalCapacityGB" min="5" max="1000" step="5" value="25"></label><label><input type="checkbox" id="anonymous" checked> Relay only</label><label>Shard <select id="shard"><option value="">Automatic</option></select></label></fieldset>
+<p class="muted">Room participation saves its invitation in this extension on this device. Global-only participation does not copy the room invitation. Retained copies survive tab closure; unsaved disk selections may need relinking.</p>
+<button id="save">Save and run in background</button><button id="stop">Stop background contribution</button><button id="open">Open Tracker</button><p id="status" role="status" aria-live="polite"></p>
+<script src="protocol.js"></script><script src="popup.js"></script></body></html>

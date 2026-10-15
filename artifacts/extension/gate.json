@@ -1,0 +1,55 @@
+{
+  "version": "0.2.0",
+  "appSha256": "3088bad30b5a7df045a6bd016aa75ebfa31665c34cad5ed5c9714b7829fd13c0",
+  "packages": {
+    "version": "0.2.0",
+    "signed": false,
+    "packages": {
+      "chromium": {
+        "file": "tracker-storage-chromium.zip",
+        "bytes": 12967,
+        "sha256": "6a76a2e3a9f2e7dd151bd22aa6cfdcf311409e08383f14fb6fa4d800070d43cc"
+      },
+      "firefox": {
+        "file": "tracker-storage-firefox.zip",
+        "bytes": 13041,
+        "sha256": "5f119ca0471bfe969e2a8fc99e0039d35e3c480b96c389d5c063c3077de18895"
+      }
+    }
+  },
+  "checks": [
+    {
+      "id": "unit-tests",
+      "pass": true,
+      "detail": "337 tests, zero failures"
+    },
+    {
+      "id": "firefox-package-lint",
+      "pass": true,
+      "detail": "zero errors, zero warnings"
+    },
+    {
+      "id": "production-origin",
+      "pass": true,
+      "detail": "native scoped tab URL, status delivery and unrelated-path denial"
+    },
+    {
+      "id": "chromium-native-acceptance",
+      "pass": true,
+      "detail": "11 native checks with real encrypted room/global bytes"
+    },
+    {
+      "id": "firefox-native-acceptance",
+      "pass": true,
+      "detail": "10 native checks with real encrypted room/global bytes"
+    }
+  ],
+  "passed": true,
+  "runtime": "The extension bridges settings to the real provider in a managed pinned Tracker tab. Ordinary Tracker tabs can close; the browser must remain running.",
+  "distribution": "Unsigned browser packages, as requested. No store listings or signing credentials exist yet. Firefox developer loading is temporary.",
+  "limits": [
+    "One explicitly enrolled room plus independent global contribution per extension profile.",
+    "Browser shutdown, sleep, offline periods and eviction interrupt availability. No 24-hour observation is claimed.",
+    "Firefox native acceptance covers temporary installation/add-on reload; Chromium additionally covers a complete browser restart."
+  ]
+}

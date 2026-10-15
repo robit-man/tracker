@@ -6,6 +6,8 @@
     "jsqr": "1.4.0",
     "mp4box": "2.4.1",
     "playwright": "1.64.0",
-    "pngjs": "7.0.0"
+    "pngjs": "7.0.0",
+    "web-ext": "10.8.0",
+    "selenium-webdriver": "4.51.0"
   }
 }

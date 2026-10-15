@@ -1,0 +1,15 @@
+/* Closed protocol. Only the packaged popup can enroll a room or open tabs. */
+(() => {
+  const defaults=Object.freeze({roomEnabled:false,roomCapacityGB:25,globalEnabled:false,globalCapacityGB:25,anonymous:true,shard:''});
+  function object(value,keys){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!keys.includes(k)))throw Error('Invalid message fields');return value;}
+  function settings(value){object(value,Object.keys(defaults));const out={...defaults,...value};for(const key of ['roomEnabled','globalEnabled','anonymous'])if(typeof out[key]!=='boolean')throw Error('Invalid '+key);for(const [key,max]of [['roomCapacityGB',100],['globalCapacityGB',1000]])if(!Number.isInteger(out[key])||out[key]<5||out[key]>max||out[key]%5)throw Error('Capacity must be a multiple of 5 GB (5–'+max+')');if(typeof out.shard!=='string'||!/^(|0[0-9a-f])$/.test(out.shard))throw Error('Invalid shard');return out;}
+  function site(input){
+    if(typeof input!=='string'||input.length>8192)throw Error('Invalid Tracker URL');const u=new URL(input),local=['localhost','127.0.0.1'].includes(u.hostname);
+    if(u.username||u.password||!(local&&['http:','https:'].includes(u.protocol)||u.origin==='https://robit-man.github.io'&&/^\/tracker(?:\/|$)/.test(u.pathname)))throw Error('Open a supported Tracker page first');
+    u.hash='';u.search='';u.pathname=u.pathname.replace(/\/storage(?:\/s\/0[0-9a-f])?\/?$/,'/').replace(/index\.html$/,'');if(!u.pathname.endsWith('/'))u.pathname+='/';return u.href;
+  }
+  function room(input){const base=site(input),u=new URL(input);let fragment=decodeURIComponent(u.hash.slice(1)).trim();if(!fragment||fragment.length>4096||/[\x00-\x1f\x7f]/.test(fragment))throw Error('Wait for the Tracker room to finish opening');const file=/^([a-fA-F0-9]{48})(\/a\/n-[a-fA-F0-9]{64})?(?:\/f\/[a-fA-F0-9]{64})?$/.exec(fragment);if(file)fragment=encodeURIComponent(file[1])+(file[2]||'');else{if(/\/(?:f|a)(?:\/|$)/.test(fragment))throw Error('Invalid room invitation');fragment=encodeURIComponent(fragment);}return base+'#'+fragment;}
+  const enabled=config=>config.roomEnabled||config.globalEnabled;
+  function state(value){object(value,['config','roomNetworkReady','globalNetworkReady','globalLeader','retainedCount','globalObjectCount','buildId','seedMode']);const out={config:settings(value.config)};for(const key of ['roomNetworkReady','globalNetworkReady','globalLeader']){if(typeof value[key]!=='boolean')throw Error('Invalid provider state');out[key]=value[key];}for(const key of ['retainedCount','globalObjectCount']){if(!Number.isSafeInteger(value[key])||value[key]<0)throw Error('Invalid provider count');out[key]=value[key];}if(typeof value.buildId!=='string'||value.buildId.length>100||!['off','selected','all'].includes(value.seedMode))throw Error('Invalid provider build');return {...out,buildId:value.buildId,seedMode:value.seedMode};}
+  globalThis.TrackerExtensionProtocol=Object.freeze({defaults,object,settings,site,room,enabled,state});
+})();

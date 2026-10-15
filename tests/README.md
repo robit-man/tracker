@@ -635,3 +635,40 @@ links), local disk/cache/plaintext conversion boundaries, room versus blind
 global providers, routing metadata, dependencies, and the static-host trust
 boundary. Legal references are general information with explicit jurisdictional
 and statutory conditions; the notice does not claim blanket host immunity.
+
+Browser extension acceptance (Tracker storage 0.2.0):
+
+```sh
+npm ci --prefix tests/dependencies
+tests/dependencies/node_modules/.bin/playwright install chromium firefox
+python3 scripts/package-extension.py
+node --test tests/extension.test.cjs
+TRACKER_TEST_DEPS="$PWD/tests/dependencies" node tests/extension-browser.mjs
+TRACKER_TEST_DEPS="$PWD/tests/dependencies" GECKODRIVER=/absolute/path/to/geckodriver \
+  node tests/extension-firefox-browser.mjs
+```
+
+The Firefox harness needs a native Mozilla GeckoDriver (0.37.1 was used), not a
+Snap-contained driver paired with a host Firefox binary. `BROWSER_EXECUTABLE`
+can select another compatible Firefox for that harness. It uses an isolated
+WebDriver browser to open the real extension popup through browser chrome;
+independent receivers run in separate Playwright profiles. Browser automation's
+system-access flag is test-only and is not an installation requirement.
+
+Both suites install the generated browser-specific ZIP contents, serve the exact
+candidate HTML over an owned loopback HTTP server, and use actual encrypted
+public peer transports. They verify browser-aware package download, independent
+room/global controls, app-to-extension synchronization, opt-out, a distinct
+managed actor, 1,100,000 byte room serving after ordinary tabs close, opaque
+global placement/private catalog recovery after the publisher closes, and
+managed-tab recreation. Chromium additionally restarts its complete browser and
+verifies both transfer paths afterward; native Firefox reloads its temporary
+add-on and verifies continued serving. Firefox's unsigned temporary installation
+does not survive browser shutdown. Permanent installation requires signing.
+
+The unit suite rejects invalid origins, frame/sender authority, arbitrary patch
+fields, invalid capacities and premature liveness claims, and verifies bounded
+renderer reloads, opt-out and deterministic package integrity. Evidence is saved
+under `artifacts/extension/`. No user profile, private room, CUDA or container is
+used. These tests exercise real availability while the browser is running; they
+are not a 24-hour observation or a durability guarantee against eviction.

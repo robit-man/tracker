@@ -1,63 +1,15 @@
-/* Tracker Distributed Storage — content bridge.
- * Runs on tracker tabs. Relays extension presence to the page and
- * surfaces page storage config to the background worker.
- * No room secrets, file bytes, or keys are handled here — only presence + config.
- */
+/* Isolated, origin-scoped bridge. JSON-string details cross Firefox compartments.
+ * A website cannot enroll itself, supply an invitation, or create managed tabs. */
 (() => {
-  if (window.__trackerStorageBridge) return;
-  window.__trackerStorageBridge = true;
-
-  const extApi = (typeof chrome !== 'undefined' && chrome.runtime ? chrome : null)
-    || (typeof browser !== 'undefined' && browser.runtime ? browser : null);
-  const EXT_AVAILABLE_EVENT = 'tracker:extension-available';
-  const PAGE_CONFIG_EVENT = 'tracker:extension-config';
-
-  function notifyPage(state) {
-    window.dispatchEvent(
-      new CustomEvent(EXT_AVAILABLE_EVENT, {
-        detail: {
-          available: true,
-          at: Date.now(),
-          enabled: !!(state && state.config && state.config.enabled),
-          scope: state && state.config ? state.config.scope : undefined,
-          lastHeartbeat: state ? state.lastHeartbeat : 0,
-        },
-      })
-    );
-    document.documentElement.setAttribute('data-tracker-extension', 'available');
-  }
-
-  async function queryBackground() {
-    try {
-      if (!extApi) return null;
-      const res = await extApi.runtime.sendMessage({ type: 'TRACKER_STORAGE_GET' });
-      if (res && res.ok) notifyPage(res);
-      return res;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // Page can push its contribution config down (scope, capacities, shard).
-  window.addEventListener(PAGE_CONFIG_EVENT, (ev) => {
-    try {
-      const patch = (ev && ev.detail) || {};
-      extApi.runtime.sendMessage({ type: 'TRACKER_STORAGE_SET', patch }).catch(() => {});
-    } catch (_) {}
-  });
-
-  // Background heartbeats reach tabs here.
-  if (extApi && extApi.runtime && extApi.runtime.onMessage) {
-    extApi.runtime.onMessage.addListener((msg) => {
-      if (msg && msg.type === 'TRACKER_STORAGE_HEARTBEAT') {
-        document.documentElement.setAttribute('data-tracker-extension-heartbeat', String(msg.at));
-        window.dispatchEvent(
-          new CustomEvent('tracker:extension-heartbeat', { detail: msg })
-        );
-      }
-    });
-  }
-
-  queryBackground();
-  setInterval(queryBackground, 60 * 1000);
+  const P=TrackerExtensionProtocol,api=typeof browser!=='undefined'?browser:chrome;try{P.site(location.href);}catch(_){return;}
+  if(window.top!==window||window.__trackerStorageBridge)return;window.__trackerStorageBridge=true;
+  const pending=new Map();let busy=false;
+  const notify=view=>{document.documentElement.setAttribute('data-tracker-extension','available');window.dispatchEvent(new CustomEvent('tracker:extension-status',{detail:JSON.stringify(view)}));};
+  function request(action,config,room){if(pending.size>=4)return Promise.reject(Error('Provider bridge busy'));return new Promise((resolve,reject)=>{const id=crypto.randomUUID(),timer=setTimeout(()=>{pending.delete(id);reject(Error('Tracker provider is not ready'));},10000);pending.set(id,{resolve,reject,timer});window.dispatchEvent(new CustomEvent('tracker:extension-request',{detail:JSON.stringify({id,action,...(action==='configure'?{config,room}:{})})}));});}
+  window.addEventListener('tracker:extension-response',event=>{try{if(typeof event.detail!=='string'||event.detail.length>8192)return;const response=JSON.parse(event.detail),entry=pending.get(response.id);if(!entry)return;pending.delete(response.id);clearTimeout(entry.timer);response.ok?entry.resolve(P.state(response.state)):entry.reject(Error(response.error||'Provider request failed'));}catch(_){};});
+  window.addEventListener('tracker:extension-settings',event=>{try{if(typeof event.detail!=='string'||event.detail.length>4096)return;const data=JSON.parse(event.detail);P.object(data,['scope','config']);if(!['room','global'].includes(data.scope))return;api.runtime.sendMessage({type:'TRACKER_STORAGE_CHANGED',scope:data.scope,config:P.settings(data.config)}).catch(()=>{});}catch(_){};});
+  api.runtime.onMessage.addListener((msg,sender,respond)=>{if(sender.id!==api.runtime.id)return false;if(msg?.type==='TRACKER_STORAGE_STATUS'){notify(msg.view);return false;}if(!['TRACKER_STORAGE_INSPECT','TRACKER_STORAGE_APPLY'].includes(msg?.type))return false;(async()=>{try{const state=await request(msg.type==='TRACKER_STORAGE_APPLY'?'configure':'inspect',msg.config,msg.room);respond({ok:true,state});}catch(e){respond({ok:false,error:e.message});}})();return true;});
+  async function poll(){if(busy)return;busy=true;try{const response=await api.runtime.sendMessage({type:'TRACKER_STORAGE_GET'});if(response?.ok)notify(response.view);if(new URL(location.href).searchParams.has('trackerBackground')){const state=await request('inspect');await api.runtime.sendMessage({type:'TRACKER_STORAGE_REPORT',state});}}catch(_){}finally{busy=false;}}
+  window.addEventListener('tracker:extension-query',poll);poll();const interval=setInterval(poll,15000);
+  window.addEventListener('pagehide',()=>{clearInterval(interval);for(const entry of pending.values()){clearTimeout(entry.timer);entry.reject(Error('Tracker tab closed'));}pending.clear();},{once:true});
 })();

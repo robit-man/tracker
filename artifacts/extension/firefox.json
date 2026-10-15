@@ -1,0 +1,53 @@
+{
+  "engine": "firefox",
+  "driver": "native GeckoDriver + isolated Playwright peers",
+  "appSha256": "3088bad30b5a7df045a6bd016aa75ebfa31665c34cad5ed5c9714b7829fd13c0",
+  "package": {
+    "file": "tracker-storage-firefox.zip",
+    "bytes": 13041,
+    "sha256": "5f119ca0471bfe969e2a8fc99e0039d35e3c480b96c389d5c063c3077de18895"
+  },
+  "started": "2026-10-15T23:12:19.017Z",
+  "checks": [
+    {
+      "name": "native Firefox install and real package download"
+    },
+    {
+      "name": "popup starts independent room/global provider actor"
+    },
+    {
+      "name": "settings and independent scope toggles synchronize through actual commands"
+    },
+    {
+      "name": "legacy arbitrary patch event cannot overwrite extension config"
+    },
+    {
+      "name": "ordinary Tracker tabs closed; managed Firefox tab serves 1100000 verified room bytes",
+      "detail": {
+        "sha256": "0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb"
+      }
+    },
+    {
+      "name": "opaque global bytes and private catalog recover after publisher closes",
+      "detail": {
+        "sha256": "0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb"
+      }
+    },
+    {
+      "name": "closed managed tab is recreated with retained data"
+    },
+    {
+      "name": "native addon reload preserves configuration and real serving"
+    },
+    {
+      "name": "popup stop withdraws both real providers and closes owned tab"
+    },
+    {
+      "name": "global-only mode excludes the selected room credential"
+    }
+  ],
+  "errors": [],
+  "browserVersion": "157.0",
+  "passed": true,
+  "finished": "2026-10-15T23:13:57.971Z"
+}

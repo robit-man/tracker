@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Install Tracker background storage</title><style>body{max-width:720px;margin:40px auto;padding:0 20px;font:16px/1.6 system-ui,sans-serif;color:#20242a}h1{line-height:1.2}a{color:#155ca2}code{background:#eef1f4;padding:2px 5px}li{margin:8px 0}</style></head><body>
+<h1>Tracker background storage</h1>
+<p>The extension keeps encrypted retained copies available in a managed pinned Tracker tab. Ordinary Tracker tabs can close. The browser must stay open.</p>
+<p><strong>Testing packages:</strong> store listings are not published yet, and the Firefox package is unsigned. Installation currently requires the manual steps below.</p>
+<h2>Chrome, Chromium or Edge</h2>
+<ol><li><a href="../downloads/tracker-storage-chromium.zip" download>Download the Chromium package</a> and extract it into a folder.</li><li>Open <code>chrome://extensions</code> or <code>edge://extensions</code> and turn on Developer mode.</li><li>Choose <strong>Load unpacked</strong> and select the extracted folder containing <code>manifest.json</code>.</li></ol>
+<h2>Firefox</h2>
+<ol><li><a href="../downloads/tracker-storage-firefox.zip" download>Download the Firefox package</a> and extract it.</li><li>Open <code>about:debugging#/runtime/this-firefox</code> and choose <strong>Load Temporary Add-on</strong>.</li><li>Select the extracted <code>manifest.json</code>. Firefox removes this temporary installation at browser restart. A signed release is required for permanent installation.</li></ol>
+<h2>Enable contribution</h2>
+<ol><li>Open a Tracker room, then open the extension popup from the browser toolbar.</li><li>Choose room copies, global mesh contribution, or both, set allocations, then choose <strong>Save and run in background</strong>. Room mode saves that room's invitation on this device; global-only mode does not copy it.</li><li>Wait for the popup to report the provider running. A pinned Tracker tab will remain open to serve data. Files must have retained browser copies to survive closing their source tab.</li><li>Choose <strong>Stop background contribution</strong> to opt out and close the managed tab. Closing that tab while contribution is enabled causes the supervisor to reopen it.</li></ol>
+<p>Offline periods, sleep, browser shutdown and storage eviction interrupt availability. The extension does not make a durability guarantee.</p><p><a href="../downloads/extension-packages.json">Package versions and SHA-256 checksums</a> · <a href="../">Return to Tracker</a></p>
+</body></html>

@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "signed": false,
+  "packages": {
+    "chromium": {
+      "file": "tracker-storage-chromium.zip",
+      "bytes": 12967,
+      "sha256": "6a76a2e3a9f2e7dd151bd22aa6cfdcf311409e08383f14fb6fa4d800070d43cc"
+    },
+    "firefox": {
+      "file": "tracker-storage-firefox.zip",
+      "bytes": 13041,
+      "sha256": "5f119ca0471bfe969e2a8fc99e0039d35e3c480b96c389d5c063c3077de18895"
+    }
+  }
+}

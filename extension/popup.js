@@ -1,44 +1,12 @@
-/* Tracker Storage popup */
-(async () => {
-  const $ = (id) => document.getElementById(id);
-  const enabledEl = $('enabled');
-  const scopeEl = $('scope');
-  const presenceEl = $('presence');
-  const heartbeatEl = $('heartbeat');
-  const statusEl = $('status');
-
-  const extApi = (typeof chrome !== 'undefined' && chrome.runtime ? chrome : null)
-    || (typeof browser !== 'undefined' && browser.runtime ? browser : null);
-  async function load() {
-    try {
-      const res = await extApi.runtime.sendMessage({ type: 'TRACKER_STORAGE_GET' });
-      if (!res || !res.ok) throw new Error('no response');
-      enabledEl.checked = !!res.config.enabled;
-      scopeEl.value = res.config.scope || 'room';
-      presenceEl.textContent = 'Background worker: active';
-      heartbeatEl.textContent = res.lastHeartbeat
-        ? new Date(res.lastHeartbeat).toLocaleTimeString()
-        : '—';
-    } catch (_) {
-      presenceEl.textContent = 'Background worker: unavailable';
-    }
-  }
-
-  $('save').addEventListener('click', async () => {
-    statusEl.textContent = 'Saving…';
-    try {
-      await extApi.runtime.sendMessage({
-        type: 'TRACKER_STORAGE_SET',
-        patch: { enabled: enabledEl.checked, scope: scopeEl.value },
-      });
-      statusEl.textContent = enabledEl.checked
-        ? 'Background contribution on. Keep a tracker tab open for data serving; the extension keeps presence alive.'
-        : 'Background contribution off.';
-      load();
-    } catch (_) {
-      statusEl.textContent = 'Save failed.';
-    }
-  });
-
-  load();
+(() => {
+  const api=typeof browser!=='undefined'?browser:chrome,P=TrackerExtensionProtocol,$=id=>document.getElementById(id);let selectedTab=null,busy=false;
+  for(let i=0;i<16;i++){const value=i.toString(16).padStart(2,'0'),option=document.createElement('option');option.value=value;option.textContent='Shard '+value;$('shard').append(option);}
+  async function send(msg){const reply=await api.runtime.sendMessage(msg);if(!reply?.ok)throw Error(reply?.error||'Extension did not respond');return reply;}
+  function render(view){const labels={off:'Background contribution off',starting:'Starting managed provider…','waiting-network':'Provider ready; waiting for network or provider leadership',running:'Background provider running',error:'Background provider needs attention'};$('presence').textContent=labels[view.phase]||'Provider unavailable';$('heartbeat').textContent=view.lastHeartbeat?'Provider checked '+new Date(view.lastHeartbeat).toLocaleTimeString():'';if(view.error)$('status').textContent=view.error;}
+  async function load(){const data=await send({type:'TRACKER_STORAGE_POPUP'});selectedTab=data.current?.tabId??null;const config=data.view.enrolled?data.view.config:data.current?.state.config||P.defaults;for(const key of Object.keys(P.defaults)){if(typeof config[key]==='boolean')$(key).checked=config[key];else $(key).value=config[key];}$('site').textContent=data.current?'Selected Tracker tab: '+data.current.site:data.view.site?'Managing '+data.view.site:'Open a Tracker room to start contribution.';render(data.view);}
+  async function action(work){if(busy)return;busy=true;for(const id of ['save','stop','open'])$(id).disabled=true;$('status').textContent='Applying…';try{const reply=await work();if(reply.view){render(reply.view);$('status').textContent=reply.view.error|| (reply.warnings?.length?reply.warnings.join('\n'):reply.view.phase==='off'?'Contribution stopped.':'Settings applied. The managed pinned tab keeps retained copies available.');}else $('status').textContent='Tracker opened.';}catch(e){$('status').textContent=e.message;}finally{busy=false;for(const id of ['save','stop','open'])$(id).disabled=false;}}
+  $('save').addEventListener('click',()=>action(()=>{const config={};for(const key of Object.keys(P.defaults))config[key]=typeof P.defaults[key]==='boolean'?$(key).checked:key.endsWith('GB')?Number($(key).value):$(key).value;return send({type:'TRACKER_STORAGE_CONFIGURE',tabId:selectedTab,config:P.settings(config)});}));
+  $('stop').addEventListener('click',()=>action(async()=>{const reply=await send({type:'TRACKER_STORAGE_STOP'});$('roomEnabled').checked=false;$('globalEnabled').checked=false;return reply;}));$('open').addEventListener('click',()=>action(()=>send({type:'TRACKER_STORAGE_OPEN'})));
+  api.runtime.onMessage.addListener(msg=>{if(msg?.type==='TRACKER_STORAGE_STATUS'&&!busy)render(msg.view);});load().catch(e=>{$('presence').textContent='Provider unavailable';$('status').textContent=e.message;});
+  const poll=setInterval(()=>{if(!busy)send({type:'TRACKER_STORAGE_VIEW'}).then(reply=>render(reply.view)).catch(e=>{$('presence').textContent='Provider unavailable';$('status').textContent=e.message;});},5000);window.addEventListener('pagehide',()=>clearInterval(poll),{once:true});
 })();

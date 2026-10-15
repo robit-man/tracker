@@ -1,0 +1,61 @@
+{
+  "engine": "chromium",
+  "appSha256": "3088bad30b5a7df045a6bd016aa75ebfa31665c34cad5ed5c9714b7829fd13c0",
+  "package": {
+    "file": "tracker-storage-chromium.zip",
+    "bytes": 12967,
+    "sha256": "6a76a2e3a9f2e7dd151bd22aa6cfdcf311409e08383f14fb6fa4d800070d43cc"
+  },
+  "started": "2026-10-15T23:12:18.981Z",
+  "checks": [
+    {
+      "name": "real browser-specific package download",
+      "detail": {
+        "sha256": "6a76a2e3a9f2e7dd151bd22aa6cfdcf311409e08383f14fb6fa4d800070d43cc"
+      }
+    },
+    {
+      "name": "native package loads and popup starts independent room/global provider",
+      "detail": {
+        "ordinaryActorDistinct": true
+      }
+    },
+    {
+      "name": "actual app commands synchronize both scopes"
+    },
+    {
+      "name": "independent scope opt-out and re-enable"
+    },
+    {
+      "name": "unrelated origin receives no bridge; legacy arbitrary patch event has no effect"
+    },
+    {
+      "name": "ordinary Tracker tabs closed; managed tab serves 1100000 verified room bytes",
+      "detail": {
+        "sha256": "0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb"
+      }
+    },
+    {
+      "name": "opaque global provider serves verified bytes and private catalog recovery after publisher closes",
+      "detail": {
+        "sha256": "0307dfdaf3ba23ec188749214591c8904b45783806fa1b84f3a8694922562ddb"
+      }
+    },
+    {
+      "name": "supervisor recreates a closed managed tab without losing retained data"
+    },
+    {
+      "name": "browser restart restores room and global serving"
+    },
+    {
+      "name": "popup stop withdraws real providers in open tabs and closes managed tab"
+    },
+    {
+      "name": "global-only enrollment does not retain the selected room invitation"
+    }
+  ],
+  "errors": [],
+  "browserVersion": "156.0.8078.4",
+  "passed": true,
+  "finished": "2026-10-15T23:14:20.619Z"
+}
