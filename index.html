@@ -594,6 +594,7 @@ html,body,#app{touch-action:pan-x pan-y}
       </section>
       <section class="app-view" data-page="downloads" hidden><div class="section-head"><div><div class="section-number">Workspace</div><h2>Transfers</h2><p class="section-desc">Verified downloads, resumable progress, and retained peer copies.</p></div><span class="badge" id="transferCountBadge">0 active</span></div><div class="stack" id="transferList"></div></section>
       <section class="app-view" data-page="storage" hidden><div class="section-head"><div><div class="section-number">Distributed storage</div><h2>Contribute storage</h2><p class="section-desc">Keep encrypted file chunks for peers. Participation is optional and free.</p></div><span class="badge success">Free</span></div>
+        <div class="card space-bottom-lg" id="extensionCard"><div class="stage-header"><div><h3>Background extension</h3><div class="card-sub">Keep presence alive while the browser runs</div></div><span class="badge" id="extensionStatus">Not detected</span></div><p class="note" id="extensionDesc">Install the Tracker storage extension for persistent background contribution. No developer mode, flags, or manual uploads.</p><div class="btn-row"><button class="btn primary" id="install-extension">Install Extension</button></div><p class="note" id="extensionHelp" role="status" aria-live="polite"></p></div>
         <div class="field space-bottom-lg"><label for="storage-scope">Contribution scope</label><select class="select" id="storage-scope"><option value="room">This room</option><option value="global">Global mesh — all rooms on this site</option></select><p class="note">Room and global allocations are independent. Browser quota limits their combined use.</p></div>
         <div id="globalContribution" class="card space-bottom-lg" hidden><div class="stage-header"><div><h3>Global contribution</h3><div class="card-sub">Opaque encrypted objects · any room on this site</div></div><label class="switch"><input id="global-enabled" type="checkbox" disabled aria-label="Enable global storage contribution"><span class="track"></span></label></div><p class="note">Providers receive no room keys, filenames or private catalogs. This device serves retained data while a tab on this site stays open.</p><div id="global-settings" hidden><div class="field-grid space-top-lg"><div class="field"><label for="global-capacity">Disk allocation (GB)</label><input class="input" id="global-capacity" type="number" min="5" max="1000" step="5" value="25"></div><div class="field"><label for="global-shard">Collective shard</label><select class="select" id="global-shard"><option value="">Automatic assignment</option><option value="00">Shard 00</option><option value="01">Shard 01</option><option value="02">Shard 02</option><option value="03">Shard 03</option><option value="04">Shard 04</option><option value="05">Shard 05</option><option value="06">Shard 06</option><option value="07">Shard 07</option><option value="08">Shard 08</option><option value="09">Shard 09</option><option value="0a">Shard 0a</option><option value="0b">Shard 0b</option><option value="0c">Shard 0c</option><option value="0d">Shard 0d</option><option value="0e">Shard 0e</option><option value="0f">Shard 0f</option></select></div></div></div><label class="choice space-top-lg"><input id="global-anonymous" type="checkbox" checked>Anonymous offering — relay only</label><p class="note">Relay-only hides your network addresses from other peers. Relay operators see their connections. Disable it to allow direct connections with peers who also allow them; encrypted relay routes remain available. Room privacy also applies to global routes.</p><button class="btn primary" id="global-save" disabled>Save global contribution</button><button class="btn outline" id="global-persist">Request durable storage</button><div class="stack space-top-lg"><div class="badge" id="globalLocalStatus">Global contribution off</div><p class="note" id="globalLocalUsed">0 B stored</p><p class="note" id="global-save-status" role="status" aria-live="polite"></p></div>
           <div class="stack space-top-lg"><h3>Stored encrypted blobs</h3><p class="note" id="globalInventorySummary" role="status">Loading local inventory…</p><div class="grid two" id="globalInventory"></div><button class="btn outline withLabel" id="globalInventoryMore" data-icon="chevron" data-tooltip="Show more blobs" hidden>Show more blobs</button></div>
@@ -5398,9 +5399,57 @@ function initPolicyNotices(){
   $('#privacyBtn').addEventListener('click',renderPrivacyNotice);
 }
 
+/* Browser extension install: single browser-aware button, no dev mode or flags. */
+const EXTENSION_INSTALL = {
+  firefoxAmoUrl: 'https://addons.mozilla.org/firefox/addon/tracker-distributed-storage/',
+  firefoxXpiUrl: '/downloads/tracker-storage.xpi',
+  chromeStoreUrl: 'https://chromewebstore.google.com/detail/TRACKER_EXTENSION_ID',
+};
+function detectExtensionBrowser(){
+  const ua = navigator.userAgent || '';
+  if (/Firefox\//i.test(ua)) return 'firefox';
+  if (/Edg\//i.test(ua) || /Edge\//i.test(ua)) return 'edge-chromium';
+  if (/OPR\//i.test(ua) || /Opera/i.test(ua)) return 'opera';
+  if (/Chrome\//i.test(ua) || /Chromium/i.test(ua)) return 'chrome';
+  if (/Safari\//i.test(ua)) return 'safari';
+  return 'other';
+}
+function initExtensionInstall(){
+  const btn = $('#install-extension');
+  if (!btn) return;
+  const help = $('#extensionHelp');
+  const status = $('#extensionStatus');
+  const kind = detectExtensionBrowser();
+  const setHelp = (msg) => { if (help) help.textContent = msg || ''; };
+  const markFound = () => { if (status) { status.textContent = 'Detected'; status.classList.add('success'); } setHelp('Extension detected. Background contribution stays alive while the browser runs.'); };
+  if (document.documentElement.hasAttribute('data-tracker-extension')) markFound();
+  window.addEventListener('tracker:extension-available', markFound);
+  window.addEventListener('tracker:extension-heartbeat', () => { if (status && status.textContent !== 'Detected') markFound(); });
+  if (kind === 'firefox') {
+    btn.textContent = 'Add to Firefox';
+    setHelp('One click opens the Firefox Add-ons listing. Approve the native prompt. No developer mode.');
+  } else if (kind === 'chrome' || kind === 'edge-chromium' || kind === 'opera') {
+    btn.textContent = 'Add to Chrome';
+    setHelp('One click opens the Chrome Web Store listing. Click Add to Chrome there. No developer mode.');
+  } else {
+    btn.textContent = 'Get the extension';
+    setHelp('This browser needs a store listing. Open the Firefox Add-ons or Chrome Web Store page for Tracker storage.');
+  }
+  btn.onclick = () => {
+    if (kind === 'firefox') {
+      window.location.assign(EXTENSION_INSTALL.firefoxAmoUrl);
+    } else if (kind === 'chrome' || kind === 'edge-chromium' || kind === 'opera') {
+      window.open(EXTENSION_INSTALL.chromeStoreUrl, '_blank', 'noopener');
+    } else {
+      setHelp('Firefox: ' + EXTENSION_INSTALL.firefoxAmoUrl + ' — Chrome / Edge / Opera: ' + EXTENSION_INSTALL.chromeStoreUrl);
+    }
+  };
+}
+
 function initInterface(){
   initPolicyNotices();
   initBrowserStorageControls();
+  initExtensionInstall();
   $('#sidebar').inert=innerWidth<=800;$('#menu-button').setAttribute('aria-controls','sidebar');matchMedia('(max-width:800px)').addEventListener('change',e=>{$('#sidebar').inert=e.matches&&!$('#sidebar').classList.contains('open')});
   setTheme(document.documentElement.dataset.theme);$('#theme-toggle').onclick=()=>commandUI('settings.set',{theme:document.documentElement.dataset.theme==='dark'?'light':'dark'});$('#settingsTheme').onclick=()=>$('#theme-toggle').click();$('#settingsPrivacy').onclick=()=>$('#privacyBtn').click();$('#settingsShare').onclick=()=>$('#shareBtn').click();
   $('#menu-button').onclick=()=>{const on=!$('#sidebar').classList.contains('open');$('#sidebar').classList.toggle('open',on);$('#sidebar').inert=innerWidth<=800&&!on;$('#scrim').classList.toggle('visible',on);$('#menu-button').setAttribute('aria-expanded',String(on));if(on)$('#nav-search').focus()};$('#scrim').onclick=()=>{closeNavigation();$('#menu-button').focus()};
