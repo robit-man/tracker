@@ -48,6 +48,30 @@ and JSON trace. Omit `TRACKER_HTML` to test the deployed site. AVI uses bounded
 FFmpeg/WASM sections appended to one native MediaSource player. Conversion
 continues during playback, and seeks begin at the requested source window.
 
+Media conversion regression coverage:
+
+```sh
+node --test tests/media-transcode.test.cjs
+node tests/media-transcode-browser.mjs
+BROWSER=firefox node tests/media-transcode-browser.mjs
+```
+
+The browser harness generates short CPU FFmpeg fixtures and runs the actual WASM
+core and browser decoders on localhost. It covers MPEG-4/MP3 and H.264 AVI,
+odd-sized FFV1/PCM AVI, delayed 5.1 AC-3 AVI, MPEG-4/AAC and H.264/ALAC MP4,
+MPEG-2/MP2, WMA, AIFF and ADPCM WAV. Assertions require advancing video frames
+and audible decoded audio, including continuous section boundaries for delayed
+surround audio. It also exercises pause/resume, seeking, native MP4 playback,
+WebM/Vorbis retry after MP4 output rejection and alternate-CDN recovery.
+`TRACKER_TEST_DEPS` defaults to `agent/mcp`; `RESULT`, `TRACKER_HTML` and
+`BROWSER_EXECUTABLE` select the evidence path, app snapshot and browser binary.
+
+Conversion preserves the original file; only preview output changes. MP4 codec
+metadata and native decoder failures can trigger conversion automatically.
+The single-thread core needs no isolation headers. It loads pinned assets on
+demand, with a timeout and an independent CDN fallback. Codec coverage depends
+on that core, and corrupt files or codecs absent from the build can still fail.
+
 Progressive AVI coverage with the receiving tail deliberately withheld:
 
 ```sh
