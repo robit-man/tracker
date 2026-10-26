@@ -62,6 +62,17 @@ try{
   await row.locator('[data-relink]').click();await row.locator('[data-relink]').waitFor();
   await member.page.reload({waitUntil:'domcontentloaded'});await row.locator('[data-seed][aria-pressed="true"]').waitFor();
   result.checks.push('native file handle persists and restores seeding after reload');
+  await member.page.evaluate(async()=>{
+   const root=await navigator.storage.getDirectory(),handle=await root.getFileHandle('persisted-copy.bin');
+   window.showOpenFilePicker=async options=>{window.__relinkPickerOptions=options;return[handle]};
+  });
+  await row.locator('[data-relink]').click();await row.locator('[data-relink]').waitFor();
+  const directoryHint=await member.page.evaluate(async()=>{
+   const options=window.__relinkPickerOptions,root=await navigator.storage.getDirectory(),handle=await root.getFileHandle('persisted-copy.bin');
+   return{id:options.id,sameSource:await options.startIn.isSameEntry(handle)};
+  });
+  assert.equal(directoryHint.sameSource,true);assert.match(directoryHint.id,/^[A-Za-z0-9_-]{1,32}$/);
+  result.checks.push('relink passes its persisted source handle as the directory hint after reload');
   await member.context.addInitScript(()=>{
    const native=FileSystemHandle.prototype.queryPermission;
    FileSystemHandle.prototype.queryPermission=function(options){return localStorage.getItem('test-source-permission')==='prompt'?Promise.resolve('prompt'):native.call(this,options)};

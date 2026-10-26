@@ -92,6 +92,32 @@ test('cancelled input pickers remove their input and release the source action; 
  const linked=c.relinkSource(cid);input.files=[good];input.onchange();await linked;
  assert.equal(c.seedEnabled(cid),true);assert.equal(removed,2);
 });
+test('relink opens each source in its own previous directory with a stable bounded picker ID',async()=>{
+ const c=fixture(),a='f-'+'a'.repeat(64),b='f-'+'b'.repeat(64),previousA={kind:'file',name:'a.avi'},previousB={kind:'file',name:'b.mp4'},picked=file('chosen source');
+ const chosen={getFile:async()=>picked},calls=[];c.sourceHandles.set(a,previousA);c.sourceHandles.set(b,previousB);
+ c.window.showOpenFilePicker=async options=>{calls.push({...options});return[chosen]};
+ assert.equal((await c.pickSourceFile(a)).file,picked);await c.pickSourceFile(b);await c.pickSourceFile(a);
+ assert.equal(calls[0].startIn,previousA);assert.equal(calls[1].startIn,previousB);assert.equal(calls[2].startIn,previousA);
+ assert.equal(calls[0].id,calls[2].id);assert.notEqual(calls[0].id,calls[1].id);assert.match(calls[0].id,/^[A-Za-z0-9_-]{1,32}$/);assert.equal(calls[0].multiple,false);
+});
+test('relink restores the directory hint from the persisted handle after reload',async()=>{
+ const c=fixture(),previous={kind:'file',name:'saved.avi'},calls=[];
+ c.idbGet=async(store,cid)=>{assert.equal(store,'handles');assert.equal(cid,'saved-source');return previous};
+ c.window.showOpenFilePicker=async options=>{calls.push(options);return[]};
+ assert.equal(await c.pickSourceFile('saved-source'),null);assert.equal(calls[0].startIn,previous);
+});
+test('an unavailable source directory retries the picker using only that source ID',async()=>{
+ for(const name of ['TypeError','NotFoundError']){
+  const c=fixture(),previous={kind:'file'},calls=[];c.sourceHandles.set('moved',previous);
+  c.window.showOpenFilePicker=async options=>{calls.push({...options});if(calls.length===1)throw Object.assign(Error('source directory unavailable'),{name});return[]};
+  assert.equal(await c.pickSourceFile('moved'),null);assert.equal(calls.length,2);assert.equal(calls[0].startIn,previous);assert.equal(calls[1].startIn,undefined);assert.equal(calls[0].id,calls[1].id);
+ }
+});
+test('cancelling a remembered-directory picker does not open a second dialog',async()=>{
+ const c=fixture();let calls=0;c.sourceHandles.set('cancelled',{kind:'file'});
+ c.window.showOpenFilePicker=async()=>{calls++;throw Object.assign(Error('cancelled'),{name:'AbortError'})};
+ await assert.rejects(c.pickSourceFile('cancelled'),{name:'AbortError'});assert.equal(calls,1);
+});
 function recoveryFixture(){
  const c=fixture();Object.assign(c,{automaticSourceFailures:new Map(),automaticSourceRecovery:false,downloadJobs:new Map(),roomLocalReady:Promise.resolve(),db:{},document:{hidden:false},cacheHasCompleteContent:async()=>false});
  for(const name of ['stampMatches','recoverPersistedSource','retryPersistedSources'])vm.runInContext(source(name),c);return c;

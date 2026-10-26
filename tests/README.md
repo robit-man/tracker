@@ -412,6 +412,14 @@ TRACKER_TEST_DEPS=/tmp/tracker-test-deps \
   node tests/source-link-browser.mjs
 ```
 
+On browsers with the native File System Access picker, relinking supplies the
+file's saved handle as `startIn` and a stable per-source picker ID. The browser
+can reopen the original source directory after reload without unrelated picker
+activity changing its location. The Chromium harness checks the persisted
+handle passed to the picker; unit tests cover independent files, missing-folder
+fallback and cancellation. Browsers using an HTML file input control their own
+starting directory, which the app cannot set.
+
 The browser test opens three independent room members with direct ICE disabled.
 A member who never owned the listing rejects a same-size corrupt file, links a
 renamed matching copy, reloads and relinks the orphaned listing, then supplies a
