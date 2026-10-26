@@ -28,7 +28,9 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms)),median=a=>{const s=a.slice().so
 let page;
 async function startMeter(selector){await page.evaluate(async selector=>{
  const media=document.querySelector(selector);if(window.__syncMeter)await __syncMeter.context.close();
- const context=new AudioContext(),source=context.createMediaElementSource(media),analyser=context.createAnalyser();analyser.fftSize=4096;analyser.smoothingTimeConstant=0;source.connect(analyser);analyser.connect(context.destination);await context.resume();
+ // The clock chirp reaches 16 kHz. A host's 8 kHz headset default removes it
+ // after 14 seconds, so measurement must use the fixture's 48 kHz sample rate.
+ const context=new AudioContext({sampleRate:48000}),source=context.createMediaElementSource(media),analyser=context.createAnalyser();analyser.fftSize=4096;analyser.smoothingTimeConstant=0;source.connect(analyser);analyser.connect(context.destination);await context.resume();
  const canvas=document.createElement('canvas');canvas.width=720;canvas.height=32;const g=canvas.getContext('2d',{willReadFrequently:true}),frequencies=new Float32Array(analyser.frequencyBinCount);
  const meter=window.__syncMeter={context,media,rows:[],started:performance.now(),active:true};
  const frame=(_now,metadata)=>{

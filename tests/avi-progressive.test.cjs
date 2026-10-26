@@ -99,7 +99,7 @@ test('a completely received source with a bounded input prefix reports how to co
 });
 test('failed conversion releases only its owned worker and temporary files after current work settles',async()=>{
  const e=engine();let settle,terminations=0,removed=0,released=0;e.task=new Promise(r=>settle=r);e.ff={terminate:()=>terminations++,__trackerUrls:[]};e.tempDirectory={removeEntry:async(_n,o)=>{assert.equal(o.recursive,true);removed++}};e.tempName='input-owner';e.releaseInputLock=()=>released++;
- const c=context(['releaseCompatResources'],{trackerFfmpegActiveJob:e.job,trackerFfmpegPromise:Promise.resolve(e.ff),URL:{revokeObjectURL(){}}});const cleanup=c.releaseCompatResources(e);assert.equal(terminations,1);assert.equal(removed,0);assert.equal(c.releaseCompatResources(e),cleanup);settle();await cleanup;assert.equal(removed,1);assert.equal(released,1);assert.equal(c.trackerFfmpegActiveJob,null);
+ const c=context(['cancelCompatBufferWaits','releaseCompatResources'],{trackerFfmpegActiveJob:e.job,trackerFfmpegPromise:Promise.resolve(e.ff),URL:{revokeObjectURL(){}}});const cleanup=c.releaseCompatResources(e);assert.equal(terminations,1);assert.equal(removed,0);assert.equal(c.releaseCompatResources(e),cleanup);settle();await cleanup;assert.equal(removed,1);assert.equal(released,1);assert.equal(c.trackerFfmpegActiveJob,null);
  const old=engine(),replacement={};old.ff={terminate(){throw Error('replacement worker must survive')},__trackerUrls:[]};c.trackerFfmpegActiveJob=replacement;await c.releaseCompatResources(old);assert.equal(c.trackerFfmpegActiveJob,replacement);
 });
 test('all initial writes may finish before any RX prefix accounting without stranding compatibility startup',async()=>{
