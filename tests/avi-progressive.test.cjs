@@ -5,11 +5,20 @@ function context(names,extras={}){const c=vm.createContext({File,Blob,Date,Set,M
 const turn=()=>new Promise(r=>setImmediate(r));
 function engine(){const p={c:{id:'avi',size:4096},name:'film.avi',mime:'video/x-msvideo',media:{playbackRate:1,currentTime:0},wantPlayback:true};const e={preview:p,id:'owner',fps:24,duration:300,ready:true,generation:0,nextTime:0,sectionsEncoded:0,sourceComplete:true,inputComplete:true,inputChunkSize:256,ff:{},job:{},mount:'/mount'};p.compatProgressive=e;return e}
 test('conversion batches amortize startup and maintain a future buffer without exceeding the byte budget',()=>{
- const e=engine(),c=context(['compatSectionPlan']);assert.equal(c.compatSectionPlan(e).quantum,1);
- e.sectionsEncoded=1;e.encodeServicePerSecond=.8;const p=c.compatSectionPlan(e);assert.ok(p.quantum>=4);assert.equal(p.quantum*24,Math.round(p.quantum*24));assert.ok(p.target>=24);assert.ok(p.startup>=2);
+ const e=engine(),c=context(['compatSectionPlan']);assert.ok(c.compatSectionPlan(e).quantum>.9);
+ e.sectionsEncoded=1;e.encodeServicePerSecond=.8;const p=c.compatSectionPlan(e);assert.ok(p.quantum>=4);assert.equal(p.quantum*48000/1024,Math.round(p.quantum*48000/1024));assert.ok(p.target>=24);assert.ok(p.startup>=2);
  for(let i=0;i<30;i++){e.encodeServicePerSecond=.8;assert.equal(c.compatSectionPlan(e).quantum,p.quantum)}
  e.encodeServicePerSecond=8;assert.ok(c.compatSectionPlan(e).quantum>=p.quantum,'slow work must not collapse into single-frame jobs');
  e.encodedBytesPerSecond=1024*1024;const limited=c.compatSectionPlan(e);assert.ok(limited.quantum<=.25);assert.ok(limited.target<=.5);
+});
+test('fractional video rates keep complete audio packets at every conversion boundary',()=>{
+ const e=engine(),c=context(['compatSectionPlan']);
+ for(const fps of [23.976,24,25,29.97,30,50,59.94])for(const n of [0,1,25]){e.fps=fps;e.sectionsEncoded=n;const plan=c.compatSectionPlan(e);assert.ok(Math.abs(plan.quantum*48000/1024-Math.round(plan.quantum*48000/1024))<1e-8)}
+});
+test('a seek inside the supply tolerance still lands on a real decoded range',()=>{
+ const e=engine(),m=e.preview.media;e.playbackStarted=true;m.currentTime=75;m.paused=false;m.seeking=true;m.play=()=>Promise.resolve();
+ const c=context(['compatProgressiveCurrent','compatProgressivePaused','maintainCompatPlayback'],{activePreview:e.preview,streamBufferedState:()=>({inRange:true,ahead:4,ranges:[[75.028,79]]}),compatSectionPlan:()=>({startup:2}),STREAM_MICRO_GAP_MAX_SECONDS:.45});
+ c.maintainCompatPlayback(e);assert.ok(m.currentTime>75.028&&m.currentTime<75.04);
 });
 test('a native local File prebuffers before play and recovers without a transfer session',()=>{
  const e=engine();e.preview.kind='video';e.preview.mode='compat';e.preview.compatPlaybackReady=true;e.preview.sourceBuffer={};e.duration=300;e.ready=true;
