@@ -93,6 +93,24 @@ Locked files and browsers without temporary storage use a bounded RAM prefix,
 then ask for a downloaded and locally linked source to continue. Conversion
 speed depends on the device and codec; a codec slower than playback can rebuffer.
 
+Sustained local AVI playback has a separate test with no peer transfer session:
+
+```sh
+node tests/avi-local-buffer-browser.mjs
+BROWSER=firefox node tests/avi-local-buffer-browser.mjs
+```
+
+It generates a five-minute 720×304 MPEG-4/B-frame AVI with 5.1 AC-3 audio, or
+accepts an existing AVI path. Over 70 seconds it checks continuously advancing
+decoded frames, at least 12 seconds of playable future video after warmup,
+measured conversion faster than realtime, direct forward/backward seeking and
+pause/Resume. `DURATION_SECONDS`, `RESULT`, `TRACKER_HTML` and `TRACKER_TEST_DEPS`
+configure the observation and evidence. Conversion uses a short initial section,
+then bounded four-to-eight-second batches and a 24-second future target,
+constrained by measured output density and native buffer capacity. Local previews
+show the ready horizon and measured conversion speed; their decoder recovery
+does not depend on an active transfer session.
+
 Privacy and resumable media previews:
 
 ```sh

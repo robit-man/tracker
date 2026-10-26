@@ -4,11 +4,26 @@ function source(name){const start=html.search(new RegExp(`^(?:async )?function $
 function context(names,extras={}){const c=vm.createContext({File,Blob,Date,Set,Map,Uint8Array,DataView,performance,setTimeout,clearTimeout,clearInterval,MP4_RAM_QUEUE_BUDGET_BYTES:1024*1024,SCHEDULER_TICK_MS:180,CHUNK_SIZE:256,...extras});for(const name of names)vm.runInContext(source(name),c);return c}
 const turn=()=>new Promise(r=>setImmediate(r));
 function engine(){const p={c:{id:'avi',size:4096},name:'film.avi',mime:'video/x-msvideo',media:{playbackRate:1,currentTime:0},wantPlayback:true};const e={preview:p,id:'owner',fps:24,duration:300,ready:true,generation:0,nextTime:0,sectionsEncoded:0,sourceComplete:true,inputComplete:true,inputChunkSize:256,ff:{},job:{},mount:'/mount'};p.compatProgressive=e;return e}
-test('slow encoders shorten and frame-align each section instead of feeding unnormalized service into growing jobs',()=>{
- const e=engine(),c=context(['compatSectionPlan']);e.encodeServicePerSecond=.8;const p=c.compatSectionPlan(e);assert.ok(p.quantum<1);assert.equal(p.quantum*24,Math.round(p.quantum*24));
- for(let i=0;i<30;i++){e.encodeServicePerSecond=(p.quantum*.8)/p.quantum;assert.equal(c.compatSectionPlan(e).quantum,p.quantum)}
- e.encodeServicePerSecond=8;assert.ok(c.compatSectionPlan(e).quantum<p.quantum);assert.ok(c.compatSectionPlan(e).quantum>=1/24);
- e.encodeServicePerSecond=0;e.encodedBytesPerSecond=1024*1024;assert.ok(c.compatSectionPlan(e).quantum<=.25);
+test('conversion batches amortize startup and maintain a future buffer without exceeding the byte budget',()=>{
+ const e=engine(),c=context(['compatSectionPlan']);assert.equal(c.compatSectionPlan(e).quantum,1);
+ e.sectionsEncoded=1;e.encodeServicePerSecond=.8;const p=c.compatSectionPlan(e);assert.ok(p.quantum>=4);assert.equal(p.quantum*24,Math.round(p.quantum*24));assert.ok(p.target>=24);assert.ok(p.startup>=2);
+ for(let i=0;i<30;i++){e.encodeServicePerSecond=.8;assert.equal(c.compatSectionPlan(e).quantum,p.quantum)}
+ e.encodeServicePerSecond=8;assert.ok(c.compatSectionPlan(e).quantum>=p.quantum,'slow work must not collapse into single-frame jobs');
+ e.encodedBytesPerSecond=1024*1024;const limited=c.compatSectionPlan(e);assert.ok(limited.quantum<=.25);assert.ok(limited.target<=.5);
+});
+test('a native local File prebuffers before play and recovers without a transfer session',()=>{
+ const e=engine();e.preview.kind='video';e.preview.mode='compat';e.preview.compatPlaybackReady=true;e.preview.sourceBuffer={};e.duration=300;e.ready=true;
+ let now=0,ahead=1,plays=0;Object.assign(e.preview.media,{readyState:4,paused:true,play(){plays++;return Promise.resolve()}});
+ const c=context(['compatProgressiveCurrent','compatProgressivePaused','maintainCompatPlayback'],{activePreview:e.preview,performance:{now:()=>now},streamBufferedState:()=>({ahead,inRange:true,nextStart:Infinity}),compatSectionPlan:()=>({startup:4}),STREAM_MICRO_GAP_MAX_SECONDS:.45});
+ c.maintainCompatPlayback(e);assert.equal(plays,0);assert.equal(e.buffering,true);ahead=12;c.maintainCompatPlayback(e);assert.equal(plays,1);assert.equal(e.buffering,false);
+ e.preview.media.currentTime=2;e.preview.media.paused=false;now=1000;c.maintainCompatPlayback(e);now=4000;c.maintainCompatPlayback(e);assert.ok(e.preview.media.currentTime>2,'stalled buffered local decoder is nudged forward');assert.equal(e.preview.session,undefined);
+ e.preview.media.currentTime=.5;now=7000;c.maintainCompatPlayback(e);assert.equal(e.preview.media.currentTime,.5,'a backwards seek is progress rather than a stalled decoder');
+ e.preview.wantPlayback=false;const before=plays;c.maintainCompatPlayback(e);assert.equal(plays,before,'explicit pause must remain paused');
+});
+test('the playback watchdog maintains a fully converted local file without any network session',()=>{
+ const e=engine();e.done=true;e.preview.mode='compat';let maintained=0,rendered=0;
+ const c=context(['playbackWatchdogTick'],{activePreview:e.preview,document:{hidden:false},maintainCompatPlayback:x=>{assert.equal(x,e);maintained++},renderCompatStatus:x=>{assert.equal(x,e.preview);rendered++}});
+ c.playbackWatchdogTick();assert.equal(maintained,1);assert.equal(rendered,1);c.document.hidden=true;c.playbackWatchdogTick();assert.equal(maintained,1);
 });
 test('AVI header preserves the full timeline when ffprobe can only see a received prefix',async()=>{
  const bytes=new Uint8Array(80),v=new DataView(bytes.buffer),tag=(i,s)=>bytes.set(Buffer.from(s),i);tag(0,'RIFF');v.setUint32(4,32000000,true);tag(8,'AVI ');tag(12,'LIST');v.setUint32(16,60,true);tag(20,'hdrl');tag(24,'avih');v.setUint32(28,48,true);v.setUint32(32,41667,true);v.setUint32(48,7201,true);
