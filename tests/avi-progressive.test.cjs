@@ -25,6 +25,17 @@ test('the playback watchdog maintains a fully converted local file without any n
  const c=context(['playbackWatchdogTick'],{activePreview:e.preview,document:{hidden:false},maintainCompatPlayback:x=>{assert.equal(x,e);maintained++},renderCompatStatus:x=>{assert.equal(x,e.preview);rendered++}});
  c.playbackWatchdogTick();assert.equal(maintained,1);assert.equal(rendered,1);c.document.hidden=true;c.playbackWatchdogTick();assert.equal(maintained,1);
 });
+test('native pause blocks recovery before its queued event changes playback intent',()=>{
+ const e=engine();e.playbackStarted=true;e.preview.media.paused=true;e.preview.wantPlayback=true;e.preview.media.play=()=>assert.fail('native pause was overridden');
+ const c=context(['compatProgressiveCurrent','compatProgressivePaused','maintainCompatPlayback'],{activePreview:e.preview});
+ assert.equal(c.compatProgressivePaused(e),true);c.maintainCompatPlayback(e);assert.equal(e.preview.media.paused,true);
+});
+test('native pause during a seek is respected and stale play events cannot undo it',()=>{
+ const listeners={},e=engine(),p=e.preview,el=p.media;p.wantPlayback=true;el.paused=true;el.seeking=true;el.addEventListener=(name,fn)=>{(listeners[name]??=[]).push(fn)};
+ const c=context(['attachStreamDemandHandlers'],{activePreview:p,startPlaybackWatchdog(){}});c.attachStreamDemandHandlers(el);
+ for(const fn of listeners.pause)fn();assert.equal(p.wantPlayback,false);
+ for(const fn of [...listeners.play,...listeners.playing])fn();assert.equal(p.wantPlayback,false);
+});
 test('AVI header preserves the full timeline when ffprobe can only see a received prefix',async()=>{
  const bytes=new Uint8Array(80),v=new DataView(bytes.buffer),tag=(i,s)=>bytes.set(Buffer.from(s),i);tag(0,'RIFF');v.setUint32(4,32000000,true);tag(8,'AVI ');tag(12,'LIST');v.setUint32(16,60,true);tag(20,'hdrl');tag(24,'avih');v.setUint32(28,48,true);v.setUint32(32,41667,true);v.setUint32(48,7201,true);
  const c=context(['compatAviDuration']),duration=await c.compatAviDuration(new File([bytes],'prefix.avi'));assert.ok(Math.abs(duration-300.044067)<.001);assert.equal(await c.compatAviDuration(new File(['invalid'],'bad.avi')),0);

@@ -18,6 +18,7 @@ const result={browser:browserName,appSha256:createHash('sha256').update(original
 let hook=fs.readFileSync(path.join(root,'tests/streaming-hook.js'),'utf8');
 hook+=`
 initGlobalStorage=async()=>{};__tracker.cleanup=cleanupPreview;
+window.__nativePause=()=>{const p=activePreview;p.media.pause();wakeCompatTranscode(p);playbackWatchdogTick();return p.media.paused};
 window.__localState=()=>{const p=activePreview,e=p?.compatProgressive,m=p?.media;return {
  time:m?.currentTime,duration:m?.duration,paused:m?.paused,frames:m?.getVideoPlaybackQuality?.().totalVideoFrames,error:m?.error?.message,ahead:streamBufferedAhead(p),next:e?.nextTime,sections:e?.sectionsEncoded,task:!!e?.task,failed:e?.failed,failure:e?.failureMessage,speed:e?.encodeServicePerSecond?1/e.encodeServicePerSecond:0,localInput:e?.localInput?.size,session:!!p?.session,src:m?.src
 }};
@@ -32,6 +33,12 @@ try{
  await page.locator('#harnessFile').setInputFiles(fixture);const cid=await page.evaluate(()=>__tracker.seed()),opened=Date.now();
  await page.evaluate(cid=>{__tracker.openPreview(__tracker.catalog.get(cid))},cid);
  await page.waitForFunction(()=>__localState().time>.1&&!__localState().paused,null,{timeout:90000});result.startupSeconds=(Date.now()-opened)/1000;
+ for(let attempt=0;attempt<3;attempt++){
+  assert.equal(await page.evaluate(()=>__nativePause()),true,'a native pause must survive an immediate watchdog tick');
+  await page.waitForFunction(()=>!__localState().task);const held=await page.evaluate(()=>__localState());await delay(800);const still=await page.evaluate(()=>__localState());assert.equal(still.paused,true);assert.equal(still.time,held.time);assert.equal(still.sections,held.sections);
+  await page.evaluate(()=>__tracker.p.media.play());await page.waitForFunction(t=>__localState().time>t+.2,held.time);
+ }
+ check('native pause stays paused through watchdog ticks and conversion completion');
  const first=await page.evaluate(()=>__localState()),started=Date.now();assert.ok(first.duration>seconds+40,'use an AVI longer than the observation and its future buffer');
  while(Date.now()-started<seconds*1000){await delay(1000);const s=await page.evaluate(()=>__localState());s.wall=(Date.now()-started)/1000;result.samples.push(s);if(result.samples.length%10===0)console.log(JSON.stringify({wall:s.wall,time:s.time,ahead:s.ahead,speed:s.speed,sections:s.sections}));assert.equal(s.session,false);assert.equal(s.localInput,result.fixtureSize);assert.ok(!s.error&&!s.failed,s.failure||s.error)}
  const last=result.samples.at(-1),steady=result.samples.filter(s=>s.wall>=10);
